@@ -190,6 +190,23 @@ Project skills live in `.agents/skills/`. All dev skills enforce the standards i
 | `wizard` | Interactive bash scripts for human-only steps (AWS setup, secrets, CI) |
 | `resolving-merge-conflicts` | Resolve in-progress merge/rebase conflicts |
 
+### Design & Frontend Skills (`Leonxlnx/taste-skill`)
+
+| Skill | Use when |
+|---|---|
+| `design-taste-frontend` | Anti-slop frontend styling, inferred design direction, GSAP motion, and layout variance |
+| `gpt-taste` | Strict layout variance, aggressive anti-slop, and advanced GSAP motion directions |
+| `image-to-code` | Image-first pipeline: analyze reference designs and implement matching frontend |
+| `redesign-existing-projects` | Audit existing UI, eliminate generic AI patterns, and upgrade hierarchy/layout |
+| `high-end-visual-design` | Studio-grade aesthetics, typography palettes, generous whitespace, spring physics |
+| `minimalist-ui` | Editorial/Linear product aesthetic, monochrome palettes, crisp bento layouts |
+| `industrial-brutalist-ui` | Swiss typographic grid, terminal styling, declassified/raw mechanical aesthetics |
+| `stitch-design-taste` | Google Stitch-compatible semantic design rules and `DESIGN.md` exports |
+| `full-output-enforcement` | Enforce full, unabridged code output without placeholders |
+| `imagegen-frontend-web` | Generate section-by-section website visual references and comps |
+| `imagegen-frontend-mobile` | Generate mobile app screen flows and mockup references |
+| `brandkit` | Generate brand identity boards, logo explorations, and color direction |
+
 ## API contract summary
 
 All public APIs live under `/api/v1/`. See `docs/TECH_TOMBOLA_BACKEND_PRD.md` §35–38 for the complete surface.
