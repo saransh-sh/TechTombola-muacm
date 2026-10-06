@@ -190,10 +190,11 @@ Project skills live in `.agents/skills/`. All dev skills enforce the standards i
 | `wizard` | Interactive bash scripts for human-only steps (AWS setup, secrets, CI) |
 | `resolving-merge-conflicts` | Resolve in-progress merge/rebase conflicts |
 
-### Design & Frontend Skills (`Leonxlnx/taste-skill`)
+### Design & Frontend Skills
 
 | Skill | Use when |
 |---|---|
+| `saransh_custom_antislop` | **Mandatory quality gate.** Runs Anti-Slop Pass before UI completion; eliminates tropes without swap-slop |
 | `design-taste-frontend` | Anti-slop frontend styling, inferred design direction, GSAP motion, and layout variance |
 | `gpt-taste` | Strict layout variance, aggressive anti-slop, and advanced GSAP motion directions |
 | `image-to-code` | Image-first pipeline: analyze reference designs and implement matching frontend |
