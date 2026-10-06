@@ -46,13 +46,13 @@ This list of user stories should be extremely extensive and cover all aspects of
 
 A list of implementation decisions that were made. This can include:
 
-- The modules that will be built/modified (Go: handler/service/domain/repository; React: api/hooks/components/pages)
+- The modules that will be built/modified (Node.js: routes/service/domain/repository; React: api/hooks/components/pages)
 - The interfaces of those modules that will be modified
 - Technical clarifications from the developer
 - Architectural decisions (must align with `docs/ARCHITECTURE_CODING_STANDARDS.md`)
 - Schema changes
 - API contracts (request/response JSON shapes, error codes)
-- Which logic lives in Go domain vs what React displays
+- Which logic lives in Node.js domain vs what React displays
 - Specific interactions
 
 Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
@@ -64,7 +64,7 @@ Exception: if a prototype produced a snippet that encodes a decision more precis
 A list of testing decisions that were made. Include:
 
 - A description of what makes a good test (only test external behavior, not implementation details)
-- Which modules will be tested (domain pure unit; service with fakes; handler with httptest; React with mocked api)
+- Which modules will be tested (domain pure unit; service with fakes/mocks; routes with fastify inject/supertest; React with mocked api)
 - Full scenario list per `AGENTS.md` (happy path, invalid, boundaries, errors, domain edges)
 - Prior art for the tests (i.e. similar types of tests in the codebase)
 

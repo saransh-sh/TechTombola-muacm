@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Break a plan, spec, or conversation into a set of **tickets** — tracer-bullet vertical slices, each declaring the tickets that **block** it.
 
-**Prerequisite:** Spec exists and was grilled. Each ticket must name Go layer(s) and React surface(s) touched, plus the unit-test scenario list.
+**Prerequisite:** Spec exists and was grilled. Each ticket must name Node.js layer(s) and React surface(s) touched, plus the unit-test scenario list.
 
 The issue tracker and triage label vocabulary should have been provided to you — run `/setup-matt-pocock-skills` if not.
 
@@ -30,7 +30,7 @@ Break the work into **tracer bullet** tickets.
 
 <vertical-slice-rules>
 
-- Each slice cuts a narrow but COMPLETE path through every layer (Go domain/service/handler + React api/UI + tests) — vertical, NOT a horizontal slice of one layer
+- Each slice cuts a narrow but COMPLETE path through every layer (Node.js domain/service/routes/repository + React api/UI + tests) — vertical, NOT a horizontal slice of one layer
 - A completed slice is demoable or verifiable on its own
 - Each slice is sized to fit in a single fresh context window
 - Each slice lists unit-test scenarios (mandatory per `AGENTS.md`)

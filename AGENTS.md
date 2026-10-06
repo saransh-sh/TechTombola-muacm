@@ -66,7 +66,7 @@ See `.cursor/rules/grill-me-mandatory.mdc`.
 
 ## Domain vocabulary
 
-Precise terms prevent bugs. Use these consistently in code, tests, and conversation.
+Precise terms prevent bugs. Use these consistently in code, tests, and conversation. The authoritative ubiquitous language and terms to avoid are documented in [`CONTEXT.md`](./CONTEXT.md).
 
 | Term | Meaning |
 |---|---|
@@ -173,6 +173,14 @@ Use `/tdd` when test-first fits the task. Use `/implement` for spec-driven work 
 
 Project skills live in `.agents/skills/`. All dev skills enforce the standards in this file.
 
+### Skill configuration & conventions
+
+- **Issue tracker:** GitHub issues on `saransh-sh/TechTombola-muacm`. See [`docs/agents/issue-tracker.md`](./docs/agents/issue-tracker.md).
+- **Triage labels:** Canonical triage role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, etc.). See [`docs/agents/triage-labels.md`](./docs/agents/triage-labels.md).
+- **Domain docs:** Single-context repository (`CONTEXT.md` at root, ADRs in `docs/adr/`). See [`docs/agents/domain.md`](./docs/agents/domain.md).
+
+### Core engineering & workflow skills
+
 | Skill | Use when |
 |---|---|
 | `ask-saransh` | **Universal AI Skill Router.** Analyzes intent, discovers skills, resolves dependencies, and orchestrates execution |
@@ -186,10 +194,20 @@ Project skills live in `.agents/skills/`. All dev skills enforce the standards i
 | `codebase-design` | Module depth, seams, interfaces |
 | `domain-modeling` | Domain terms, ADRs, ubiquitous language |
 | `diagnosing-bugs` | Debugging failures or regressions |
+| `improve-codebase-architecture` | Scan for deepening opportunities, present HTML report, and grill refactors |
 | `prototype` | Throwaway code to answer design questions |
 | `research` | Background reading with cited Markdown output |
+| `triage` | Move issues and PRs through triage state machine |
+| `wayfinder` | Chart and navigate decision maps for large efforts |
+| `wait-what` | Re-pitch unclear concept in plain English using `CONTEXT.md` vocabulary |
+| `loop-me` | Autonomous Ralph loop driving test-driven progress |
+| `migrate-to-shoehorn` | Migrate test assertions to shoehorn |
 | `wizard` | Interactive bash scripts for human-only steps (AWS setup, secrets, CI) |
 | `resolving-merge-conflicts` | Resolve in-progress merge/rebase conflicts |
+| `setup-pre-commit` | Configure Husky pre-commit hooks and lint-staged |
+| `setup-ts-deep-modules` | Wire dependency-cruiser for boundary enforcement |
+| `writing-for-agents` | Reference for writing skills, AGENTS.md, or agent docs |
+| `git-guardrails-claude-code` | Prevent destructive git operations |
 
 ### Design & Frontend Skills
 

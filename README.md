@@ -141,11 +141,14 @@ These invariants are enforced server-side and tested at all layer boundaries:
 │   ├── yagni-dry.mdc           # YAGNI & DRY constraints
 │   ├── mandatory-unit-tests.mdc# Unit testing requirements
 │   └── grill-me-mandatory.mdc  # Requirement stress-testing protocol
-├── docs/                       # Specifications and architecture docs
+├── docs/                       # Specifications, ADRs, and architecture docs
+│   ├── adr/                    # Architecture Decision Records
+│   ├── agents/                 # Issue tracking, triage, and domain conventions
 │   ├── ARCHITECTURE_CODING_STANDARDS.md  # System standards and API designs
 │   ├── TECH_TOMBOLA_BACKEND_PRD.md       # Complete backend specification
 │   └── TECH_TOMBOLA_FRONTEND_PRD.md      # Complete frontend specification
 ├── AGENTS.md                   # Authoritative instructions for AI assistants
+├── CONTEXT.md                  # Ubiquitous domain language and terminology glossary
 ├── .gitignore                  # Git ignore definitions
 └── README.md                   # Project overview and documentation
 ```

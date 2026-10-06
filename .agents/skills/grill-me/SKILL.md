@@ -6,12 +6,12 @@ disable-model-invocation: true
 
 Run a `/grilling` session.
 
-**FinCraft mandatory topics** — cover these for any architecture, API, or feature scope (see `docs/ARCHITECTURE_CODING_STANDARDS.md`):
+**Tech Tombola mandatory topics** — cover these for any architecture, API, or feature scope (see `docs/ARCHITECTURE_CODING_STANDARDS.md`):
 
-1. **Layer placement** — what belongs in Go `domain` vs `service` vs `handler` vs React?
-2. **Financial correctness** — rounding, debit/credit, duplicates, period boundaries, reconciliation
-3. **API contract** — request/response shapes, error codes, idempotency on reprocess
-4. **Deterministic vs AI** — which steps are pure Go vs AI interpretation?
+1. **Layer placement** — what belongs in Node.js `domain` vs `service` vs `routes` vs React?
+2. **Game rules & invariants** — ticket generation/immutability, mark validation, draw uniqueness, concurrent win claims, pattern closure
+3. **API & WebSocket contract** — request/response shapes, error codes, idempotency on duplicate requests, broadcast event payloads
+4. **Authority & presentation** — what is server-authoritative (Node.js) vs pure client presentation (React)?
 5. **Test scenarios** — list all unit-test cases before any code is written
 6. **YAGNI / SOLID** — challenge any proposed interface, package, or abstraction: is there a second use case?
 

@@ -33,11 +33,11 @@ Look for the originating spec, in this order:
 
 ### 3. Identify the standards sources
 
-Read these in order (repo-specific, mandatory for FinCraft):
+Read these in order (repo-specific, mandatory for Tech Tombola):
 
-1. `docs/ARCHITECTURE_CODING_STANDARDS.md` — Go/React layers, SOLID, financial rules
+1. `docs/ARCHITECTURE_CODING_STANDARDS.md` — Node.js/React layers, SOLID, game invariants
 2. `AGENTS.md` — agent mandatory rules
-3. `.cursor/rules/` — YAGNI, DRY, SOLID, grill-me, unit tests, go-backend, react-frontend
+3. `.cursor/rules/` — YAGNI, DRY, SOLID, grill-me, unit tests, node-backend, react-frontend
 4. Any other repo docs: `CODING_STANDARDS.md`, `CONTRIBUTING.md`, etc.
 
 On top of whatever the repo documents, the Standards axis always carries the **smell baseline** below — a fixed set of Fowler code smells (_Refactoring_, ch.3) that applies even when a repo documents nothing. Two rules bind it:
