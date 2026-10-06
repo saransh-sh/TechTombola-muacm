@@ -175,6 +175,7 @@ Project skills live in `.agents/skills/`. All dev skills enforce the standards i
 
 | Skill | Use when |
 |---|---|
+| `ask-saransh` | **Universal AI Skill Router.** Analyzes intent, discovers skills, resolves dependencies, and orchestrates execution |
 | `grill-me` | **Required gate.** Stress-test requirements and architecture before spec or code |
 | `grill-with-docs` | Grill + update `CONTEXT.md` and ADRs inline |
 | `implement` | Implement from spec/ticket (Node.js + React layers, tests, YAGNI/DRY/SOLID) |
