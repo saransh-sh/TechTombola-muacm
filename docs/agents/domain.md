@@ -18,7 +18,8 @@ Single-context repo:
 │   └── adr/
 │       ├── 0001-modular-monolith-fastify-postgres.md
 │       ├── 0002-native-websockets-over-redis.md
-│       └── 0003-server-authoritative-game-engine.md
+│       ├── 0003-server-authoritative-game-engine.md
+│       └── 0004-bun-runtime-over-nodejs.md
 └── (backend/ & frontend/)
 ```
 

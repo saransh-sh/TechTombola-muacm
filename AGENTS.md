@@ -5,7 +5,7 @@ Instructions for AI agents working in this repository.
 ## Project context
 
 - **Product:** Tech Tombola — technology-themed digital Tombola game for ~500 participants (see `docs/TECH_TOMBOLA_BACKEND_PRD.md` and `docs/TECH_TOMBOLA_FRONTEND_PRD.md`)
-- **Backend:** Node.js + TypeScript + Fastify server application (`backend/`)
+- **Backend:** Bun + TypeScript + Fastify server application (`backend/`)
 - **Frontend:** React + TypeScript + Vite + GSAP web application (`frontend/`)
 - **Database:** PostgreSQL
 - **Real-time:** WebSocket (no Redis, no Socket.IO)
@@ -19,11 +19,11 @@ Instructions for AI agents working in this repository.
 
 These rules apply to **every** implementation task. Cursor loads them from `.cursor/rules/`; treat them as hard requirements even when using other tools.
 
-### 1. Architecture — Node.js + React layer boundaries
+### 1. Architecture — Bun + React layer boundaries
 
-See `docs/ARCHITECTURE_CODING_STANDARDS.md`, `.cursor/rules/node-backend.mdc`, `.cursor/rules/react-frontend.mdc`.
+See `docs/ARCHITECTURE_CODING_STANDARDS.md`, `.cursor/rules/bun-backend.mdc`, `.cursor/rules/react-frontend.mdc`.
 
-- **Node.js/Fastify:** routes → service → domain ← repository. Game logic in `domain` modules only. No game-state mutations in route handlers.
+- **Bun/Fastify:** routes → service → domain ← repository. Game logic in `domain` modules only. No game-state mutations in route handlers.
 - **React:** features/hooks/components/lib/api/types. No game-state calculations in the browser. All HTTP via `src/lib/api/`.
 - **WebSocket:** server pushes events; client consumes. Client never determines draw validity, mark validity, or win eligibility.
 - **Game authority:** The backend is the **source of truth** for all game-critical state — draws, marks, tickets, wins. The browser displays and requests actions but never decides their validity.
@@ -60,7 +60,7 @@ See `.cursor/rules/mandatory-unit-tests.mdc`.
 See `.cursor/rules/grill-me-mandatory.mdc`.
 
 - **Never assume requirements.** Run `/grill-me` before specs, architecture changes, new API contracts, ticket breakdown, or code.
-- Grill architecture topics: layer placement, API errors, game edge cases (duplicate draws, concurrent winners, ticket immutability), React vs Node.js responsibilities, test seams.
+- Grill architecture topics: layer placement, API errors, game edge cases (duplicate draws, concurrent winners, ticket immutability), React vs Bun responsibilities, test seams.
 - Use `/grill-with-docs` when grilling should also update `CONTEXT.md` and `docs/adr/`.
 - Grilling is complete only when the frontier is empty and the user confirms shared understanding.
 
@@ -100,7 +100,7 @@ For every task, explicitly break the work down into:
 - **Frontend**: UI/client behavior, API integration, WebSocket event handling, loading/error states, GSAP animations, frontend tests.
 
 **Important**: Respect project boundaries.
-- Node.js owns game logic, draw engine, winner evaluation, mark validation, ticket generation.
+- Bun owns game logic, draw engine, winner evaluation, mark validation, ticket generation.
 - React owns presentation, animation, and user interaction.
 - Game calculations MUST NOT be reimplemented in the frontend; consume backend contracts instead.
 - The client never determines whether a draw, mark, ticket, or win is valid.
@@ -124,19 +124,19 @@ Every implementation task MUST be performed on a dedicated feature branch.
 - If the build fails or required tests fail/are missing, fix them before delivery. Never hide, skip, or disable tests.
 
 #### 5.1 Backend testing gate
-- Every Node.js/TypeScript change ships with tests per the layer rules in `docs/ARCHITECTURE_CODING_STANDARDS.md`.
+- Every Bun/TypeScript change ships with tests per the layer rules in `docs/ARCHITECTURE_CODING_STANDARDS.md`.
 - Domain modules: pure unit tests, no external deps.
 - Service modules: mock repository and IO boundaries.
 - Route/integration tests: test HTTP contracts with supertest or equivalent.
-- `npm test` must pass locally before PR.
+- `bun test` must pass locally before PR.
 
 #### 5.2 Frontend testing gate (git hooks)
-Installed under `frontend/.husky/` and wired via `git config core.hooksPath frontend/.husky` (auto-configured by `npm install` in `frontend/`):
+Installed under `frontend/.husky/` and wired via `git config core.hooksPath frontend/.husky` (auto-configured by `bun install` in `frontend/`):
 
 - **`pre-commit`** — runs `lint-staged`:
   - `scripts/check-adjacent-test.sh` warns (advisory) if a staged `frontend/src/**/*.{ts,tsx}` file has no adjacent `*.test.{ts,tsx}`.
   - `vitest related --run` runs the tests relevant to staged files.
-- **`pre-push`** — runs `npm test -- --coverage` for the full frontend suite. Coverage thresholds (advisory): **lines 80 / functions 80 / branches 75 / statements 80** (see `frontend/vite.config.ts`).
+- **`pre-push`** — runs `bun test --coverage` (or `npm test -- --coverage`) for the full frontend suite. Coverage thresholds (advisory): **lines 80 / functions 80 / branches 75 / statements 80** (see `frontend/vite.config.ts`).
 
 Hooks are **advisory** — a `--no-verify` bypass exists — but the completion gate above still applies. Do not push failing tests.
 
@@ -158,7 +158,7 @@ Hooks are **advisory** — a `--no-verify` bypass exists — but the completion 
 **STEP 6 — Create Branch**: Create `feature/tombola_<requirement-slug>` from the latest `main`.
 **STEP 7 — Implement**: Implement the smallest appropriate vertical slice (YAGNI/DRY/SOLID) purely on the feature branch.
 **STEP 8 — Test**: Create applicable unit tests as part of implementation (list scenarios first). Add integration tests where required.
-**STEP 9 — Validate**: Run required unit tests (`npm test` for backend and frontend), builds, and linting. Fix failures.
+**STEP 9 — Validate**: Run required unit tests (`bun test` for backend and frontend), builds, and linting. Fix failures.
 **STEP 10 — Review**: Run the project's `/code-review` process against PRD, NFRs, architecture, and tests before merge.
 **STEP 11 — Commit**: Commit the completed changes to the feature branch.
 **STEP 12 — Push**: Push the feature branch to `origin`.
@@ -186,7 +186,7 @@ Project skills live in `.agents/skills/`. All dev skills enforce the standards i
 | `ask-saransh` | **Universal AI Skill Router.** Analyzes intent, discovers skills, resolves dependencies, and orchestrates execution |
 | `grill-me` | **Required gate.** Stress-test requirements and architecture before spec or code |
 | `grill-with-docs` | Grill + update `CONTEXT.md` and ADRs inline |
-| `implement` | Implement from spec/ticket (Node.js + React layers, tests, YAGNI/DRY/SOLID) |
+| `implement` | Implement from spec/ticket (Bun + React layers, tests, YAGNI/DRY/SOLID) |
 | `tdd` | Test-first at agreed seams |
 | `code-review` | Review against standards + spec |
 | `to-spec` | Publish feature spec (after grilling) |

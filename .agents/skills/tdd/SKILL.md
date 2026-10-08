@@ -13,9 +13,9 @@ Read `docs/ARCHITECTURE_CODING_STANDARDS.md` for layer seams and test placement:
 
 | Layer | Seam to test | Mock |
 |---|---|---|
-| Node.js `domain` | Public functions | None — pure unit tests |
-| Node.js `service` | Use-case methods | Mock repository / mock email |
-| Node.js `routes` | HTTP routes (supertest) | Mock service |
+| Bun `domain` | Public functions | None — pure unit tests |
+| Bun `service` | Use-case methods | Mock repository / mock email |
+| Bun `routes` | HTTP routes (supertest / bun test) | Mock service |
 | React component | User-visible behavior | Mock `lib/api/` module |
 | React hook | Data + state behavior | Mock `lib/api/` + mock WebSocket |
 

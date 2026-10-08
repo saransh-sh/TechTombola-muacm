@@ -7,7 +7,7 @@
 **Target Scale:** 400--500 active participants per live game\
 **Deployment Constraint:** Approximately \$100 AWS budget /
 free-tier-oriented deployment\
-**Primary Backend Stack:** Node.js + TypeScript\
+**Primary Backend Stack:** Bun + TypeScript\
 **Database:** PostgreSQL\
 **API Style:** REST + lightweight real-time transport\
 **Architecture:** Modular monolith\
@@ -170,7 +170,7 @@ The backend must be implemented as a **modular monolith**.
                                 │
                     ┌───────────▼───────────┐
                     │                       │
-                    │     Node.js API       │
+                    │     Bun API           │
                     │     TypeScript        │
                     │                       │
                     │ ┌───────────────────┐ │
@@ -202,9 +202,9 @@ process/container.
 
 ## 7.1 Runtime
 
-**Node.js LTS**
+**Bun (v1.x)**
 
-Node.js should be used as the production runtime.
+Bun should be used as the production runtime.
 
 ## 7.2 Language
 
@@ -299,7 +299,7 @@ Recommended MVP:
                  AWS entry point
                         │
                         ▼
-              Node.js application
+              Bun application
                         │
               ┌─────────┴─────────┐
               ▼                   ▼
@@ -2023,7 +2023,7 @@ The preferred implementation is:
 ``` text
 TypeScript
    +
-Node.js
+Bun
    +
 Fastify
    +
@@ -2062,7 +2062,7 @@ distributed infrastructure before it is needed.
                               HTTPS / WS
                                    │
                     ┌──────────────▼──────────────┐
-                    │      Node.js / Fastify      │
+                    │        Bun / Fastify        │
                     │          TypeScript         │
                     │                             │
                     │ Auth / RBAC                 │
@@ -2097,6 +2097,6 @@ distributed infrastructure before it is needed.
 ```
 
 **Backend architectural decision:** Keep the first production version as
-a **single Node.js/TypeScript modular monolith backed by PostgreSQL**,
+a **single Bun/TypeScript modular monolith backed by PostgreSQL**,
 with WebSocket-based live updates and no Redis/Kafka/microservices
 unless real load testing proves they are necessary.

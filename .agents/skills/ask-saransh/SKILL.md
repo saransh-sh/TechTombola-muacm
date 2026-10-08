@@ -176,7 +176,7 @@ When multiple skills apply or provide overlapping guidance, follow this strict p
 1. **User's Explicit Requirements:** Direct constraints specified by the user in the prompt.
 2. **Project-Specific Skills & Guidelines:** Repository standards (e.g. `AGENTS.md`, project architecture).
 3. **Domain-Specific Skills:** Specialized game, finance, or business logic handlers.
-4. **Technical Implementation Skills:** Language and framework execution rules (Node.js, React, TDD).
+4. **Technical Implementation Skills:** Language and framework execution rules (Bun, React, TDD).
 5. **UX / Design Skills:** Layout, motion, typography, and visual systems.
 6. **Quality-Control Gates:** Anti-slop pass, test gates, linters, accessibility checks.
 7. **General-Purpose Skills:** Fallback conventions.

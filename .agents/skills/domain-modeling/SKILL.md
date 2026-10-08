@@ -7,7 +7,7 @@ description: Build and sharpen a project's domain model. Use when the user wants
 
 Actively build and sharpen the project's domain model as you design. This is the *active* discipline — challenging terms, inventing edge-case scenarios, and writing the glossary and decisions down the moment they crystallise. (Merely *reading* `CONTEXT.md` for vocabulary is not this skill — that's a one-line habit any skill can do. This skill is for when you're changing the model, not just consuming it.)
 
-**Tech Tombola:** Domain terms map to Node.js `domain` module concepts. Game rules live in Node.js domain modules, not React. See `docs/ARCHITECTURE_CODING_STANDARDS.md`. Run `/grill-me` when terminology affects layer boundaries or API contracts.
+**Tech Tombola:** Domain terms map to Bun `domain` module concepts. Game rules live in Bun domain modules, not React. See `docs/ARCHITECTURE_CODING_STANDARDS.md`. Run `/grill-me` when terminology affects layer boundaries or API contracts.
 
 ## File structure
 

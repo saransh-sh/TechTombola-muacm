@@ -1,5 +1,5 @@
 ---
-description: SOLID principles — pragmatic application in Node.js and React
+description: SOLID principles — pragmatic application in Bun and React
 alwaysApply: true
 ---
 
@@ -10,7 +10,7 @@ Apply SOLID to **real code**, not as an excuse for extra layers. Full reference:
 ## Single Responsibility (S)
 
 - One reason to change per function, class, component, or module.
-- Node.js: `routes` parse HTTP; `service` orchestrates; `domain` holds game rules; `repository` persists.
+- Bun: `routes` parse HTTP; `service` orchestrates; `domain` holds game rules; `repository` persists.
 - React: components render; hooks fetch/state; `lib/api/` calls the backend.
 
 ## Open/Closed (O)

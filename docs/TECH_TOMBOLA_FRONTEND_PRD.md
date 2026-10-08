@@ -5,7 +5,7 @@
 **Version:** 1.0 --- MVP\
 **Status:** Engineering Specification\
 **Frontend:** React + TypeScript + Vite + GSAP\
-**Backend Contract:** Node.js + TypeScript + Fastify + PostgreSQL +
+**Backend Contract:** Bun + TypeScript + Fastify + PostgreSQL +
 WebSocket\
 **Primary UX Target:** Mobile-first participant experience\
 **Expected Scale:** \~400--500 active participants
@@ -215,7 +215,7 @@ Needs:
   HTTP              Fetch / typed API client
   Testing           Vitest + React Testing Library
   E2E               Playwright
-  Package Manager   npm / pnpm
+  Package Manager   bun / npm / pnpm
 
 ## 6.2 Why TypeScript
 
@@ -1790,7 +1790,7 @@ Recommended:
           │                         │
           └────────────┬────────────┘
                        ▼
-               Node.js Backend
+               Bun Backend
                        │
                        ▼
                   PostgreSQL
@@ -2111,7 +2111,7 @@ interfaces are polished.
                     │                   │
                     └─────────┬─────────┘
                               │
-                       Node.js Backend
+                         Bun Backend
                               │
                          PostgreSQL
 ```

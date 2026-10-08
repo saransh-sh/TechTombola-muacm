@@ -23,7 +23,7 @@ Also run it when the user gives a vague request ("build the upload flow", "add c
 - Layer placement (routes vs service vs domain)
 - API contract and error cases
 - Game edge cases (duplicate draws, concurrent winners, ticket immutability, mark validation, state-machine transitions)
-- What React shows vs what Node.js computes
+- What React shows vs what Bun computes
 - Test seams and scenario list
 
 ## How to run it

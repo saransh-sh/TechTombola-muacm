@@ -115,13 +115,13 @@ Good interfaces make testing natural:
 
 ## Tech Tombola stack mapping
 
-Apply deep-module thinking to the Node.js + React layers in `docs/ARCHITECTURE_CODING_STANDARDS.md`:
+Apply deep-module thinking to the Bun + React layers in `docs/ARCHITECTURE_CODING_STANDARDS.md`:
 
 | Seam | Deep module target | Shallow smell |
 |---|---|---|
-| Node.js `domain` | Pure functions hiding game rules (draw, win, ticket) | Logic leaked into route handler or repository |
-| Node.js `service` | Use-case orchestration behind small methods | Route handler calling repository directly |
-| Node.js `repository` | Persistence behind narrow store interface | SQL strings in service layer |
+| Bun `domain` | Pure functions hiding game rules (draw, win, ticket) | Logic leaked into route handler or repository |
+| Bun `service` | Use-case orchestration behind small methods | Route handler calling repository directly |
+| Bun `repository` | Persistence behind narrow store interface | SQL strings in service layer |
 | React `lib/api` | HTTP client hiding endpoint details | `fetch` in every component |
 | React `hooks` | Data + UI state behind one hook per feature | 200-line components mixing fetch and render |
 | React `lib/websocket` | Connection + event handling behind subscription API | Raw WebSocket in every component |

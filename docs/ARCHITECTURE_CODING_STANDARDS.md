@@ -18,7 +18,7 @@ Tech Tombola is a technology-themed digital Tombola game for ~400–500 live par
                           HTTPS / WebSocket
                                  │
                      ┌───────────▼───────────┐
-                     │  Node.js / Fastify     │
+                     │  Bun / Fastify         │
                      │  TypeScript            │
                      │  Modular Monolith      │
                      └───────────┬───────────┘
@@ -38,7 +38,7 @@ Tech Tombola is a technology-themed digital Tombola game for ~400–500 live par
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| Runtime | Node.js LTS | Server runtime |
+| Runtime | Bun (v1.x) | Server runtime & package manager |
 | Language | TypeScript (strict) | Type safety, API contracts |
 | HTTP Framework | Fastify | Low-overhead HTTP server |
 | Database | PostgreSQL | Source of truth for all game state |
@@ -47,7 +47,7 @@ Tech Tombola is a technology-themed digital Tombola game for ~400–500 live par
 | Auth | JWT + Argon2id | Access tokens + secure password hashing |
 | Real-time | Native WebSocket (ws) | Lightweight game event broadcasting |
 | Email | External transactional provider | Credential delivery |
-| Testing | Vitest (or Jest) | Unit + integration tests |
+| Testing | Bun test / Vitest | Unit + integration tests |
 
 ### Frontend
 
@@ -117,7 +117,7 @@ websocket — broadcast DRAW_CREATED to all connected clients
 ### Layer flow
 
 ```text
-pages → features → hooks → lib/api → Node.js backend
+pages → features → hooks → lib/api → Bun backend
                  ↘ components
 ```
 
@@ -606,13 +606,13 @@ Critical operations MUST be safe against accidental duplicate requests:
           │                           │
           └─────────────┬─────────────┘
                         ▼
-                  Node.js / Fastify
+                  Bun / Fastify
                         │
                         ▼
                     PostgreSQL
 ```
 
-- Single Node.js process (no clustering for MVP)
+- Single Bun process (no clustering for MVP)
 - PostgreSQL single instance (no Multi-AZ for MVP)
 - Static frontend on CDN
 - ~$100 AWS budget target
@@ -694,13 +694,13 @@ GSAP is used for **purposeful game event animations**, not general UI decoration
 
 ## 19. Deep-Module Design (Codebase Design Vocabulary)
 
-Apply deep-module thinking to the Node.js + React layers:
+Apply deep-module thinking to the Bun + React layers:
 
 | Seam | Deep module target | Shallow smell |
 |---|---|---|
-| Node.js `domain` | Pure functions hiding game rules (draw, win, ticket) | Logic leaked into route handler or repository |
-| Node.js `service` | Use-case orchestration behind small methods | Route handler calling repository directly |
-| Node.js `repository` | Persistence behind narrow store interface | SQL strings in service layer |
+| Bun `domain` | Pure functions hiding game rules (draw, win, ticket) | Logic leaked into route handler or repository |
+| Bun `service` | Use-case orchestration behind small methods | Route handler calling repository directly |
+| Bun `repository` | Persistence behind narrow store interface | SQL strings in service layer |
 | React `lib/api` | HTTP client hiding endpoint details | `fetch` in every component |
 | React `hooks` | Data + UI state behind one hook per feature | 200-line components mixing fetch and render |
 | React `lib/websocket` | Connection + event handling behind subscription API | Raw WebSocket in every component |

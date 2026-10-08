@@ -2,7 +2,7 @@
 
 > A technology-themed, real-time digital Tombola (Housie/Bingo) engine engineered for live events of 400–500 simultaneous participants.
 
-[![Node.js](https://img.shields.io/badge/Node.js-20+-68a063?style=flat&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Bun](https://img.shields.io/badge/Bun-1.x-fbf0df?style=flat&logo=bun&logoColor=black)](https://bun.sh/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Fastify](https://img.shields.io/badge/Fastify-4.x-000000?style=flat&logo=fastify&logoColor=white)](https://fastify.dev/)
 [![React](https://img.shields.io/badge/React-18.x-61dafb?style=flat&logo=react&logoColor=black)](https://react.dev/)
@@ -82,7 +82,7 @@ Tech Tombola follows a **Modular Monolith** architecture governed by strict laye
 └──────────────────────────────┬──────────────────────────────┘
                                │ HTTP REST & Native WebSocket
 ┌──────────────────────────────▼──────────────────────────────┐
-│                  Backend (Node.js + Fastify)                │
+│                  Backend (Bun + Fastify)                    │
 │                                                             │
 │   ┌──────────────┐     ┌──────────────┐    ┌────────────┐   │
 │   │ Route Layer  │ ──> │ Service Layer│ ──>│   Domain   │   │
@@ -107,7 +107,7 @@ Tech Tombola follows a **Modular Monolith** architecture governed by strict laye
 - **`repository/`**: Database persistence layer using SQL queries and transactions against PostgreSQL.
 
 ### Technology Stack
-- **Backend:** Node.js (v20+), TypeScript, Fastify, Drizzle ORM / node-postgres, Zod
+- **Backend:** Bun (v1.x), TypeScript, Fastify, Drizzle ORM / postgres, Zod
 - **Frontend:** React 18, TypeScript, Vite, GSAP micro-animations, TanStack Query, Zustand
 - **Real-time:** Native WebSocket (`@fastify/websocket`)
 - **Database:** PostgreSQL 16+
@@ -135,7 +135,7 @@ These invariants are enforced server-side and tested at all layer boundaries:
 .
 ├── .agents/                    # Agent skills, workflows, and developer conventions
 ├── .cursor/rules/              # Cursor AI architectural rules and standards
-│   ├── node-backend.mdc        # Node.js backend layer boundaries and rules
+│   ├── bun-backend.mdc         # Bun backend layer boundaries and rules
 │   ├── react-frontend.mdc      # React frontend guidelines
 │   ├── solid-principles.mdc    # Pragmatic SOLID application
 │   ├── yagni-dry.mdc           # YAGNI & DRY constraints

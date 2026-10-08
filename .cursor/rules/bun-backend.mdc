@@ -1,12 +1,12 @@
 ---
-description: Node.js/Fastify backend layer rules — game logic in domain modules only
+description: Bun/Fastify backend layer rules — game logic in domain modules only
 globs: backend/**/*.{ts,js}
 alwaysApply: false
 ---
 
-# Node.js Backend Architecture (Strict)
+# Bun Backend Architecture (Strict)
 
-Tech Tombola backend is a **Node.js/Fastify modular monolith** with PostgreSQL. Full reference: `docs/ARCHITECTURE_CODING_STANDARDS.md`.
+Tech Tombola backend is a **Bun/Fastify modular monolith** with PostgreSQL. Full reference: `docs/ARCHITECTURE_CODING_STANDARDS.md`.
 
 ## Layer flow
 
@@ -48,7 +48,7 @@ routes → service → domain ← repository
 - Domain: pure unit tests, no external deps.
 - Service: mock repository and IO boundaries.
 - Routes: integration tests with supertest or similar.
-- `npm test` must pass before PR.
+- `bun test` must pass before PR.
 
 ## Idempotency
 

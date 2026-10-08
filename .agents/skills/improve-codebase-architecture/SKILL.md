@@ -10,10 +10,10 @@ Surface architectural friction and propose **deepening opportunities** — refac
 
 This command is _informed_ by the project's domain model and built on a shared design vocabulary:
 
-- Read `docs/ARCHITECTURE_CODING_STANDARDS.md` — Node.js routes/service/domain/repository layers and React api/hooks/components boundaries are the primary seams to evaluate.
+- Read `docs/ARCHITECTURE_CODING_STANDARDS.md` — Bun routes/service/domain/repository layers and React api/hooks/components boundaries are the primary seams to evaluate.
 - Run the `/codebase-design` skill for the architecture vocabulary (**module**, **interface**, **depth**, **seam**, **adapter**, **leverage**, **locality**) and its principles (the deletion test, "the interface is the test surface", "one adapter = hypothetical seam, two = real"). Use these terms exactly in every suggestion — don't drift into "component," "service," "API," or "boundary."
 - The domain language in `CONTEXT.md` gives names to good seams; ADRs in `docs/adr/` record decisions this command should not re-litigate.
-- Flag violations: game logic outside Node.js `domain`, game-state calculations in React, speculative interfaces, missing unit tests at seams.
+- Flag violations: game logic outside Bun `domain`, game-state calculations in React, speculative interfaces, missing unit tests at seams.
 
 ## Process
 
