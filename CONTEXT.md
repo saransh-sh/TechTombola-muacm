@@ -17,11 +17,11 @@ One traditional Tombola game instance within an event, running through drawn key
 _Avoid_: Game, match, stage, level
 
 **Key**:
-The canonical technology answer value on a ticket cell revealed by the game engine during a draw (e.g. `DOCKER`, `RUSSIA`, `POSTGRESQL`).
+The canonical, Event-scoped technology value on a ticket cell revealed by the game engine during a Draw (e.g. `DOCKER`, `RUSSIA`, `POSTGRESQL`). A Key may be reused by Questions in different Rounds of the same Event, but may be revealed only once in a Round.
 _Avoid_: Answer, value, bingo number, ball, number
 
 **Question**:
-The clue or prompt whose corresponding answer is an official key.
+The Round-scoped clue or prompt whose corresponding answer is exactly one Key. In the MVP, a Round has at most one active Question for a given Key.
 _Avoid_: Trivia prompt, quiz question, problem, riddle
 
 **Draw**:
@@ -37,7 +37,7 @@ One slot in a ticket grid, which either holds a single key or is empty.
 _Avoid_: Slot, square, tile, box
 
 **Mark**:
-A participant's manual action of tapping or toggling a matching cell on their ticket after that key has been drawn.
+A Participant's manual action of toggling a matching Cell after its Key has been drawn. A Mark is interaction state for presentation and recovery; it is not authoritative proof of winning eligibility.
 _Avoid_: Dab, cross, check, stamp, strike
 
 **Claim**:
@@ -51,7 +51,7 @@ _Avoid_: Winning line, combination, rule
 ### Winning Patterns
 
 **Early 5**:
-The winning pattern achieved by being the first participant to correctly mark any 5 valid drawn keys anywhere on their ticket.
+The winning Pattern achieved when at least 5 Keys on a Participant's Ticket have been officially drawn, regardless of where those Cells appear.
 _Avoid_: Quick 5, First 5, Corner 5
 
 **Top Line**:

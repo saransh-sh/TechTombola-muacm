@@ -375,7 +375,7 @@ SUPER_ADMIN
 ADMIN
 ```
 
-Participants are separate from the administrative role model.
+Participants are separate from the administrative role model. `User` is the shared login identity. A Participant is identified by an Event-scoped `ParticipantProfile`; an administrator is identified by an `AdminProfile` carrying either `ADMIN` or `SUPER_ADMIN`. A browser session resolves to exactly one principal kind and never derives administrative authority from a Participant profile.
 
 ### Super Admin
 
@@ -478,7 +478,12 @@ COMPLETED
 CANCELLED
 ```
 
-Only one round may be `ACTIVE` at a time.
+Only one round may be `ACTIVE` across the deployment at a time.
+
+A round may become `READY` only when it has enabled winning patterns,
+at least fifteen distinct eligible question/key pairs, and an immutable
+ticket for every active participant in the Event. Starting the first
+Round promotes a `READY` Event to `LIVE` in the same transaction.
 
 ------------------------------------------------------------------------
 
@@ -502,6 +507,7 @@ TCP
 A key should contain:
 
 -   internal UUID;
+-   event_id;
 -   human-readable value;
 -   category;
 -   optional description;
@@ -510,6 +516,11 @@ A key should contain:
 -   updated_at.
 
 The database ID must be independent of the displayed key.
+
+Key values are trimmed, uppercased, and have internal whitespace
+collapsed before persistence. The normalized value is unique within an
+Event. MVP values are 2--50 characters and contain letters, digits,
+spaces, or hyphens.
 
 ------------------------------------------------------------------------
 
@@ -540,6 +551,10 @@ AWS-S3
 ```
 
 A question must reference exactly one key.
+
+For the MVP, a Round may have at most one active Question for a given
+Key. The same Event-scoped Key may be used by Questions in different
+Rounds.
 
 ------------------------------------------------------------------------
 
@@ -732,18 +747,20 @@ Invalid marking requests must be rejected.
 
 # 25. Mark State
 
-The backend may persist participant marking state for UX/recovery.
+The backend persists participant marking state for UX/recovery.
 
 However:
 
 > Mark state must never be trusted for winner validation.
 
-Winner validation must recalculate eligibility from:
+Winner validation must ignore Mark state and recalculate eligibility from:
 
 ``` text
 Official Draws
 +
 Ticket Layout
++
+Winning Pattern configuration
 ```
 
 The persisted mark is a participant interaction state, not the final
@@ -770,6 +787,10 @@ Supported MVP patterns:
 -   Middle Line;
 -   Bottom Line;
 -   Full House.
+
+Early 5 is satisfied when at least five Keys on the assigned Ticket
+have been officially drawn. A Claim does not become invalid merely
+because additional Keys were drawn before submission.
 
 The implementation should use a generic pattern interface so future
 patterns can be added without rewriting the draw engine.
@@ -809,21 +830,25 @@ A participant can submit:
 POST /api/participant/claims
 ```
 
-A claim must contain:
+A claim request must contain:
 
--   ticket;
 -   round;
 -   winning pattern.
 
+The backend derives the Ticket from the authenticated Participant and
+Round; a client cannot nominate another Ticket.
+
 The server recalculates eligibility.
 
-If invalid:
+If structurally valid but ineligible:
 
 ``` http
-400/409
+422 Unprocessable Entity
 ```
 
 with a safe explanation.
+
+Duplicate Claims and Claims for closed Patterns return `409 Conflict`.
 
 If valid:
 
@@ -917,18 +942,31 @@ If the application crashes during an active round:
 3.  Tickets remain intact.
 4.  Claims remain intact.
 5.  Winner records remain intact.
-6.  Round state is restored.
-7.  Round becomes `RECOVERY_REQUIRED`.
+6.  Startup changes the previously active Round to
+    `RECOVERY_REQUIRED`.
+7.  The backend validates Draw sequences, Tickets, Marks, Claims,
+    Winners, and Pattern closure directly from PostgreSQL.
 8.  Admin confirms resume.
 9.  Round returns to `ACTIVE`.
 
 No draw should be silently repeated.
 
+No game-critical cache is reconstructed as a second source of truth.
+Only connection registries and other transport state remain in memory.
+
 ------------------------------------------------------------------------
 
 # 33. Real-Time Game Events
 
-The backend should expose a WebSocket channel for active rounds.
+The backend exposes two broadcast-only WebSocket channels for active
+Rounds:
+
+-   a browser-session-authenticated channel for Participants and Admins;
+-   a public, read-only Live Display channel restricted to an explicit
+    safe-event allowlist.
+
+WebSocket client messages never mutate game state. REST commands are
+the only mutation surface.
 
 Example events:
 
@@ -1031,9 +1069,14 @@ POST   /api/admin/rounds
 PATCH  /api/admin/rounds/:id
 
 POST   /api/admin/rounds/:id/start
+POST   /api/admin/rounds/:id/ready
 POST   /api/admin/rounds/:id/pause
 POST   /api/admin/rounds/:id/resume
+POST   /api/admin/rounds/:id/complete
+POST   /api/admin/rounds/:id/cancel
 POST   /api/admin/rounds/:id/recover
+
+POST   /api/admin/rounds/:id/tickets/generate
 
 POST   /api/admin/rounds/:id/draws
 POST   /api/admin/rounds/:id/draws/manual
@@ -1095,6 +1138,12 @@ Authentication must:
 
 Participants must only access their own ticket.
 
+Browser authentication uses an HTTP-only secure cookie containing a
+signed JWT whose `jti` references an active database Session. Protected
+requests validate both artifacts. Logout revokes the Session
+immediately, and WebSocket authentication uses the same cookie rather
+than a token in a query string.
+
 ------------------------------------------------------------------------
 
 # 40. Authorization Matrix
@@ -1138,8 +1187,11 @@ Import processing must:
 -   assign tickets where configured;
 -   produce an import result report.
 
-Import should be transactional per participant or use an explicit
-partial-import strategy.
+Import is transactional per participant and returns a complete report
+of created, skipped, and failed rows. A bad row does not roll back valid
+rows. The MVP accepts CSV with `name`, `email`, and optional
+`external_id`; JSON import and participant phone numbers are outside
+scope.
 
 ------------------------------------------------------------------------
 
@@ -1150,7 +1202,12 @@ Participant credentials must be deliverable by email.
 The backend should integrate with an external transactional email
 provider rather than operating its own mail server.
 
-Email delivery should be asynchronous where practical.
+Credential email is sent after the participant transaction commits.
+The generated temporary password exists only in process memory long
+enough to hash and send it; it is never written to an EmailJob, audit
+record, application log, or database column. Delivery metadata may be
+recorded asynchronously. A failed delivery leaves the account intact
+and requires an administrator to regenerate the credential.
 
 Required email states:
 
@@ -1370,8 +1427,15 @@ Particularly:
 -   round start;
 -   round resume;
 -   participant import.
+-   ticket generation.
 
 A double-click on `DRAW NEXT` must not create two draws.
+
+These operations require an `Idempotency-Key` header. The backend stores
+the outcome under the authenticated actor, operation, and key, and
+replays that outcome for a retry. A different key represents an
+independent command. Idempotency records contain no credentials or
+sensitive response fields.
 
 ------------------------------------------------------------------------
 

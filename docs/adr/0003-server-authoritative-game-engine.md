@@ -7,7 +7,7 @@ Tombola games are vulnerable to client-side manipulation, timing exploits, and r
 The backend server is the **sole source of truth** for all game state:
 1. **Zero-Knowledge Draws:** Future questions and answer keys are never sent to participant clients ahead of their draw time.
 2. **Deterministic & Immutable Tickets:** Tickets are generated server-side with 15 unique keys (3 rows × 5 keys) and stored immutably in PostgreSQL.
-3. **Server-Side Validation:** Every participant mark requires the cell's key to have already been officially drawn. Every claim is re-verified server-side against round draw history and closed pattern status before awarding a win.
+3. **Server-Side Validation:** Every Participant Mark requires the Cell's Key to have already been officially drawn. Marks remain presentation/recovery state and are not trusted as proof of a win. Every Claim is recalculated from the assigned Ticket, official Draw history, configured Pattern, and Pattern closure before awarding a Winner.
 4. **Client Role:** The React SPA is purely presentational, capturing tactile interactions and streaming verified updates.
 
 ## Consequences

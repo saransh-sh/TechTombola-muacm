@@ -328,6 +328,7 @@ Key
 Question
 Ticket
 TicketCell
+TicketMark
 Draw
 WinningPattern
 WinClaim
@@ -335,6 +336,7 @@ Winner
 AuditLog
 Session
 EmailJob
+IdempotencyRecord
 ```
 
 ### Key indexes (minimum)
@@ -368,7 +370,8 @@ Transactions are **mandatory** for:
 | Draw creation | Lock/check question → create draw → update round state → commit → broadcast |
 | Winner verification | Lock claim/pattern → verify eligibility → verify pattern capacity → create winner → close pattern if required → commit |
 | Ticket generation | Generate → validate → persist ticket + cells → commit |
-| Participant import | Validate → create user → create participant → generate credential → queue email → commit per participant |
+| Participant import | Validate row → create user/profile + hash credential → commit per participant → send credential from memory → record delivery metadata |
+| Idempotent command | Reserve actor/operation/key → execute mutation → store replayable safe outcome → commit |
 
 ---
 
@@ -394,7 +397,10 @@ DRAFT → READY → ACTIVE → COMPLETED
 
 Invalid transitions MUST return an error. For example: `COMPLETED → ACTIVE` is rejected.
 
-Only one round may be `ACTIVE` at a time within an event.
+Only one round may be `ACTIVE` across the deployment. A Round may become
+`READY` only after enabled Patterns, at least 15 eligible Question/Key
+pairs, and immutable Tickets for all active Participants exist. Starting
+the first Round promotes its `READY` Event to `LIVE` transactionally.
 
 ### Claim status
 ```
@@ -412,16 +418,20 @@ OPEN → CLOSED
 
 ## 10. WebSocket Protocol
 
-### Connection flow
+### Authenticated connection flow
 ```text
-Client connects with auth token
+Participant/Admin connects with the HTTP-only browser session cookie
   ↓
-Server validates token
+Server validates JWT and active Session
   ↓
 Client subscribed to round events
   ↓
 Server pushes events as game progresses
 ```
+
+The Live Display connects through a separate public, read-only channel.
+That channel receives only explicitly allowlisted public events. Neither
+channel accepts game-state mutations from client frames.
 
 ### Event types
 
@@ -485,8 +495,9 @@ Never expose stack traces or database errors to clients.
 
 ### Authentication
 - Argon2id password hashing — plaintext passwords NEVER stored
-- JWT access tokens with secure refresh/session mechanism
-- HTTP-only cookies where practical for browser clients
+- Signed JWT in an HTTP-only secure cookie, with `jti` bound to an active database Session
+- Protected HTTP and WebSocket requests validate both JWT and Session; logout revokes the Session immediately
+- Session cookies use `SameSite` and Origin checks appropriate to browser mutation requests
 - Login rate limiting + account lockout/throttling
 - Session expiration with graceful re-authentication
 
@@ -550,7 +561,7 @@ A participant must NEVER access:
 # Winner evaluation
 - Each pattern type detected correctly (Early 5, Top/Middle/Bottom Line, Full House)
 - Incomplete ticket rejected
-- Invalid marks ignored in evaluation
+- Eligibility recalculated from Ticket + official Draws + Pattern; Mark state ignored
 - Second claim rejected after pattern closed
 
 # Authentication
@@ -588,6 +599,11 @@ Critical operations MUST be safe against accidental duplicate requests:
 - Winner verification
 - Round start/resume
 - Participant import
+- Ticket generation
+
+These commands require an `Idempotency-Key`. Results are scoped by
+authenticated actor and operation, persisted transactionally, and replayed
+for matching retries. Different keys are independent commands.
 
 ---
 

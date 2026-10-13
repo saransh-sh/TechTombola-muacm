@@ -62,3 +62,7 @@ Thumbs.db
 tmp/
 temp/
 scratch/
+.claude-flow/
+agentdb.rvf*
+ruvector.db*
+
