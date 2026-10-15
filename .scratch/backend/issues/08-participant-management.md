@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 08 — Participant Management
 
 **What to build:** Administrators can create and manage Event-scoped Participants while each Participant can authenticate only into its own identity and data scope.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_participant_management`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

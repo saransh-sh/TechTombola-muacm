@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 12 — Round Readiness and Live Operation
 
 **What to build:** Administrators can safely prepare and operate one live Round at a time through explicit, idempotent state commands and committed real-time events.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_round_operation`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

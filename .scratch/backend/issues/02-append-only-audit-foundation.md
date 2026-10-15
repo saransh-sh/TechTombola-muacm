@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 02 — Append-Only Audit Foundation
 
 **What to build:** The reusable audit boundary that lets every security-sensitive and game-critical mutation record an immutable, redacted event in its transaction.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_audit_foundation`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

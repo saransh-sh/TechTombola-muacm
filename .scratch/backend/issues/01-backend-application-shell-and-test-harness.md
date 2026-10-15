@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 01 — Backend Application Shell and Test Harness
 
 **What to build:** A bootable Bun + Fastify service whose configuration, health, errors, migrations, and test database are reproducible for every later backend ticket.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_backend_foundation`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

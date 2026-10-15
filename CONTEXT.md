@@ -1,89 +1,33 @@
 # Tech Tombola
 
-Tech Tombola is a technology-themed, real-time digital Tombola (Housie/Bingo) game engine engineered for 400–500 simultaneous live participants, featuring server-authoritative state synchronization, automated win verification, and zero-knowledge ticket security.
+Agreed v2 direction, 15 October 2026: one room-based technical Tambola game for
+1,000 users. [Backend rules](docs/TECH_TOMBOLA_BACKEND_PRD.md),
+[frontend UX](docs/TECH_TOMBOLA_FRONTEND_PRD.md).
+V1 Event/Round scope and old 24-ticket plan are superseded.
 
-> **The Golden Rule:** Tech Tombola is **not a quiz**. A question is a clue. Its answer (the "key") is revealed by the game engine. Participants find that key on their ticket and manually mark it. Participants do **not** submit answers to questions.
+| Term | Meaning |
+|---|---|
+| User | USER role; plays. Participant is an older synonym, not another profile. |
+| Admin | Creates/imports users, creates/operates rooms, verifies claims, monitors logs. |
+| Super Admin | All Admin rights plus creating/disabling admins. |
+| Room | One game, join code/QR, lobby, tickets, questions, reveals and history. |
+| Lobby | Joining, instructions and isolated sample practice. |
+| Question | Technical clue with one predefined Key; no textual answers submitted. |
+| Key | Answer label on ticket; own labels visible, unrevealed question mapping private. |
+| Presented question | Server-selected question shown without answer mapping; replaces v1 combined Draw. |
+| Reveal batch | Admin-published question/answer pairs, default batch size 10. |
+| Ticket | Immutable 3×9: 15 unique Keys, five/row, 12 blanks; one/user/room. |
+| Cell | Populated Key position or blank. |
+| Mark | Persisted selection, allowed before reveal; server marks plus revealed Keys determine claims. |
+| Claim | Validated pattern assertion with immutable evidence snapshot and server order. |
+| Pattern | Early 5, Top/Middle/Bottom Line, Four Corners, Full House; one winner each. |
+| Four Corners | First/last populated cells of top/bottom rows, not necessarily geometric corners. |
+| Winner | Earliest pending eligible claimant explicitly verified by admin. |
+| Presentation | Read-only question-only or explicit batch-answer projector view. |
+| Activity log | Durable structured actions/outcomes with source/trust level. |
+| Client telemetry | Best-effort untrusted browser reports; insufficient alone to disqualify. |
+| Silent alert | Admin-only operational/security signal, no sound/public notification. |
 
-## Language
-
-### Core Game Concepts
-
-**Event**:
-A complete Tech Tombola occurrence containing one or more rounds (e.g. "Tech Tombola 2026").
-_Avoid_: Tournament, competition, session, match
-
-**Round**:
-One traditional Tombola game instance within an event, running through drawn keys until all prize patterns are won.
-_Avoid_: Game, match, stage, level
-
-**Key**:
-The canonical, Event-scoped technology value on a ticket cell revealed by the game engine during a Draw (e.g. `DOCKER`, `RUSSIA`, `POSTGRESQL`). A Key may be reused by Questions in different Rounds of the same Event, but may be revealed only once in a Round.
-_Avoid_: Answer, value, bingo number, ball, number
-
-**Question**:
-The Round-scoped clue or prompt whose corresponding answer is exactly one Key. In the MVP, a Round has at most one active Question for a given Key.
-_Avoid_: Trivia prompt, quiz question, problem, riddle
-
-**Draw**:
-The act of the game engine selecting and officially revealing a question-and-key pair during an active round.
-_Avoid_: Call, roll, spin, question reveal, pull
-
-**Ticket**:
-A participant's unique 3×9 Tombola card containing exactly 15 populated cells (5 per row) with no duplicate keys.
-_Avoid_: Card, board, sheet, grid, slip
-
-**Cell**:
-One slot in a ticket grid, which either holds a single key or is empty.
-_Avoid_: Slot, square, tile, box
-
-**Mark**:
-A Participant's manual action of toggling a matching Cell after its Key has been drawn. A Mark is interaction state for presentation and recovery; it is not authoritative proof of winning eligibility.
-_Avoid_: Dab, cross, check, stamp, strike
-
-**Claim**:
-A participant's submission asserting that they have completed an eligible winning pattern.
-_Avoid_: Bingo call, shout, submission, win declaration
-
-**Pattern**:
-A recognized winning configuration of marked cells eligible for a prize award.
-_Avoid_: Winning line, combination, rule
-
-### Winning Patterns
-
-**Early 5**:
-The winning Pattern achieved when at least 5 Keys on a Participant's Ticket have been officially drawn, regardless of where those Cells appear.
-_Avoid_: Quick 5, First 5, Corner 5
-
-**Top Line**:
-The winning pattern achieved by marking all 5 populated cells in Row 1 (the top row) of the ticket.
-_Avoid_: First line, row 1
-
-**Middle Line**:
-The winning pattern achieved by marking all 5 populated cells in Row 2 (the middle row) of the ticket.
-_Avoid_: Second line, row 2
-
-**Bottom Line**:
-The winning pattern achieved by marking all 5 populated cells in Row 3 (the bottom row) of the ticket.
-_Avoid_: Third line, row 3
-
-**Full House**:
-The top-tier winning pattern achieved by marking all 15 populated cells across the entire ticket.
-_Avoid_: Bingo, jackpot, blackout, coverall
-
-### Roles & Surfaces
-
-**Participant**:
-An authenticated event attendee holding an assigned ticket for an active round.
-_Avoid_: User, player, gamer, contestant
-
-**Admin**:
-An operational staff member who controls round state, initiates draws, and audits claims.
-_Avoid_: Host, operator, mod, referee
-
-**Super Admin**:
-A privileged administrator who manages admin accounts, system configuration, and disaster recovery.
-_Avoid_: Root, system owner, superuser
-
-**Live Display**:
-The public, read-only projector display showing active questions, drawn keys, historical draws, and verified winners in real time.
-_Avoid_: Projector view, scoreboard, public screen, dashboard
+Use Room instead of adding Event/Round entities. Ten questions are not ten
+rounds. Distinguish ticket count from cell count. No numerical points system.
+Lifetime analytics are deferred; room logs/history persist after completion.

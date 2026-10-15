@@ -1,3 +1,5 @@
+> **Historical decision:** [ADR 0006](0006-simple-room-game-and-batch-reveals.md) supersedes incompatible capacity/gameplay assumptions. V2 PRDs define current scope; retained stack/boundary decisions still apply.
+
 # 0002. Native WebSockets over Redis and Socket.IO
 
 ## Context

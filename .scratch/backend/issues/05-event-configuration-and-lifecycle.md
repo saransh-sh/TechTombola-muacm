@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 05 — Event Configuration and Lifecycle
 
 **What to build:** Administrators can create, inspect, edit, and transition Events while immutable history and lifecycle rules remain server-authoritative.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_event_lifecycle`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

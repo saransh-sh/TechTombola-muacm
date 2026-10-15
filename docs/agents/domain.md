@@ -19,13 +19,15 @@ Single-context repo:
 │       ├── 0001-modular-monolith-fastify-postgres.md
 │       ├── 0002-native-websockets-over-redis.md
 │       ├── 0003-server-authoritative-game-engine.md
-│       └── 0004-bun-runtime-over-nodejs.md
+│       ├── 0004-bun-runtime-over-nodejs.md
+│       ├── 0005-revocable-browser-sessions.md
+│       └── 0006-simple-room-game-and-batch-reveals.md
 └── (backend/ & frontend/)
 ```
 
 ## Use the glossary's vocabulary
 
-When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in `CONTEXT.md`. Don't drift to synonyms the glossary explicitly avoids (e.g. use **Key** not "Answer", use **Question** not "Clue", use **Ticket** not "Card", use **Participant** not "Player").
+When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in `CONTEXT.md`. Don't drift to synonyms the glossary explicitly avoids (e.g. use **Key** not "Answer", use **Question** not "Clue", use **Ticket** not "Card", use **User** for the USER role; Participant is an older synonym).
 
 If the concept you need isn't in the glossary yet, that's a signal — either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for `/domain-modeling`).
 
@@ -34,3 +36,7 @@ If the concept you need isn't in the glossary yet, that's a signal — either yo
 If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
 
 > _Contradicts ADR-0002 (native websockets over redis) — but worth reopening because…_
+
+## Current product direction
+
+Read ADR 0006 before interpreting historical ADRs. V2 Room/batch rules supersede v1 Event/Round, draw-only marking and mark-independent claims.

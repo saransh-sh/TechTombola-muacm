@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 03 — Identity, Authentication, and Revocable Sessions
 
 **What to build:** Secure browser login for administrators, immediately revocable logout, identity inspection, and reusable principal/role guards that Participant management can extend without speculative Event models.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_auth_sessions`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

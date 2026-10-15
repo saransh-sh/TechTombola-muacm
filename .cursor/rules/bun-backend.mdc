@@ -29,18 +29,18 @@ routes → service → domain ← repository
 
 - All external input validated with Zod schemas.
 - Parameterized queries only — no string interpolation in SQL.
-- Game-critical operations use database transactions (draws, winner verification, ticket generation).
+- Game-critical operations use database transactions (question presentation, batch reveals, marks/claims, winner verification, ticket allocation).
 
 ## Authentication / Authorization
 
 - JWT access tokens + Argon2id password hashing.
-- Every protected endpoint checks: auth → role → resource ownership → event/round scope.
+- Every protected endpoint checks: auth → role → resource ownership → room scope.
 - Plaintext passwords NEVER stored.
 
 ## State machines
 
-- Round and event transitions must be explicit — invalid transitions return errors.
-- Only one round may be ACTIVE at a time.
+- Room transitions must be explicit — invalid transitions return errors.
+- Only one live room at a time; qualify for 1,000 users. See Backend PRD v2.
 
 ## Tests
 
@@ -52,9 +52,15 @@ routes → service → domain ← repository
 
 ## Idempotency
 
-- Draw creation, winner verification, round start/resume must be safe against duplicate requests.
-- Double-click on "Draw Next" must not create two draws.
+- Question presentation, batch reveal, winner verification, room start/resume must be safe against duplicate requests.
+- A retried Next question command must not present two questions.
 
 ## Before new modules or API endpoints
 
 Run `/grill-me` on game edge cases, API contract, state transitions, and concurrency. Grill before `/implement`.
+
+## V2 game rules
+
+- Pre-reveal marks are allowed without correctness feedback; claims require persisted marks plus officially revealed Keys.
+- Question presentation and batch revelation are separate. No Event/Round hierarchy in MVP.
+- Read ADR 0006 and current PRDs; historical v1 tickets are superseded.

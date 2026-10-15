@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 21 — Security, Authorization, and Anti-Cheat Suite
 
 **What to build:** A dedicated adversarial suite proves every role, ownership, secret-handling, and future-information boundary across the completed API and WebSocket surface.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_backend_security_tests`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

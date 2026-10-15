@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 07 — Event Keys and Round Questions
 
 **What to build:** Administrators can maintain canonical Event Keys and Round Questions without creating duplicate reveal values or mutating Draw history.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_question_key_bank`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

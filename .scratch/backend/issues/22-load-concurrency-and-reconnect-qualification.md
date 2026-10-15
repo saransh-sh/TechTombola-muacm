@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 22 — Load, Concurrency, and Reconnect Qualification
 
 **What to build:** A repeatable performance harness proves the single Bun/PostgreSQL deployment supports the target event without duplicate Draws, corrupt Winners, leaked data, or missed recovery.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_backend_load_qualification`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

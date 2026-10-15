@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** The 24 tickets below describe v1. They are historical, not ready for implementation. Use [Backend PRD v2](../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../docs/adr/0006-simple-room-game-and-batch-reveals.md). Reconcile any work on existing feature branches before reuse.
+
 # Backend Agent Execution Plan
 
 This directory is the version-controlled local issue tracker for delivering the Tech Tombola backend. The Backend PRD defines what the product must do; `AGENTS.md`, `CONTEXT.md`, the architecture standards, and ADRs define how agents work and where behavior belongs.

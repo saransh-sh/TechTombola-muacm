@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 11 — Authenticated and Public Real-Time Transport
 
 **What to build:** Reliable broadcast-only WebSocket delivery for authenticated game clients and a separately allowlisted public Live Display channel.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_realtime_transport`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

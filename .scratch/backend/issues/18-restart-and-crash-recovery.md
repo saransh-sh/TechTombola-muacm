@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 18 — Restart and Crash Recovery
 
 **What to build:** After process loss, PostgreSQL remains authoritative, an interrupted active Round becomes `RECOVERY_REQUIRED`, and an Admin can resume only after a complete consistency validation.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_crash_recovery`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 17 — Live Display Read Model and Feed
 
 **What to build:** A public Live Display can recover and follow current Event, Round, Draw, and verified Winner state without gaining any Participant/Admin privilege or future information.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_live_display_api`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

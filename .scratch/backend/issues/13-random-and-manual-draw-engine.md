@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 13 — Random and Manual Draw Engine
 
 **What to build:** Authorized Admins can create one immutable random or manual Draw at a time, with gap-free history, duplicate-Key protection, retry safety, and live delivery.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_draw_engine`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

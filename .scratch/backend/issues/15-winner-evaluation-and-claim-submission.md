@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 15 — Winner Evaluation and Claim Submission
 
 **What to build:** Participants can submit Claims that are accepted only when the server independently proves the configured Pattern from their assigned Ticket and official Draw history.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_claim_submission`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 23 — Observability, Container, and Deployment Verification
 
 **What to build:** A production container and lightweight operational signals make the qualified backend deployable and diagnosable within the single-instance AWS cost envelope.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_backend_deployment`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

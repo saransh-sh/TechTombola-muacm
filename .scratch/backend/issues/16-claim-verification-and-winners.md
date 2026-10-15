@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 16 — Claim Verification and Winners
 
 **What to build:** Admins can atomically verify or reject pending Claims, respect Pattern winner capacity under races, and publish immutable Winners.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_winner_verification`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

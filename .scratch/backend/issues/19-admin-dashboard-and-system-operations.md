@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 19 — Admin Dashboard and System Operations
 
 **What to build:** Administrators get complete operational read models for the live game, audit trail, Winners, and recovery health without bypassing feature ownership or exposing secrets.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_admin_operations`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

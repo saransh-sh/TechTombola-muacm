@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 20 — Critical-Flow End-to-End Verification
 
 **What to build:** One repeatable black-box workflow proves the Backend MVP from Super Admin bootstrap through Event completion and authoritative reconnect recovery.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_backend_e2e`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

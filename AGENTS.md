@@ -4,7 +4,7 @@ Instructions for AI agents working in this repository.
 
 ## Project context
 
-- **Product:** Tech Tombola — technology-themed digital Tombola game for ~500 participants (see `docs/TECH_TOMBOLA_BACKEND_PRD.md` and `docs/TECH_TOMBOLA_FRONTEND_PRD.md`)
+- **Product:** Tech Tombola — technology-themed digital Tombola game for 1,000 concurrent users (see `docs/TECH_TOMBOLA_BACKEND_PRD.md` and `docs/TECH_TOMBOLA_FRONTEND_PRD.md`)
 - **Backend:** Bun + TypeScript + Fastify server application (`backend/`)
 - **Frontend:** React + TypeScript + Vite + GSAP web application (`frontend/`)
 - **Database:** PostgreSQL
@@ -13,7 +13,7 @@ Instructions for AI agents working in this repository.
 
 ## Critical product rule
 
-> Tech Tombola is **not a quiz**. A question is a clue. Its answer (the "key") is revealed by the game engine. Participants find that key on their ticket and manually mark it. Participants do **not** submit answers to questions.
+> Tech Tombola is **not a quiz**. A question is a clue. Users may mark guesses before the admin reveals answers in batches. Claims require server-persisted marks and officially revealed Keys. Users do **not** submit textual answers. V2 PRDs and ADR 0006 supersede incompatible v1 product rules.
 
 ## Non-negotiable coding standards
 
@@ -66,23 +66,10 @@ See `.cursor/rules/grill-me-mandatory.mdc`.
 
 ## Domain vocabulary
 
-Precise terms prevent bugs. Use these consistently in code, tests, and conversation. The authoritative ubiquitous language and terms to avoid are documented in [`CONTEXT.md`](./CONTEXT.md).
-
-| Term | Meaning |
-|---|---|
-| **Event** | A complete Tech Tombola occurrence (e.g. "Tech Tombola 2026") |
-| **Round** | One traditional Tombola game within an event |
-| **Key** | The answer value on a ticket cell (e.g. `RUSSIA`, `DOCKER`) |
-| **Question** | The clue/prompt whose answer is a key |
-| **Draw** | The act of revealing a question+key pair during a round |
-| **Ticket** | A participant's 3×9 Tombola card with 15 populated cells |
-| **Cell** | One slot in a ticket (populated with a key, or empty) |
-| **Mark** | A participant's action of tapping a matching cell after a draw |
-| **Claim** | A participant's assertion that they've completed a winning pattern |
-| **Pattern** | A winning configuration (Early 5, Top Line, Middle Line, Bottom Line, Full House) |
-| **Participant** | A player with a ticket |
-| **Admin** | Operational event staff |
-| **Super Admin** | Higher-privilege administrator who can manage other admins |
+[CONTEXT.md](./CONTEXT.md) defines Room, User, Question, Key, Presented question,
+Reveal batch, Ticket, Mark, Claim, Pattern, and Activity log. Use USER, ADMIN,
+SUPER_ADMIN roles. Participant is an older synonym for User, not another role.
+Do not reintroduce Event/Round entities or the superseded 24-ticket plan.
 
 ## Engineering Execution Workflow
 
@@ -227,105 +214,34 @@ Project skills live in `.agents/skills/`. All dev skills enforce the standards i
 | `imagegen-frontend-mobile` | Generate mobile app screen flows and mockup references |
 | `brandkit` | Generate brand identity boards, logo explorations, and color direction |
 
-## API contract summary
+## API and current game invariants
 
-All public APIs live under `/api/v1/`. See `docs/TECH_TOMBOLA_BACKEND_PRD.md` §35–38 for the complete surface.
+Backend PRD v2 §11 defines required operation groups and API safety conventions.
+All application APIs use `/api/v1/`; exact endpoint schemas are agreed per slice.
+Do not reuse the superseded v1 endpoint inventory as the current contract.
 
-### Participant endpoints
-```
-POST   /api/v1/auth/login
-POST   /api/v1/auth/logout
-GET    /api/v1/me
+1. One immutable server-generated ticket per User/Room; 3×9, 15 unique Keys,
+   exactly five populated per row, 12 blanks.
+2. One live room and at most 1,000 members. Entry closes atomically at start;
+   existing users reconnect without new allocation.
+3. No question or Key is presented twice. Presentation and answer reveal are
+   separate operations; a full batch blocks advancing until explicit reveal.
+4. Pre-reveal marks are allowed. Blank/foreign cells and inactive-room changes
+   are rejected. Acceptance cannot disclose hidden correctness.
+5. Claims require committed marks and officially revealed Keys. Persist evidence
+   and server acceptance order; verify earliest pending eligible claim only.
+6. One winner per fixed pattern; closed patterns cannot acquire another winner.
+7. Completed rooms cannot resume; restart recovery needs explicit admin action.
+8. Tickets, question/reveal history, claims' evidence and winners are preserved.
+9. Users cannot access other users' records, logs, admin data or unrevealed
+   question→Key mappings. Own-ticket Key labels are intentionally visible.
+10. Successful mutations and audit records commit atomically. Browser reports
+    are untrusted; reload/network signals alone never prove cheating.
+11. Passwords, tokens and cookies must never be persisted in logs; only password
+    hashes are stored for authentication.
+12. Lifetime analytics are deferred, not room activity logging. No numerical
+    points or automatic disqualification in MVP.
 
-GET    /api/v1/participant/event
-GET    /api/v1/participant/round/current
-GET    /api/v1/participant/ticket
-GET    /api/v1/participant/draws
-POST   /api/v1/participant/tickets/:ticketId/marks
-DELETE /api/v1/participant/tickets/:ticketId/marks/:cellId
-POST   /api/v1/participant/claims
-GET    /api/v1/participant/claims
-GET    /api/v1/participant/wins
-```
-
-### Admin endpoints
-```
-GET    /api/v1/admin/dashboard
-GET    /api/v1/admin/participants
-POST   /api/v1/admin/participants
-POST   /api/v1/admin/participants/import
-GET    /api/v1/admin/participants/:id
-PATCH  /api/v1/admin/participants/:id
-GET    /api/v1/admin/keys
-POST   /api/v1/admin/keys
-PATCH  /api/v1/admin/keys/:id
-GET    /api/v1/admin/questions
-POST   /api/v1/admin/questions
-PATCH  /api/v1/admin/questions/:id
-DELETE /api/v1/admin/questions/:id
-GET    /api/v1/admin/events
-POST   /api/v1/admin/events
-PATCH  /api/v1/admin/events/:id
-GET    /api/v1/admin/rounds
-POST   /api/v1/admin/rounds
-PATCH  /api/v1/admin/rounds/:id
-POST   /api/v1/admin/rounds/:id/start
-POST   /api/v1/admin/rounds/:id/pause
-POST   /api/v1/admin/rounds/:id/resume
-POST   /api/v1/admin/rounds/:id/recover
-POST   /api/v1/admin/rounds/:id/draws
-POST   /api/v1/admin/rounds/:id/draws/manual
-GET    /api/v1/admin/rounds/:id/draws
-GET    /api/v1/admin/claims
-POST   /api/v1/admin/claims/:id/verify
-POST   /api/v1/admin/claims/:id/reject
-GET    /api/v1/admin/winners
-GET    /api/v1/admin/audit
-```
-
-### Super Admin endpoints
-```
-GET    /api/v1/super-admin/admins
-POST   /api/v1/super-admin/admins
-PATCH  /api/v1/super-admin/admins/:id
-DELETE /api/v1/super-admin/admins/:id
-GET    /api/v1/super-admin/system
-POST   /api/v1/super-admin/recovery/*
-```
-
-### Live Display endpoints (read-only)
-```
-GET    /api/v1/live/event
-GET    /api/v1/live/round
-GET    /api/v1/live/draws
-GET    /api/v1/live/winners
-```
-
-### WebSocket events
-```
-ROUND_STARTED
-ROUND_PAUSED
-ROUND_RESUMED
-DRAW_CREATED
-WIN_CLAIM_CREATED
-WINNER_VERIFIED
-ROUND_COMPLETED
-ANNOUNCEMENT
-```
-
-## Critical game invariants
-
-These rules must **never** be violated. Test each explicitly.
-
-1. A participant can have only the ticket assigned to them for a round.
-2. A ticket cannot contain duplicate keys.
-3. A ticket has exactly 15 populated cells (3 rows × 5 per row).
-4. A question cannot be drawn twice in one round.
-5. A participant cannot mark an undrawn key.
-6. A participant cannot claim a win without server-side eligibility.
-7. A closed winning pattern cannot receive a new winner.
-8. A completed round cannot silently resume.
-9. Historical draws and winners are immutable.
-10. Participants cannot access another participant's data.
-11. Future answer keys must not be exposed to participants.
-12. Plaintext passwords must never be persisted.
+For documentation-only changes, validate links, consistency and diffs. Runtime
+unit/build gates apply when application code exists and changes; do not invent
+application tests or claim load qualification for a PRD update.

@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 14 — Participant Mark Persistence
 
 **What to build:** Participants can persistently Mark and unmark their own populated Cells only after the Key has been officially drawn, without granting Mark state authority over Winners.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_participant_marks`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 

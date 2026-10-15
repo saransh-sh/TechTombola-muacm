@@ -37,8 +37,8 @@ The backend is the **source of truth** for all game-critical state. The browser 
 
 ## State management (YAGNI)
 
-- TanStack Query for server state (ticket, draws, round, claims).
-- Zustand for ephemeral UI state (WebSocket status, modals, animation).
+- TanStack Query for server state (ticket, room, questions/reveals, claims).
+- Local React state for ephemeral UI state; Zustand only when shared UI state requires it.
 - No global store bloat — start simple, scale when proven necessary.
 
 ## Tests

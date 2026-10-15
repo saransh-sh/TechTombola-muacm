@@ -1,3 +1,5 @@
+> **SUPERSEDED — 15 October 2026.** Historical v1 ticket. Do not implement unchanged; use [Backend PRD v2](../../../docs/TECH_TOMBOLA_BACKEND_PRD.md) and [ADR 0006](../../../docs/adr/0006-simple-room-game-and-batch-reveals.md).
+
 # 10 — Ticket Generation, Allocation, and Retrieval
 
 **What to build:** Generate immutable valid Tickets for active Participants, allocate at most one per Participant/Round, and return only the authenticated Participant's current Ticket.
@@ -8,7 +10,7 @@
 
 **Branch:** `feature/tombola_ticket_generation`
 
-**Status:** ready-for-agent
+**Status:** superseded
 
 ## Scope and contracts
 
