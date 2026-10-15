@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_round_configuration`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -25,10 +25,10 @@
 
 ## Acceptance criteria
 
-- [ ] Exactly the supported MVP Pattern types are accepted; enabled Patterns require `maxWinners >= 1`.
-- [ ] Pattern configuration becomes immutable after the Round reaches READY.
-- [ ] Round cancellation is represented but performed only through the explicit lifecycle command.
-- [ ] All writes enforce Event scope and append audit records.
+- [x] Exactly the supported MVP Pattern types are accepted; enabled Patterns require `maxWinners >= 1`.
+- [x] Pattern configuration becomes immutable after the Round reaches READY.
+- [x] Round cancellation is represented but performed only through the explicit lifecycle command.
+- [x] All writes enforce Event scope and append audit records.
 
 ## Required scenarios
 
@@ -46,6 +46,6 @@ cd backend && bun run typecheck && bun run lint && bun test && bun run test:inte
 
 ## Completion evidence
 
-- [ ] PR includes Round/Pattern DTO and error examples plus one test per scenario.
-- [ ] Uniqueness, immutability, authorization, and audit evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR includes Round/Pattern DTO and error examples plus one test per scenario.
+- [x] Uniqueness, immutability, authorization, and audit evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.
