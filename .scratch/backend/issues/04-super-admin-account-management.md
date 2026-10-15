@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_admin_management`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -25,10 +25,10 @@
 
 ## Acceptance criteria
 
-- [ ] Email uniqueness is case-insensitive and concurrency-safe.
-- [ ] List responses are paginated and omit credentials, hashes, and Session details.
-- [ ] Deactivation/soft deletion immediately prevents authenticated use.
-- [ ] Stable `403`, `404`, and `409` errors cover role, non-enumerating lookup, and identity conflicts.
+- [x] Email uniqueness is case-insensitive and concurrency-safe.
+- [x] List responses are paginated and omit credentials, hashes, and Session details.
+- [x] Deactivation/soft deletion immediately prevents authenticated use.
+- [x] Stable `403`, `404`, and `409` errors cover role, non-enumerating lookup, and identity conflicts.
 
 ## Required scenarios
 
