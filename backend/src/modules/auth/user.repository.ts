@@ -3,13 +3,16 @@ import { getDb } from '../../db/client.ts';
 import {
   users,
   adminProfiles,
+  participantProfiles,
   type UserRecord,
   type InsertUser,
   type AdminProfileRecord,
+  type ParticipantProfileRecord,
 } from '../../db/schema/users.ts';
 
 export interface UserWithProfile extends UserRecord {
   adminProfile: AdminProfileRecord | null;
+  participantProfile: ParticipantProfileRecord | null;
 }
 
 export interface IUserRepository {
@@ -33,15 +36,17 @@ export class UserRepository implements IUserRepository {
       .select({
         user: users,
         adminProfile: adminProfiles,
+        participantProfile: participantProfiles,
       })
       .from(users)
       .leftJoin(adminProfiles, eq(adminProfiles.userId, users.id))
+      .leftJoin(participantProfiles, eq(participantProfiles.userId, users.id))
       .where(eq(users.email, email.trim().toLowerCase()))
       .limit(1);
 
     if (rows.length === 0) return null;
-    const { user, adminProfile } = rows[0];
-    return { ...user, adminProfile };
+    const { user, adminProfile, participantProfile } = rows[0];
+    return { ...user, adminProfile, participantProfile };
   }
 
   async findById(id: string, tx?: any): Promise<UserWithProfile | null> {
@@ -50,15 +55,17 @@ export class UserRepository implements IUserRepository {
       .select({
         user: users,
         adminProfile: adminProfiles,
+        participantProfile: participantProfiles,
       })
       .from(users)
       .leftJoin(adminProfiles, eq(adminProfiles.userId, users.id))
+      .leftJoin(participantProfiles, eq(participantProfiles.userId, users.id))
       .where(eq(users.id, id))
       .limit(1);
 
     if (rows.length === 0) return null;
-    const { user, adminProfile } = rows[0];
-    return { ...user, adminProfile };
+    const { user, adminProfile, participantProfile } = rows[0];
+    return { ...user, adminProfile, participantProfile };
   }
 
   async create(

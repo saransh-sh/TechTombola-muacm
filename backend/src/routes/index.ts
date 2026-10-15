@@ -7,6 +7,7 @@ import { adminRoutes } from '../modules/admins/admin.routes.ts';
 import { eventRoutes } from '../modules/events/event.routes.ts';
 import { roundRoutes } from '../modules/rounds/round.routes.ts';
 import { questionRoutes } from '../modules/questions/question.routes.ts';
+import { participantRoutes } from '../modules/participants/participant.routes.ts';
 
 export const appRoutes: FastifyPluginAsync = async (fastify) => {
   // Root level health endpoints per PRD §63
@@ -21,6 +22,7 @@ export const appRoutes: FastifyPluginAsync = async (fastify) => {
       await v1.register(eventRoutes);
       await v1.register(roundRoutes);
       await v1.register(questionRoutes);
+      await v1.register(participantRoutes);
     },
     { prefix: API_PREFIX }
   );

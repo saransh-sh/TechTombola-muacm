@@ -1,4 +1,5 @@
 import { index, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { events } from './events.ts';
 
 export const USER_STATUSES = ['ACTIVE', 'INACTIVE'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
@@ -55,11 +56,38 @@ export const sessions = pgTable(
   ]
 );
 
+export const participantProfiles = pgTable(
+  'participant_profiles',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    eventId: uuid('event_id')
+      .notNull()
+      .references(() => events.id, { onDelete: 'restrict' }),
+    externalId: varchar('external_id', { length: 255 }),
+    status: varchar('status', { length: 50 }).notNull().default('ACTIVE'),
+    emailDeliveryStatus: varchar('email_delivery_status', { length: 50 }).notNull().default('PENDING'),
+    emailDeliveryError: text('email_delivery_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('participant_profiles_event_id_idx').on(table.eventId),
+    index('participant_profiles_user_id_idx').on(table.userId),
+  ]
+);
+
 export type UserRecord = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
 export type AdminProfileRecord = typeof adminProfiles.$inferSelect;
 export type InsertAdminProfile = typeof adminProfiles.$inferInsert;
 
+export type ParticipantProfileRecord = typeof participantProfiles.$inferSelect;
+export type InsertParticipantProfile = typeof participantProfiles.$inferInsert;
+
 export type SessionRecord = typeof sessions.$inferSelect;
 export type InsertSession = typeof sessions.$inferInsert;
+

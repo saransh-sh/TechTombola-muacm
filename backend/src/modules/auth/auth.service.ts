@@ -28,6 +28,7 @@ export interface LoginResult {
     email: string;
     name: string;
     role: string | null;
+    eventId?: string | null;
   };
   session: SessionRecord;
 }
@@ -39,6 +40,7 @@ export interface AuthenticatedPrincipal {
     name: string;
     role: string | null;
     status: string;
+    eventId?: string | null;
   };
   session: SessionRecord;
 }
@@ -80,13 +82,16 @@ export class AuthService {
     }
 
     // 3. Check account status
-    if (user.status !== 'ACTIVE') {
+    const isParticipant = !!user.participantProfile && !user.adminProfile;
+    const isProfileInactive = isParticipant && user.participantProfile?.status !== 'ACTIVE';
+
+    if (user.status !== 'ACTIVE' || isProfileInactive) {
       this.rateLimiter.recordFailure(email, ip);
 
       await this.audit.record({
         actorId: user.id,
         action: 'LOGIN_FAILED',
-        actorType: user.adminProfile?.role || 'ANONYMOUS',
+        actorType: user.adminProfile?.role || (isParticipant ? 'PARTICIPANT' : 'ANONYMOUS'),
         resourceType: 'auth',
         resourceId: user.id,
         metadata: { reason: 'ACCOUNT_INACTIVE', email },
@@ -106,7 +111,7 @@ export class AuthService {
       await this.audit.record({
         actorId: user.id,
         action: 'LOGIN_FAILED',
-        actorType: user.adminProfile?.role || 'ANONYMOUS',
+        actorType: user.adminProfile?.role || (isParticipant ? 'PARTICIPANT' : 'ANONYMOUS'),
         resourceType: 'auth',
         resourceId: user.id,
         metadata: { reason: 'INVALID_PASSWORD', email },
@@ -129,13 +134,16 @@ export class AuthService {
       userAgent: input.userAgent,
     });
 
-    const role = user.adminProfile?.role || 'ADMIN';
+    const role = user.adminProfile?.role || (isParticipant ? 'PARTICIPANT' : 'ADMIN');
+    const eventId = user.participantProfile?.eventId || undefined;
+
     const token = signAuthToken({
       sub: user.id,
       jti: session.id,
       role,
       email: user.email,
       name: user.name,
+      eventId,
     });
 
     await this.audit.record({
@@ -144,7 +152,7 @@ export class AuthService {
       action: 'LOGIN_SUCCESS',
       resourceType: 'auth',
       resourceId: session.id,
-      metadata: { email: user.email, role },
+      metadata: { email: user.email, role, eventId },
       ip,
       userAgent: input.userAgent,
       requestId: input.requestId,
@@ -156,7 +164,8 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.adminProfile?.role || null,
+        role: user.adminProfile?.role || (isParticipant ? 'PARTICIPANT' : null),
+        eventId: user.participantProfile?.eventId || null,
       },
       session,
     };
@@ -176,17 +185,23 @@ export class AuthService {
     }
 
     const user = await this.userRepo.findById(payload.sub);
-    if (!user || user.status !== 'ACTIVE') {
+    const isParticipant = !!user?.participantProfile && !user?.adminProfile;
+    const isProfileInactive = isParticipant && user?.participantProfile?.status !== 'ACTIVE';
+
+    if (!user || user.status !== 'ACTIVE' || isProfileInactive) {
       throw new UnauthorizedError('User identity not found or inactive');
     }
+
+    const role = user.adminProfile?.role || (isParticipant ? 'PARTICIPANT' : null);
 
     return {
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.adminProfile?.role || null,
+        role,
         status: user.status,
+        eventId: user.participantProfile?.eventId || null,
       },
       session,
     };

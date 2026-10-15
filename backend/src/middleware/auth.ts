@@ -12,6 +12,7 @@ declare module 'fastify' {
       name: string;
       role: string | null;
       status: string;
+      eventId?: string | null;
     };
     session?: {
       id: string;
@@ -65,3 +66,5 @@ export function requireRole(allowedRoles: string[]) {
 
 export const requireAdmin = requireRole(['ADMIN', 'SUPER_ADMIN']);
 export const requireSuperAdmin = requireRole(['SUPER_ADMIN']);
+export const requireParticipant = requireRole(['PARTICIPANT']);
+

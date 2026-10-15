@@ -14,6 +14,7 @@ export interface AuthJwtPayload {
   role: string;
   email: string;
   name: string;
+  eventId?: string;
 }
 
 export async function hashPassword(password: string): Promise<string> {
