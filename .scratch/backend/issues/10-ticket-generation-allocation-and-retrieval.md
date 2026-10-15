@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_ticket_generation`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -25,10 +25,10 @@
 
 ## Acceptance criteria
 
-- [ ] Every structural invariant is validated before persistence and database-constrained where possible.
-- [ ] Fewer than 15 unique eligible Keys rejects generation without partial Ticket writes.
-- [ ] Own-Ticket retrieval derives Participant identity from Session and cannot select another Participant.
-- [ ] Generation and retrieval never expose undrawn Questions, future order, or other Tickets.
+- [x] Every structural invariant is validated before persistence and database-constrained where possible.
+- [x] Fewer than 15 unique eligible Keys rejects generation without partial Ticket writes.
+- [x] Own-Ticket retrieval derives Participant identity from Session and cannot select another Participant.
+- [x] Generation and retrieval never expose undrawn Questions, future order, or other Tickets.
 
 ## Required scenarios
 
@@ -47,6 +47,6 @@ cd backend && bun run typecheck && bun run lint && bun test && bun run test:inte
 
 ## Completion evidence
 
-- [ ] PR includes generate/Ticket/error DTO examples and maps every scenario to a test.
-- [ ] Seeded generator, 500-Participant, rollback, concurrency, idempotency, and leakage evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR includes generate/Ticket/error DTO examples and maps every scenario to a test.
+- [x] Seeded generator, 500-Participant, rollback, concurrency, idempotency, and leakage evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.

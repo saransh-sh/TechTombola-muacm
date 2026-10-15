@@ -5,3 +5,4 @@ export * from './events.ts';
 export * from './rounds.ts';
 export * from './questions.ts';
 export * from './idempotency.ts';
+export * from './tickets.ts';
