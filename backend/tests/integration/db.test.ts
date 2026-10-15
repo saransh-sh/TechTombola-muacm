@@ -93,6 +93,7 @@ describe('Database and Migration Harness', () => {
       await app.close();
       await closeDb();
       process.env.DATABASE_URL = originalUrl;
+      resetCachedEnv();
     }
   });
 });

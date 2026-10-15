@@ -5,7 +5,7 @@ const SENSITIVE_KEY_PATTERNS = [
   /auth(orization)?/i,
   /cookie/i,
   /session/i,
-  /key$/i,
+  /(api[_-]?key|secret[_-]?key|private[_-]?key|access[_-]?key)/i,
   /credential/i,
 ];
 

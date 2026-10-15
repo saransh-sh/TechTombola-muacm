@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_audit_foundation`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -23,10 +23,10 @@
 
 ## Acceptance criteria
 
-- [ ] The full PRD audit-action vocabulary is a closed TypeScript union.
-- [ ] Metadata redaction rejects passwords, tokens, cookies, secrets, and temporary credentials recursively.
-- [ ] Application repository APIs expose append/read only; update/delete attempts are absent and database-protected where supported.
-- [ ] A failed critical audit insert rolls back its owning critical mutation.
+- [x] The full PRD audit-action vocabulary is a closed TypeScript union.
+- [x] Metadata redaction rejects passwords, tokens, cookies, secrets, and temporary credentials recursively.
+- [x] Application repository APIs expose append/read only; update/delete attempts are absent and database-protected where supported.
+- [x] A failed critical audit insert rolls back its owning critical mutation.
 
 ## Required scenarios
 
