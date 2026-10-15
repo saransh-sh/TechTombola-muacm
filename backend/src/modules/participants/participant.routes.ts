@@ -7,6 +7,8 @@ import {
   updateParticipantSchema,
 } from './participant.schemas.ts';
 import { participantService } from './participant.service.ts';
+import { importService } from './import/import.service.ts';
+import { ValidationError } from '../../shared/errors/app-error.ts';
 
 export const participantRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', requireAdmin);
@@ -39,6 +41,55 @@ export const participantRoutes: FastifyPluginAsync = async (fastify) => {
 
     reply.status(201);
     return { participant: created };
+  });
+
+  fastify.post('/admin/participants/import', async (request, reply) => {
+    const idempotencyKey = request.headers['idempotency-key'] as string;
+    if (!idempotencyKey || !idempotencyKey.trim()) {
+      throw new ValidationError('Idempotency-Key header is required for batch import');
+    }
+
+    let eventId = (request.query as any)?.eventId || '';
+    let csvContent = '';
+
+    if (request.isMultipart()) {
+      const parts = request.parts();
+      for await (const part of parts) {
+        if (part.type === 'file') {
+          const buffer = await part.toBuffer();
+          csvContent = buffer.toString('utf-8');
+        } else if (part.type === 'field' && part.fieldname === 'eventId') {
+          eventId = part.value as string;
+        }
+      }
+    } else {
+      const body = request.body as any;
+      if (body && typeof body === 'object') {
+        eventId = body.eventId || eventId;
+        csvContent = body.csvContent || '';
+      } else if (typeof body === 'string') {
+        csvContent = body;
+      }
+    }
+
+    if (!eventId) {
+      throw new ValidationError('eventId is required');
+    }
+
+    const report = await importService.importParticipantsFromCsv(
+      request.user!.id,
+      eventId,
+      csvContent,
+      idempotencyKey,
+      {
+        ip: request.ip,
+        userAgent: request.headers['user-agent'],
+        requestId: request.id,
+      }
+    );
+
+    reply.status(200);
+    return report;
   });
 
   fastify.patch('/admin/participants/:id', async (request) => {

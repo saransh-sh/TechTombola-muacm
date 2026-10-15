@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
+import multipart from '@fastify/multipart';
 import { ZodError } from 'zod';
 import { getEnv } from './config/env.ts';
 import { REQUEST_ID_HEADER, ERROR_CODES } from './config/constants.ts';
@@ -46,6 +47,13 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(cookie, {
     secret: env.SESSION_SECRET,
     hook: 'onRequest',
+  });
+
+  // Enable Multipart File Upload
+  await app.register(multipart, {
+    limits: {
+      fileSize: 10 * 1024 * 1024,
+    },
   });
 
   // Set Request-ID header on all responses
