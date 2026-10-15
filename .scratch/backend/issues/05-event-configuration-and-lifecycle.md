@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_event_lifecycle`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -24,10 +24,10 @@
 
 ## Acceptance criteria
 
-- [ ] Event state transitions are pure domain logic with an exhaustive transition table.
-- [ ] Scheduled dates and status-dependent edit restrictions are validated.
-- [ ] No mutation endpoint can silently rewrite historical state.
-- [ ] Mutations are audited transactionally and reads are deterministically paginated.
+- [x] Event state transitions are pure domain logic with an exhaustive transition table.
+- [x] Scheduled dates and status-dependent edit restrictions are validated.
+- [x] No mutation endpoint can silently rewrite historical state.
+- [x] Mutations are audited transactionally and reads are deterministically paginated.
 
 ## Required scenarios
 
@@ -45,6 +45,6 @@ cd backend && bun run typecheck && bun run lint && bun test && bun run test:inte
 
 ## Completion evidence
 
-- [ ] PR includes the approved transition table, API examples, and one passing test per scenario.
-- [ ] Concurrent transition and audit-rollback evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR includes the approved transition table, API examples, and one passing test per scenario.
+- [x] Concurrent transition and audit-rollback evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.

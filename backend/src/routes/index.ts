@@ -4,6 +4,7 @@ import { API_PREFIX } from '../config/constants.ts';
 
 import { authRoutes } from '../modules/auth/auth.routes.ts';
 import { adminRoutes } from '../modules/admins/admin.routes.ts';
+import { eventRoutes } from '../modules/events/event.routes.ts';
 
 export const appRoutes: FastifyPluginAsync = async (fastify) => {
   // Root level health endpoints per PRD §63
@@ -15,6 +16,7 @@ export const appRoutes: FastifyPluginAsync = async (fastify) => {
       v1.get('/ping', async () => ({ message: 'pong' }));
       await v1.register(authRoutes);
       await v1.register(adminRoutes);
+      await v1.register(eventRoutes);
     },
     { prefix: API_PREFIX }
   );
