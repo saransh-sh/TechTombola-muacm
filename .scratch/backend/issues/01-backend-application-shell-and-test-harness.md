@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_backend_foundation`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -24,11 +24,11 @@
 
 ## Acceptance criteria
 
-- [ ] Missing or invalid environment variables fail before the server listens; secrets are never logged.
-- [ ] Domain, Zod, authentication, and unknown errors map to the standard envelope with stable codes.
-- [ ] `/health` remains independent of PostgreSQL; `/ready` returns `503` when PostgreSQL is unavailable.
-- [ ] Migrations apply to an empty database and `db:check` detects drift.
-- [ ] Unit and integration tests run against isolated, resettable PostgreSQL state.
+- [x] Missing or invalid environment variables fail before the server listens; secrets are never logged.
+- [x] Domain, Zod, authentication, and unknown errors map to the standard envelope with stable codes.
+- [x] `/health` remains independent of PostgreSQL; `/ready` returns `503` when PostgreSQL is unavailable.
+- [x] Migrations apply to an empty database and `db:check` detects drift.
+- [x] Unit and integration tests run against isolated, resettable PostgreSQL state.
 
 ## Required scenarios
 
