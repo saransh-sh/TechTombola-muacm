@@ -1,13 +1,18 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
+import websocket from '@fastify/websocket';
 import multipart from '@fastify/multipart';
 import { ZodError } from 'zod';
 import { getEnv } from './config/env.ts';
 import { REQUEST_ID_HEADER, ERROR_CODES } from './config/constants.ts';
 import { normalizeRequestId } from './shared/utils/request-id.ts';
 import { AppError } from './shared/errors/app-error.ts';
-import { appRoutes } from './routes/index.ts';
+import { createAppRoutes } from './routes/index.ts';
+import { RealtimeConnectionManager } from './realtime/connection-manager.ts';
+import { RealtimeSubscriptionService } from './realtime/subscription.service.ts';
+import { eventRepository } from './modules/events/event.repository.ts';
+import { roundRepository } from './modules/rounds/round.repository.ts';
 
 export interface BuildAppOptions {
   enableLogging?: boolean;
@@ -48,6 +53,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     secret: env.SESSION_SECRET,
     hook: 'onRequest',
   });
+  await app.register(websocket);
 
   // Enable Multipart File Upload
   await app.register(multipart, {
@@ -137,7 +143,9 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   });
 
   // Register application routes
-  await app.register(appRoutes);
+  const realtimeConnectionManager = new RealtimeConnectionManager();
+  const realtimeSubscriptionService = new RealtimeSubscriptionService(eventRepository, roundRepository);
+  await app.register(createAppRoutes({ realtimeConnectionManager, realtimeSubscriptionService }));
 
   return app;
 }
