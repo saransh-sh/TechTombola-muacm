@@ -214,6 +214,10 @@ describe('Issue 20 production-server critical flows', () => {
       cookie: participants[1].cookie,
     }), 200).body.ticket;
     expect(otherTicket.id).not.toBe(ticket.id);
+    const ticketReadCannotBeRedirected = assertStep('ignore another Ticket identifier on Participant read', await api('GET', `/participant/ticket?roundId=${round.id}&ticketId=${ticket.id}`, {
+      cookie: participants[1].cookie,
+    }), 200).body.ticket;
+    expect(ticketReadCannotBeRedirected.id).toBe(otherTicket.id);
     const beforeAnyDraw = assertStep('hide future Draws', await api('GET', `/participant/draws?roundId=${round.id}`, {
       cookie: participants[0].cookie,
     }), 200).body;
@@ -232,6 +236,13 @@ describe('Issue 20 production-server critical flows', () => {
       ws.once('open', resolve); ws.once('error', reject);
       setTimeout(() => reject(new Error('WebSocket connection timed out')), 5000);
     });
+    const adminWs = new WebSocket(`${baseUrl.replace('http', 'ws')}/api/v1/ws?eventId=${event.id}&roundId=${round.id}`, { headers: { cookie: admin.cookie } });
+    const adminEvents: any[] = [];
+    adminWs.on('message', (message) => adminEvents.push(JSON.parse(message.toString())));
+    await new Promise<void>((resolve, reject) => {
+      adminWs.once('open', resolve); adminWs.once('error', reject);
+      setTimeout(() => reject(new Error('Admin WebSocket connection timed out')), 5000);
+    });
     const disconnected = new Promise<void>((resolve) => ws.once('close', () => resolve()));
     ws.close();
     await disconnected;
@@ -249,6 +260,8 @@ describe('Issue 20 production-server critical flows', () => {
     const disconnectedDraws = disconnectedState.data ?? disconnectedState.draws ?? disconnectedState;
     expect(disconnectedDraws.some((draw: any) => draw.id === random.id)).toBe(true);
     expect(disconnectedDraws).toHaveLength(1);
+    expect(disconnectedDraws[0].keyId).toBe(random.keyId);
+    expect(disconnectedDraws[0].questionId).toBe(random.questionId);
 
     const reconnected = new WebSocket(`${baseUrl.replace('http', 'ws')}/api/v1/ws?roundId=${round.id}`, { headers: { cookie: participants[0].cookie } });
     reconnected.on('message', (message) => events.push(JSON.parse(message.toString())));
@@ -257,12 +270,14 @@ describe('Issue 20 production-server critical flows', () => {
       setTimeout(() => reject(new Error('WebSocket reconnect timed out')), 5000);
     });
     const drawn = new Set([random.questionId]);
+    const allDraws = [random];
     for (const question of questions) {
       if (drawn.has(question.id)) continue;
       const manual = assertStep(`manual Draw ${question.id}`, await api('POST', `/admin/rounds/${round.id}/draws/manual`, {
         cookie: admin.cookie, headers: { 'idempotency-key': `manual-${crypto.randomUUID()}` }, body: { questionId: question.id },
       }), 200).body.draw;
       drawn.add(manual.questionId);
+      allDraws.push(manual);
     }
     expect(drawn.size).toBe(15);
     await Bun.sleep(150);
@@ -273,24 +288,43 @@ describe('Issue 20 production-server critical flows', () => {
     }), 200).body;
     const drawList = restState.data ?? restState.draws ?? restState;
     expect(drawList.length).toBe(15);
-    for (const cell of ticket.cells) {
-      assertStep(`mark drawn cell ${cell.id}`, await api('POST', `/participant/tickets/${ticket.id}/marks`, {
-        cookie: participants[0].cookie, body: { cellId: cell.id },
-      }), 200);
-    }
     assertStep('deny cross-Participant Ticket access', await api('POST', `/participant/tickets/${ticket.id}/marks`, {
       cookie: participants[1].cookie, body: { cellId: ticket.cells[0].id },
     }), 404);
 
-    for (const pattern of patterns) {
-      const claim = assertStep(`claim ${pattern}`, await api('POST', '/participant/claims', {
-        cookie: participants[0].cookie, body: { roundId: round.id, pattern },
+    const participantTickets = [ticket, otherTicket];
+    for (let index = 2; index < participants.length; index++) {
+      participantTickets.push(assertStep(`read Participant ${index + 1} Ticket`, await api('GET', `/participant/ticket?roundId=${round.id}`, {
+        cookie: participants[index].cookie,
+      }), 200).body.ticket);
+    }
+    const patternCells = [
+      participantTickets[0].cells.slice(0, 5),
+      [...participantTickets[1].cells.slice(0, 5), ...participantTickets[1].cells.filter((cell: any) => cell.rowIndex === 0)],
+      participantTickets[2].cells.filter((cell: any) => cell.rowIndex === 1),
+      participantTickets[3].cells.filter((cell: any) => cell.rowIndex === 2),
+      participantTickets[4].cells,
+    ];
+    const markedCellIds = new Set<string>();
+    for (let index = 0; index < patternCells.length; index++) {
+      for (const cell of patternCells[index]) {
+        if (markedCellIds.has(cell.id)) continue;
+        markedCellIds.add(cell.id);
+        assertStep(`mark Participant ${index + 1} cell ${cell.id}`, await api('POST', `/participant/tickets/${participantTickets[index].id}/marks`, {
+          cookie: participants[index].cookie, body: { cellId: cell.id },
+        }), 200);
+      }
+    }
+
+    for (const [index, pattern] of patterns.entries()) {
+      const claim = assertStep(`Participant ${index + 1} claims ${pattern}`, await api('POST', '/participant/claims', {
+        cookie: participants[index].cookie, body: { roundId: round.id, pattern },
       }), 200).body.claim;
       assertStep(`verify ${pattern}`, await api('POST', `/admin/claims/${claim.id}/verify`, {
         cookie: admin.cookie, headers: { 'idempotency-key': `verify-${pattern}-${crypto.randomUUID()}` },
       }), 200);
       if (pattern === 'EARLY_5') {
-        assertStep('reject competing Early 5 Winner after pattern closes', await api('POST', '/participant/claims', {
+        assertStep('reject eligible competing Early 5 Winner after pattern closes', await api('POST', '/participant/claims', {
           cookie: participants[1].cookie, body: { roundId: round.id, pattern: 'EARLY_5' },
         }), 409);
       }
@@ -298,7 +332,9 @@ describe('Issue 20 production-server critical flows', () => {
     assertStep('complete Round', await api('POST', `/admin/rounds/${round.id}/complete`, { cookie: admin.cookie }), 200);
     expect(assertStep('read final Round state', await api('GET', `/admin/rounds/${round.id}`, { cookie: admin.cookie }), 200).body.round.status).toBe('COMPLETED');
     await Bun.sleep(100);
-    const auditPage = assertStep('read workflow audit effects', await api('GET', '/admin/audit?limit=100', { cookie: admin.cookie }), 200).body;
+    const firstAuditPage = assertStep('read first workflow audit page', await api('GET', '/admin/audit?page=1&limit=100', { cookie: admin.cookie }), 200).body;
+    const secondAuditPage = assertStep('read remaining workflow audit page', await api('GET', '/admin/audit?page=2&limit=100', { cookie: admin.cookie }), 200).body;
+    const auditPage = { items: [...firstAuditPage.items, ...secondAuditPage.items] };
     const actionCount = (action: string) => auditPage.items.filter((item: any) => item.action === action).length;
     expect(actionCount('SUPER_ADMIN_BOOTSTRAPPED')).toBe(1);
     expect(actionCount('LOGIN_SUCCESS')).toBe(7);
@@ -306,20 +342,37 @@ describe('Issue 20 production-server critical flows', () => {
     expect(actionCount('KEY_CREATED')).toBe(15);
     expect(actionCount('QUESTION_CREATED')).toBe(15);
     expect(actionCount('TICKET_GENERATED')).toBe(1);
-    expect(actionCount('ROUND_STARTED')).toBeGreaterThanOrEqual(3);
+    expect(actionCount('ROUND_STARTED')).toBe(5);
     expect(actionCount('DRAW_CREATED')).toBe(1);
     expect(actionCount('MANUAL_DRAW_CREATED')).toBe(14);
-    expect(actionCount('MARK_CREATED')).toBe(15);
+    expect(actionCount('MARK_CREATED')).toBe(markedCellIds.size);
     expect(actionCount('WIN_CLAIM_CREATED')).toBe(5);
     expect(actionCount('WIN_VERIFIED')).toBe(5);
     expect(actionCount('ROUND_COMPLETED')).toBe(1);
+    expect(auditPage.items).toHaveLength(77 + markedCellIds.size);
+    expect(auditPage.items.filter((item: any) => item.resourceType === 'round' && item.resourceId === round.id && item.action === 'ROUND_STARTED' && item.metadata?.toStatus === 'ACTIVE')).toHaveLength(1);
     expect(events.filter((event) => event.type === 'DRAW_CREATED')).toHaveLength(14);
+    for (const event of events.filter((item) => item.type === 'DRAW_CREATED')) {
+      expect(event.eventId).toBe(event.id);
+      expect(event.roundId).toBe(round.id);
+      expect(allDraws.some((draw) => draw.keyValue === event.payload.key && draw.questionText === event.payload.question)).toBe(true);
+    }
     expect(events.filter((event) => event.type === 'WINNER_VERIFIED')).toHaveLength(5);
     expect(events.filter((event) => event.type === 'ROUND_COMPLETED')).toHaveLength(1);
     expect(events.some((event) => event.type === 'WIN_CLAIM_CREATED')).toBe(false);
+    expect(adminEvents.filter((event) => event.type === 'WIN_CLAIM_CREATED')).toHaveLength(5);
+    expect(adminEvents.filter((event) => event.type === 'DRAW_CREATED')).toHaveLength(14);
+    for (const event of adminEvents.filter((item) => item.type === 'DRAW_CREATED')) {
+      expect(event.eventId).toBe(event.id);
+      expect(event.roundId).toBe(round.id);
+      expect(allDraws.some((draw) => draw.keyValue === event.payload.key && draw.questionText === event.payload.question)).toBe(true);
+    }
+    expect(adminEvents.filter((event) => event.type === 'WINNER_VERIFIED')).toHaveLength(5);
+    expect(adminEvents.filter((event) => event.type === 'ROUND_COMPLETED')).toHaveLength(1);
     expect(providerMessages).toHaveLength(5);
     expect(serverOutput).not.toContain(bootstrapSecret);
     expect(serverOutput).not.toContain(superPassword);
     reconnected.close();
+    adminWs.close();
   }, 120000);
 });
