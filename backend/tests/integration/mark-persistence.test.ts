@@ -454,7 +454,8 @@ describe('Participant Mark Persistence Integration', () => {
     });
     expect(resUnmarkPaused.statusCode).toBe(422);
 
-    await roundService.cancelRound(adminUser.id, round.id);
+    await roundService.resumeRound(adminUser.id, round.id, `mark-test-cleanup-${round.id}`);
+    await roundService.completeRound(adminUser.id, round.id);
   });
 
   it('enforces ticket ownership with non-enumerating 404', async () => {
