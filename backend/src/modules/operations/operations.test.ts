@@ -79,9 +79,11 @@ describe('Operations read models', () => {
   });
 
   it('rejects malformed cursor payloads', async () => {
-    const cursor = Buffer.from('[]').toString('base64url');
     const service = new OperationsService(repository());
-    await expect(service.listAudit(auditQuerySchema.parse({ cursor }))).rejects.toThrow('Audit cursor is invalid');
+    for (const payload of ['[]', JSON.stringify({ createdAt: '2026-02-31T12:00:00.000001Z', id: auditRow.id })]) {
+      const cursor = Buffer.from(payload).toString('base64url');
+      await expect(service.listAudit(auditQuerySchema.parse({ cursor }))).rejects.toThrow('Audit cursor is invalid');
+    }
   });
 
   it('returns bounded audit page metadata and excludes network/request fields', async () => {
