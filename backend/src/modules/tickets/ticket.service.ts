@@ -12,6 +12,7 @@ import type {
   ITicketRepository,
   TicketDto,
 } from './ticket.types.ts';
+import { markRepository } from '../marks/mark.repository.ts';
 
 export class TicketService {
   constructor(
@@ -228,6 +229,9 @@ export class TicketService {
       throw new NotFoundError('Ticket not found for the current round');
     }
 
+    const marks = await markRepository.getMarksForTicket(ticket.id);
+    const markedCellIds = new Set(marks.map((m) => m.cellId));
+
     return {
       id: ticket.id,
       roundId: ticket.roundId,
@@ -242,7 +246,7 @@ export class TicketService {
         column: c.colIndex,
         keyId: c.keyId,
         keyValue: c.keyValue,
-        marked: false,
+        marked: markedCellIds.has(c.id),
       })),
     };
   }

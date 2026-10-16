@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_participant_marks`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -25,10 +25,10 @@
 
 ## Acceptance criteria
 
-- [ ] Database foreign keys and uniqueness prevent cross-Ticket or duplicate Mark corruption.
-- [ ] A repeated Mark preserves the original timestamp; deleting an absent Mark succeeds without a new audit event.
-- [ ] `MARK_CREATED` and `MARK_REMOVED` audit only actual state changes.
-- [ ] Winner services cannot accept Mark rows as eligibility input.
+- [x] Database foreign keys and uniqueness prevent cross-Ticket or duplicate Mark corruption.
+- [x] A repeated Mark preserves the original timestamp; deleting an absent Mark succeeds without a new audit event.
+- [x] `MARK_CREATED` and `MARK_REMOVED` audit only actual state changes.
+- [x] Winner services cannot accept Mark rows as eligibility input.
 
 ## Required scenarios
 
@@ -47,6 +47,6 @@ cd backend && bun run typecheck && bun run lint && bun test && bun run test:inte
 
 ## Completion evidence
 
-- [ ] PR includes mark/unmark success/error DTO examples and maps every scenario to a test.
-- [ ] Concurrency, ownership, timestamp, audit, and winner-input-boundary evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR includes mark/unmark success/error DTO examples and maps every scenario to a test.
+- [x] Concurrency, ownership, timestamp, audit, and winner-input-boundary evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.

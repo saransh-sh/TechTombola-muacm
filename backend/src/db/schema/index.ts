@@ -7,3 +7,4 @@ export * from './questions.ts';
 export * from './idempotency.ts';
 export * from './tickets.ts';
 export * from './draws.ts';
+export * from './marks.ts';

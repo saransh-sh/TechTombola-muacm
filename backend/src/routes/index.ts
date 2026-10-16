@@ -14,6 +14,7 @@ import { participantRoutes } from '../modules/participants/participant.routes.ts
 import { ticketRoutes } from '../modules/tickets/ticket.routes.ts';
 import { drawRoutes } from '../modules/draws/draw.routes.ts';
 import { drawService } from '../modules/draws/draw.service.ts';
+import { markRoutes } from '../modules/marks/mark.routes.ts';
 
 export interface AppRouteDependencies {
   realtimeConnectionManager: RealtimeConnectionManager;
@@ -46,6 +47,7 @@ export function createAppRoutes({
         await v1.register(participantRoutes);
         await v1.register(ticketRoutes);
         await v1.register(drawRoutes);
+        await v1.register(markRoutes);
       },
       { prefix: API_PREFIX }
     );
