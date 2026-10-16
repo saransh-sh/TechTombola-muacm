@@ -18,3 +18,9 @@ bun run lint
 bun run test
 bun run test:integration
 ```
+
+## Dependency and verification notes for Ticket 20
+
+This branch is stacked on Ticket 19 and exercises the preceding backend slices (Issues 04–19) through their public APIs. The earlier slices did not provide a public first-Super-Admin bootstrap route or a real HTTP email-provider boundary, so the complete black-box workflow could not run using public APIs and a fake provider until Ticket 20 added those seams. The harness now covers those setup steps without writing application records directly.
+
+The local development environment used for this branch had no PostgreSQL service available, so the isolated-database E2E and integration suites could not be executed locally. The workflow above provisions PostgreSQL in CI and runs the E2E suite twice; treat those CI results as pending until the branch workflow completes. Typecheck and whitespace validation passed locally; the aggregate unit suite did not produce a clean completed run in this environment.
