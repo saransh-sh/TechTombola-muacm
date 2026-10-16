@@ -10,8 +10,6 @@ import type {
   PublicWinnersByPattern,
 } from './live.types.ts';
 
-const patternOrder = ['EARLY_5', 'TOP_LINE', 'MIDDLE_LINE', 'BOTTOM_LINE', 'FULL_HOUSE'] as const;
-
 function iso(value: Date | null): string | null {
   return value?.toISOString() ?? null;
 }

@@ -23,16 +23,15 @@ describe('Round State Transitions and Readiness Domain Logic', () => {
         'PAUSED',
         'RECOVERY_REQUIRED',
         'COMPLETED',
-        'CANCELLED',
       ]);
     });
 
     it('defines valid forward transitions from PAUSED', () => {
-      expect(ALLOWED_ROUND_TRANSITIONS.PAUSED).toEqual(['ACTIVE', 'CANCELLED']);
+      expect(ALLOWED_ROUND_TRANSITIONS.PAUSED).toEqual(['ACTIVE']);
     });
 
     it('defines valid forward transitions from RECOVERY_REQUIRED', () => {
-      expect(ALLOWED_ROUND_TRANSITIONS.RECOVERY_REQUIRED).toEqual(['CANCELLED']);
+      expect(ALLOWED_ROUND_TRANSITIONS.RECOVERY_REQUIRED).toEqual(['ACTIVE']);
     });
 
     it('defines terminal states COMPLETED and CANCELLED with no outgoing transitions', () => {
@@ -50,10 +49,8 @@ describe('Round State Transitions and Readiness Domain Logic', () => {
       ['ACTIVE', 'PAUSED'],
       ['ACTIVE', 'RECOVERY_REQUIRED'],
       ['ACTIVE', 'COMPLETED'],
-      ['ACTIVE', 'CANCELLED'],
       ['PAUSED', 'ACTIVE'],
-      ['PAUSED', 'CANCELLED'],
-      ['RECOVERY_REQUIRED', 'CANCELLED'],
+      ['RECOVERY_REQUIRED', 'ACTIVE'],
     ];
 
     for (const [from, to] of validPairs) {
@@ -70,16 +67,18 @@ describe('Round State Transitions and Readiness Domain Logic', () => {
       ['READY', 'READY'], // repeated ready
       ['READY', 'PAUSED'],
       ['READY', 'COMPLETED'],
+      ['ACTIVE', 'CANCELLED'],
       ['ACTIVE', 'ACTIVE'], // repeated start
+      ['PAUSED', 'CANCELLED'],
       ['PAUSED', 'PAUSED'], // repeated pause
       ['PAUSED', 'COMPLETED'],
+      ['RECOVERY_REQUIRED', 'CANCELLED'],
       ['COMPLETED', 'ACTIVE'], // completed never resumes
       ['COMPLETED', 'PAUSED'],
       ['COMPLETED', 'COMPLETED'],
       ['CANCELLED', 'ACTIVE'],
       ['CANCELLED', 'DRAFT'],
       ['CANCELLED', 'CANCELLED'],
-      ['RECOVERY_REQUIRED', 'ACTIVE'], // explicit recovery validation required
     ];
 
     for (const [from, to] of invalidPairs) {

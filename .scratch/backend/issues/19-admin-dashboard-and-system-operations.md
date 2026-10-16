@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_admin_operations`
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 ## Scope and contracts
 
@@ -33,7 +33,7 @@
 ## Required scenarios
 
 - Empty and populated dashboard; each Round state; pending Claims and verified Winners; recovery-required alert.
-- Audit filters singly/combined, page boundaries, deterministic ties, unknown filter, redaction regression.
+- Audit filters singly/combined, cursor boundaries during concurrent inserts, deterministic ties, unknown filter, redaction regression.
 - Participant/Admin/Super Admin matrix; cross-Event scope; system database-unready state; no secret leakage.
 - Query-count/index plan checks and concurrent read during Draw/verification.
 

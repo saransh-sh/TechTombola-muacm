@@ -19,6 +19,7 @@ import { createClaimRoutes } from '../modules/claims/claim.routes.ts';
 import { createLiveRoutes } from '../modules/live/live.routes.ts';
 import { createRecoveryRoutes } from '../modules/recovery/recovery.routes.ts';
 import { RecoveryService } from '../modules/recovery/recovery.service.ts';
+import type { LiveReadService } from '../modules/live/live.service.ts';
 import { claimService } from '../modules/claims/claim.service.ts';
 import type { WinnerService } from '../modules/claims/winner.service.ts';
 import { createOperationsRoutes } from '../modules/operations/operations.routes.ts';
@@ -30,6 +31,7 @@ export interface AppRouteDependencies {
   winnerService: WinnerService;
   recoveryService: RecoveryService;
   operationsService: OperationsService;
+  liveReadService: LiveReadService;
 }
 
 export function createAppRoutes({
@@ -38,6 +40,7 @@ export function createAppRoutes({
   winnerService,
   recoveryService,
   operationsService,
+  liveReadService,
 }: AppRouteDependencies): FastifyPluginAsync {
   roundService.setRealtimePublisher(realtimeConnectionManager);
   drawService.setRealtimePublisher(realtimeConnectionManager);
@@ -66,7 +69,7 @@ export function createAppRoutes({
         await v1.register(drawRoutes);
         await v1.register(markRoutes);
         await v1.register(createClaimRoutes(winnerService));
-        await v1.register(createLiveRoutes());
+        await v1.register(createLiveRoutes(liveReadService));
         await v1.register(createRecoveryRoutes(recoveryService));
       },
       { prefix: API_PREFIX }

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client.ts';
 import { winners } from '../../db/schema/claims.ts';
 import { draws } from '../../db/schema/draws.ts';
@@ -27,8 +27,8 @@ export class LiveReadRepository implements ILiveReadRepository {
         completedAt: events.completedAt,
       })
       .from(events)
-      .where(inArray(events.status, ['LIVE', 'PAUSED', 'COMPLETED']))
-      .orderBy(desc(events.updatedAt), desc(events.id))
+      .where(eq(events.status, 'LIVE'))
+      .orderBy(sql`${events.startedAt} DESC NULLS LAST`, desc(events.id))
       .limit(1);
     return event as LiveEventRecord | undefined ?? null;
   }
@@ -44,8 +44,13 @@ export class LiveReadRepository implements ILiveReadRepository {
         updatedAt: rounds.updatedAt,
       })
       .from(rounds)
-      .where(and(eq(rounds.eventId, eventId), inArray(rounds.status, ['ACTIVE', 'PAUSED', 'RECOVERY_REQUIRED', 'COMPLETED'])))
-      .orderBy(desc(rounds.updatedAt), desc(rounds.id))
+      .where(and(eq(rounds.eventId, eventId), inArray(rounds.status, ['ACTIVE', 'PAUSED', 'RECOVERY_REQUIRED', 'READY', 'COMPLETED'])))
+      .orderBy(
+        sql`CASE ${rounds.status} WHEN 'ACTIVE' THEN 0 WHEN 'PAUSED' THEN 1 WHEN 'RECOVERY_REQUIRED' THEN 2 WHEN 'READY' THEN 3 ELSE 4 END`,
+        desc(rounds.sequenceNumber),
+        desc(rounds.updatedAt),
+        desc(rounds.id)
+      )
       .limit(1);
     return round as LiveRoundRecord | undefined ?? null;
   }
@@ -70,5 +75,3 @@ export class LiveReadRepository implements ILiveReadRepository {
       .orderBy(asc(winners.patternType), asc(winners.verifiedAt), asc(winners.id)) as Promise<LiveWinnerRecord[]>;
   }
 }
-
-export const liveReadRepository = new LiveReadRepository();

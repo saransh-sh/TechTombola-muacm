@@ -14,6 +14,6 @@ export function serializeAuditRecord(record: AuditLogRecord) {
   };
 }
 
-export function serializeAuditPage(records: AuditLogRecord[], page: number, limit: number, hasMore: boolean) {
-  return { items: records.map(serializeAuditRecord), page, limit, hasMore };
+export function serializeAuditPage(records: AuditLogRecord[], limit: number, hasMore: boolean, nextCursor: string | null) {
+  return { items: records.map(serializeAuditRecord), limit, hasMore, nextCursor };
 }

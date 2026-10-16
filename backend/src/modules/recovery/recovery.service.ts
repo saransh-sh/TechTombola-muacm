@@ -45,10 +45,6 @@ export class RecoveryService {
         throw new ConflictError(`Round in '${round.status}' cannot be recovered`, 'ROUND_NOT_RECOVERABLE');
       }
       const snapshot = await this.repository.getSnapshot(roundId, round.eventId, tx);
-      if (snapshot.inconsistentTicketScope) throw new ConflictError('Ticket Event does not match its Round Event', 'RECOVERY_TICKET_SCOPE_INVALID');
-      if (snapshot.inconsistentWinnerScope) throw new ConflictError('Winner Event does not match its Round Event', 'RECOVERY_WINNER_INVALID');
-      if (snapshot.inconsistentWinnerClaims) throw new ConflictError('Winner does not match its Claim', 'RECOVERY_CLAIM_INVALID');
-      if (snapshot.inconsistentClaims) throw new ConflictError('Claim and verified Winner records do not agree', 'RECOVERY_CLAIM_INVALID');
       validateRecoverySnapshot(snapshot);
       await this.repository.updateRoundStatus(roundId, 'ACTIVE', tx);
       const summary = await this.rounds.findById(roundId, tx);

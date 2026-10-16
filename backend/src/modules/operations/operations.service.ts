@@ -3,6 +3,22 @@ import packageInfo from '../../../package.json' with { type: 'json' };
 import type { IOperationsRepository } from './operations.repository.ts';
 import type { AuditQuery } from './operations.schemas.ts';
 import { serializeAuditPage } from './operations.serializers.ts';
+import { ValidationError } from '../../shared/errors/app-error.ts';
+
+function decodeAuditCursor(cursor: string): { createdAt: string; id: string } {
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as { createdAt?: unknown; id?: unknown };
+    if (typeof parsed.createdAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(parsed.createdAt) || !Number.isFinite(Date.parse(parsed.createdAt)) || typeof parsed.id !== 'string' || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(parsed.id)) throw new Error('invalid cursor');
+    return { createdAt: parsed.createdAt, id: parsed.id };
+  } catch {
+    throw new ValidationError('Audit cursor is invalid');
+  }
+}
+
+function encodeAuditCursor(record: { cursorCreatedAt?: string; createdAt: Date; id: string }): string {
+  const createdAt = record.cursorCreatedAt ?? record.createdAt.toISOString().replace(/\.(\d{3})Z$/, (_, milliseconds: string) => `.${milliseconds}000Z`);
+  return Buffer.from(JSON.stringify({ createdAt, id: record.id })).toString('base64url');
+}
 
 export interface ConnectionCounter { connectionCount(): number; }
 
@@ -23,9 +39,12 @@ export class OperationsService {
   }
 
   async listAudit(query: AuditQuery) {
-    const { page, limit } = query;
-    const rows = await this.repository.listAudit({ ...query, page, limit });
-    return serializeAuditPage(rows.slice(0, limit), page, limit, rows.length > limit);
+    const { cursor, ...filters } = query;
+    const rows = await this.repository.listAudit({ ...filters, limit: query.limit, cursor: cursor ? decodeAuditCursor(cursor) : undefined });
+    const items = rows.slice(0, query.limit);
+    const hasMore = rows.length > query.limit;
+    const last = items.at(-1);
+    return serializeAuditPage(items, query.limit, hasMore, hasMore && last ? encodeAuditCursor(last) : null);
   }
 
   async getSystem() {
