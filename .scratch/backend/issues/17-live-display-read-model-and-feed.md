@@ -28,10 +28,10 @@
 
 ## Acceptance criteria
 
-- [ ] REST recovery and public events represent the same committed state.
-- [ ] ACTIVE, PAUSED, RECOVERY_REQUIRED, COMPLETED, and no-live states serialize explicitly.
-- [ ] Cross-Event data cannot enter current-state responses.
-- [ ] A strict serializer fails tests when a sensitive field is added upstream.
+- [x] REST recovery and public events represent the same committed state.
+- [x] ACTIVE, PAUSED, RECOVERY_REQUIRED, COMPLETED, and no-live states serialize explicitly.
+- [x] Cross-Event data cannot enter current-state responses.
+- [x] A strict serializer fails tests when a sensitive field is added upstream.
 
 ## Implementation evidence
 
@@ -52,11 +52,11 @@
 Run serializer leak tests, lifecycle fixtures, REST/WS convergence integration tests, query-plan checks, then every canonical backend command.
 
 ```bash
-cd backend && bun run typecheck && bun run lint && bun test && bun run test:integration && bun run build
+cd backend && bun run typecheck && bun run lint && bun run test && bun run test:integration && bun run build
 ```
 
 ## Completion evidence
 
-- [ ] PR includes each public DTO/null state/event example and maps every scenario to a test.
-- [ ] Field-allowlist, cross-Event, query-plan, concurrency, and REST/WS convergence evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR includes each public DTO/null state/event example and maps every scenario to a test.
+- [x] Field-allowlist, cross-Event, query-plan, concurrency, and REST/WS convergence evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.
