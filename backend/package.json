@@ -11,7 +11,7 @@
     "lint": "tsc --noEmit",
     "db:migrate": "bun src/db/migrate.ts",
     "db:check": "bun src/db/check.ts",
-    "test": "bun test tests/unit src/modules/claims/*.test.ts src/realtime/*.test.ts",
+    "test": "bun test tests/unit src/modules/claims/*.test.ts src/modules/live/*.test.ts src/realtime/*.test.ts",
     "test:integration": "bun test tests/integration src/realtime/realtime.routes.test.ts"
   },
   "dependencies": {

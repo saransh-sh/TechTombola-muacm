@@ -6,8 +6,8 @@ import type { LiveReadService } from './live.service.ts';
 const service = {
   event: async () => ({ event: null }),
   round: async () => ({ round: null }),
-  draws: async () => ({ draws: [] }),
-  winners: async () => ({ winners: { EARLY_5: [], TOP_LINE: [], MIDDLE_LINE: [], BOTTOM_LINE: [], FULL_HOUSE: [] } }),
+  draws: async () => ({ roundId: null, data: [] }),
+  winners: async () => ({ roundId: null, data: [] }),
 } as unknown as LiveReadService;
 
 const app = Fastify();
@@ -32,15 +32,15 @@ describe('Live Display routes', () => {
     expect(response.json()).toEqual({ round: null });
   });
 
-  it('exposes unauthenticated empty Draw state', async () => {
+  it('exposes unauthenticated Draw state with an explicit no-live envelope', async () => {
     const response = await app.inject({ method: 'GET', url: '/live/draws' });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ draws: [] });
+    expect(response.json()).toEqual({ roundId: null, data: [] });
   });
 
-  it('exposes unauthenticated grouped Winner state', async () => {
+  it('exposes unauthenticated Winner state with an explicit no-live envelope', async () => {
     const response = await app.inject({ method: 'GET', url: '/live/winners' });
     expect(response.statusCode).toBe(200);
-    expect(response.json().winners.FULL_HOUSE).toEqual([]);
+    expect(response.json()).toEqual({ roundId: null, data: [] });
   });
 });

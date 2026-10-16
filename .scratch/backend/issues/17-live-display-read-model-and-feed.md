@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_live_display_api`
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 ## Scope and contracts
 
@@ -16,6 +16,9 @@
 - API: `GET /api/v1/live/event|round|draws|winners`; `/api/v1/live/ws` from ticket 11 supplies matching safe updates.
 - Explicit response allowlists expose public display names and stable public IDs only; never emails, Session data, unverified Claims, future Questions/Keys, or internal audit metadata.
 - Draws are chronological; Winners group by Pattern and include only VERIFIED records. Empty/no-live state has a documented `200` nullable payload rather than accidental 404 differences.
+- The current Event is the latest `LIVE` Event by `startedAt` (nulls last, then ID). Its current Round is selected by `ACTIVE` → `PAUSED` → `RECOVERY_REQUIRED` → `READY` → latest `COMPLETED`; ties within a status use descending sequence, update time, then ID.
+- `/live/event` returns `{ "event": null }` when no Event is live; `/live/round` returns `{ "round": null }` when no live Event or selected Round exists. Draws and Winners return `{ "roundId": null, "data": [] }` when no Round exists; Winners `data` is otherwise grouped by Pattern.
+- Public WebSocket subscriptions can reconnect to a selected `READY`, `ACTIVE`, `PAUSED`, `RECOVERY_REQUIRED`, or `COMPLETED` Round. Authenticated subscriptions retain their `ACTIVE`/`PAUSED` scope.
 - Indexed repository reads target PRD p50/p95/p99 thresholds; performance qualification belongs to ticket 22.
 - Frontend: none; these are the complete Live Display contracts.
 
@@ -29,6 +32,13 @@
 - [ ] ACTIVE, PAUSED, RECOVERY_REQUIRED, COMPLETED, and no-live states serialize explicitly.
 - [ ] Cross-Event data cannot enter current-state responses.
 - [ ] A strict serializer fails tests when a sensitive field is added upstream.
+
+## Implementation evidence
+
+- Serializer/service unit coverage: `backend/src/modules/live/live.service.test.ts`; public route/null-state coverage: `backend/src/modules/live/live.routes.test.ts`.
+- PostgreSQL/API coverage for Event and Round selection, Event isolation, chronological Draws, verified Winner filtering, 500 concurrent reads, query plans, and REST recovery after public start/draw/verify/complete events: `backend/tests/integration/live-display.test.ts`.
+- Public WebSocket lifecycle subscription states and authenticated ACTIVE/PAUSED restriction: `backend/src/realtime/subscription.service.test.ts`.
+- No frontend changes; `/live/ws` is supplied by the existing Ticket 11 transport.
 
 ## Required scenarios
 

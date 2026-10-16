@@ -21,10 +21,14 @@ import { WinnerRepository } from './modules/claims/winner.repository.ts';
 import { ticketRepository } from './modules/tickets/ticket.repository.ts';
 import { idempotencyRepository } from './shared/idempotency/idempotency.repository.ts';
 import { WinnerService } from './modules/claims/winner.service.ts';
+import { LiveReadRepository } from './modules/live/live.repository.ts';
+import { LiveReadService } from './modules/live/live.service.ts';
 
 export interface BuildAppOptions {
   enableLogging?: boolean;
   winnerService?: WinnerService;
+  liveReadService?: LiveReadService;
+  realtimeConnectionManager?: RealtimeConnectionManager;
 }
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
@@ -152,7 +156,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   });
 
   // Register application routes
-  const realtimeConnectionManager = new RealtimeConnectionManager();
+  const realtimeConnectionManager = options.realtimeConnectionManager ?? new RealtimeConnectionManager();
   const realtimeSubscriptionService = new RealtimeSubscriptionService(eventRepository, roundRepository);
   const winnerService = options.winnerService ?? new WinnerService({
     claimRepo: claimRepository,
@@ -163,7 +167,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     idempotency: idempotencyRepository,
     transactionRunner: { transaction: (callback) => getDb().transaction(callback) },
   });
-  await app.register(createAppRoutes({ realtimeConnectionManager, realtimeSubscriptionService, winnerService }));
+  const liveReadService = options.liveReadService ?? new LiveReadService(new LiveReadRepository());
+  await app.register(createAppRoutes({ realtimeConnectionManager, realtimeSubscriptionService, winnerService, liveReadService }));
 
   return app;
 }
