@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_backend_security_tests`
 
-**Status:** in-progress
+**Status:** done
 
 ## Scope and contracts
 
@@ -46,8 +46,8 @@ cd backend && bun run test:security && bun run typecheck && bun run lint && bun 
 
 ## Completion evidence
 
-- [ ] PR includes the generated 68-operation/channel route matrix and maps each scoped-resource boundary to its integration evidence; role checks run against every protected route.
-- [ ] Security suite covers ownership, future-Key leakage, cookie/session behavior, request/frame bounds, and secret redaction.
+- [x] PR #14 includes the generated 68-operation/channel route matrix and maps each scoped-resource boundary to its integration evidence; role checks run against every protected route.
+- [x] Security suite covers ownership, future-Key leakage, cookie/session behavior, request/frame bounds, and secret redaction.
 - [x] `/code-review` has no unresolved Standards or Spec findings.
 
 **Verification:** Fresh isolated PostgreSQL databases; `bun run test:security` (154 pass), `bun run test` (249 pass), `bun run test:integration` (144 pass), `bun run test:e2e` (1 pass), `bun run typecheck`, `bun run lint`, and `bun run build` all pass. See generated `backend/tests/security/route-coverage.md`.
