@@ -2,6 +2,7 @@ import { index, pgTable, timestamp, unique, uuid, varchar } from 'drizzle-orm/pg
 import { rounds } from './rounds.ts';
 import { participantProfiles, users } from './users.ts';
 import { tickets } from './tickets.ts';
+import { events } from './events.ts';
 
 export const claims = pgTable(
   'claims',
@@ -35,3 +36,25 @@ export const claims = pgTable(
 
 export type ClaimRecord = typeof claims.$inferSelect;
 export type InsertClaim = typeof claims.$inferInsert;
+
+export const winners = pgTable(
+  'winners',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    claimId: uuid('claim_id').notNull().unique().references(() => claims.id, { onDelete: 'restrict' }),
+    participantId: uuid('participant_id').notNull().references(() => participantProfiles.id, { onDelete: 'restrict' }),
+    roundId: uuid('round_id').notNull().references(() => rounds.id, { onDelete: 'restrict' }),
+    eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'restrict' }),
+    patternType: varchar('pattern_type', { length: 50 }).notNull(),
+    verifiedBy: uuid('verified_by').notNull().references(() => users.id, { onDelete: 'restrict' }),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('winners_participant_verified_at_idx').on(table.participantId, table.verifiedAt),
+    index('winners_verified_at_idx').on(table.verifiedAt),
+    index('winners_round_pattern_idx').on(table.roundId, table.patternType),
+  ]
+);
+
+export type WinnerRecord = typeof winners.$inferSelect;
+export type InsertWinner = typeof winners.$inferInsert;

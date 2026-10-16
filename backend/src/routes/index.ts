@@ -15,21 +15,25 @@ import { ticketRoutes } from '../modules/tickets/ticket.routes.ts';
 import { drawRoutes } from '../modules/draws/draw.routes.ts';
 import { drawService } from '../modules/draws/draw.service.ts';
 import { markRoutes } from '../modules/marks/mark.routes.ts';
-import { claimRoutes } from '../modules/claims/claim.routes.ts';
+import { createClaimRoutes } from '../modules/claims/claim.routes.ts';
 import { claimService } from '../modules/claims/claim.service.ts';
+import type { WinnerService } from '../modules/claims/winner.service.ts';
 
 export interface AppRouteDependencies {
   realtimeConnectionManager: RealtimeConnectionManager;
   realtimeSubscriptionService: RealtimeSubscriptionService;
+  winnerService: WinnerService;
 }
 
 export function createAppRoutes({
   realtimeConnectionManager,
   realtimeSubscriptionService,
+  winnerService,
 }: AppRouteDependencies): FastifyPluginAsync {
   roundService.setRealtimePublisher(realtimeConnectionManager);
   drawService.setRealtimePublisher(realtimeConnectionManager);
   claimService.setRealtimePublisher(realtimeConnectionManager);
+  winnerService.setRealtimePublisher(realtimeConnectionManager);
 
   return async (fastify) => {
     await fastify.register(healthRoutes);
@@ -51,7 +55,7 @@ export function createAppRoutes({
         await v1.register(ticketRoutes);
         await v1.register(drawRoutes);
         await v1.register(markRoutes);
-        await v1.register(claimRoutes);
+        await v1.register(createClaimRoutes(winnerService));
       },
       { prefix: API_PREFIX }
     );

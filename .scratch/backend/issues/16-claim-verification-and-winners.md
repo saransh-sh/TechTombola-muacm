@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_winner_verification`
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 ## Scope and contracts
 

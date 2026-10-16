@@ -13,9 +13,18 @@ import { RealtimeConnectionManager } from './realtime/connection-manager.ts';
 import { RealtimeSubscriptionService } from './realtime/subscription.service.ts';
 import { eventRepository } from './modules/events/event.repository.ts';
 import { roundRepository } from './modules/rounds/round.repository.ts';
+import { getDb } from './db/client.ts';
+import { auditService } from './modules/audit/audit.service.ts';
+import { drawRepository } from './modules/draws/draw.repository.ts';
+import { claimRepository } from './modules/claims/claim.repository.ts';
+import { WinnerRepository } from './modules/claims/winner.repository.ts';
+import { ticketRepository } from './modules/tickets/ticket.repository.ts';
+import { idempotencyRepository } from './shared/idempotency/idempotency.repository.ts';
+import { WinnerService } from './modules/claims/winner.service.ts';
 
 export interface BuildAppOptions {
   enableLogging?: boolean;
+  winnerService?: WinnerService;
 }
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
@@ -145,7 +154,16 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   // Register application routes
   const realtimeConnectionManager = new RealtimeConnectionManager();
   const realtimeSubscriptionService = new RealtimeSubscriptionService(eventRepository, roundRepository);
-  await app.register(createAppRoutes({ realtimeConnectionManager, realtimeSubscriptionService }));
+  const winnerService = options.winnerService ?? new WinnerService({
+    claimRepo: claimRepository,
+    winnerRepo: new WinnerRepository(),
+    ticketRepo: ticketRepository,
+    drawRepo: drawRepository,
+    audit: auditService,
+    idempotency: idempotencyRepository,
+    transactionRunner: { transaction: (callback) => getDb().transaction(callback) },
+  });
+  await app.register(createAppRoutes({ realtimeConnectionManager, realtimeSubscriptionService, winnerService }));
 
   return app;
 }

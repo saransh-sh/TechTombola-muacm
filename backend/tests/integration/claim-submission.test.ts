@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import type { FastifyInstance } from 'fastify';
 import { and, eq } from 'drizzle-orm';
+import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import * as schema from '../../src/db/schema/index.ts';
 import { runMigrations } from '../../src/db/migrate.ts';
 import { closeDb, getDb } from '../../src/db/client.ts';
 import { buildApp } from '../../src/app.ts';
@@ -16,9 +19,15 @@ import { participantRepository } from '../../src/modules/participants/participan
 import { questionRepository } from '../../src/modules/questions/question.repository.ts';
 import { ticketService } from '../../src/modules/tickets/ticket.service.ts';
 import { claimService } from '../../src/modules/claims/claim.service.ts';
+import { WinnerService } from '../../src/modules/claims/winner.service.ts';
+import { claimRepository } from '../../src/modules/claims/claim.repository.ts';
+import { WinnerRepository } from '../../src/modules/claims/winner.repository.ts';
+import { ticketRepository } from '../../src/modules/tickets/ticket.repository.ts';
+import { idempotencyRepository } from '../../src/shared/idempotency/idempotency.repository.ts';
+import { auditService } from '../../src/modules/audit/audit.service.ts';
 import { rounds, roundPatterns } from '../../src/db/schema/rounds.ts';
 import { events } from '../../src/db/schema/events.ts';
-import { claims } from '../../src/db/schema/claims.ts';
+import { claims, winners } from '../../src/db/schema/claims.ts';
 import { auditLogs } from '../../src/db/schema/audit.ts';
 
 describe('Winner Evaluation and Claim Submission Integration', () => {
@@ -28,6 +37,8 @@ describe('Winner Evaluation and Claim Submission Integration', () => {
   let app: FastifyInstance;
   let adminUser: any;
   let adminCookie: string;
+  let winnerService: WinnerService;
+  let winnerRepository: WinnerRepository;
 
   let event1: any;
 
@@ -113,8 +124,18 @@ describe('Winner Evaluation and Claim Submission Integration', () => {
     );
     participantUser2 = await userRepository.findById(participantProfile2.userId);
 
-    // 4. Initialize App
-    app = await buildApp({ enableLogging: false });
+    // 4. Initialize App with the WinnerService dependency used by its routes.
+    winnerRepository = new WinnerRepository();
+    winnerService = new WinnerService({
+      claimRepo: claimRepository,
+      winnerRepo: winnerRepository,
+      ticketRepo: ticketRepository,
+      drawRepo: drawRepository,
+      audit: auditService,
+      idempotency: idempotencyRepository,
+      transactionRunner: { transaction: (callback) => getDb().transaction(callback) },
+    });
+    app = await buildApp({ enableLogging: false, winnerService });
     await app.ready();
 
     // 5. Logins
@@ -600,6 +621,351 @@ describe('Winner Evaluation and Claim Submission Integration', () => {
     expect(broadcastedEvent.payload.pattern).toBe('EARLY_5');
     expect(broadcastedEvent.payload.claimId).toBe(resClaim.json().claim.id);
 
+    await roundService.completeRound(adminUser.id, round.id);
+  });
+
+  async function drawAllCandidates(roundId: string, label: string) {
+    const candidates = await drawRepository.getCandidateQuestions(roundId);
+    for (const [index, candidate] of candidates.entries()) {
+      await drawService.drawManual({
+        actorId: adminUser.id,
+        roundId,
+        questionId: candidate.id,
+        idempotencyKey: `${label}_${roundId}_${index}`,
+      });
+    }
+  }
+
+  async function submitEarly5Claim(participantCookie: string, roundId: string) {
+    return app.inject({
+      method: 'POST',
+      url: '/api/v1/participant/claims',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${participantCookie}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ roundId, pattern: 'EARLY_5' }),
+    });
+  }
+
+  it('verifies and rejects Claims through authenticated APIs with scoped idempotency and isolated history', async () => {
+    const { round } = await setupActiveRoundWithPatterns([
+      { patternType: 'EARLY_5', enabled: true, maxWinners: 2 },
+      { patternType: 'FULL_HOUSE', enabled: true, maxWinners: 1 },
+    ]);
+    await drawAllCandidates(round.id, 'verify_api_draw');
+    const firstClaim = await submitEarly5Claim(participantCookie1, round.id);
+    const secondClaim = await submitEarly5Claim(participantCookie2, round.id);
+    expect(firstClaim.statusCode).toBe(200);
+    expect(secondClaim.statusCode).toBe(200);
+    const firstClaimId = firstClaim.json().claim.id;
+    const secondClaimId = secondClaim.json().claim.id;
+
+    const participantAdminList = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/claims',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${participantCookie1}` },
+    });
+    expect(participantAdminList.statusCode).toBe(403);
+    const missingKey = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/claims/${firstClaimId}/verify`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(missingKey.statusCode).toBe(400);
+    const malformedId = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/claims/not-a-uuid/verify',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}`, 'idempotency-key': 'bad-id' },
+    });
+    expect(malformedId.statusCode).toBe(400);
+    const missingClaim = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/claims/ffffffff-ffff-4fff-8fff-ffffffffffff/verify',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}`, 'idempotency-key': 'missing-claim-verify' },
+    });
+    expect(missingClaim.statusCode).toBe(404);
+    expect(missingClaim.json().error.code).toBe('CLAIM_NOT_FOUND');
+
+    const adminClaims = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/claims?page=1&limit=10',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(adminClaims.statusCode).toBe(200);
+    expect(adminClaims.json().data.map((claim: any) => claim.id)).toContain(firstClaimId);
+
+    let broadcastObservedCommittedWinner = false;
+    let winnerEvent: any;
+    winnerService.setRealtimePublisher({
+      broadcastCommitted: async (event: any) => {
+        winnerEvent = event;
+        const committedWinner = await getDb().select().from(winners).where(eq(winners.id, event.payload.winnerId));
+        broadcastObservedCommittedWinner = committedWinner.length === 1;
+        throw new Error('simulated transport failure after commit');
+      },
+    });
+    const verifyHeaders = {
+      cookie: `${SESSION_COOKIE_NAME}=${adminCookie}`,
+      'idempotency-key': `verify_api_${round.id}`,
+    };
+    const verified = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/claims/${firstClaimId}/verify`,
+      headers: verifyHeaders,
+    });
+    expect(verified.statusCode).toBe(200);
+    expect(broadcastObservedCommittedWinner).toBe(true);
+    expect(Object.keys(winnerEvent.payload).sort()).toEqual(['participantName', 'pattern', 'winnerId']);
+    expect(winnerEvent.payload.participantName).toBe('Claim Participant One');
+    expect(winnerEvent.payload.email).toBeUndefined();
+    const [winnerRow] = await getDb().select().from(winners).where(eq(winners.id, verified.json().winner.id));
+    expect(winnerRow.claimId).toBe(firstClaimId);
+    expect(winnerRow.participantId).toBe(participantProfile1.id);
+    expect(winnerRow.roundId).toBe(round.id);
+    expect(winnerRow.verifiedBy).toBe(adminUser.id);
+    expect(winnerRow.verifiedAt).toBeInstanceOf(Date);
+    const [verifiedClaim] = await getDb().select().from(claims).where(eq(claims.id, firstClaimId));
+    expect(verifiedClaim.status).toBe('VERIFIED');
+    await expect((async () => {
+      await getDb().update(winners).set({ patternType: 'TOP_LINE' }).where(eq(winners.id, winnerRow.id));
+    })())
+      .rejects.toThrow('Winner history is immutable');
+    await expect((async () => {
+      await getDb().delete(winners).where(eq(winners.id, winnerRow.id));
+    })())
+      .rejects.toThrow('Winner history is immutable');
+    const replay = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/claims/${firstClaimId}/verify`,
+      headers: verifyHeaders,
+    });
+    expect(replay.statusCode).toBe(200);
+    expect(replay.json()).toEqual(verified.json());
+    const differentKey = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/claims/${firstClaimId}/verify`,
+      headers: { ...verifyHeaders, 'idempotency-key': `verify_api_other_${round.id}` },
+    });
+    expect(differentKey.statusCode).toBe(409);
+    const rejectVerified = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/claims/${firstClaimId}/reject`,
+      headers: { ...verifyHeaders, 'idempotency-key': `reject_verified_${round.id}` },
+    });
+    expect(rejectVerified.statusCode).toBe(409);
+
+    const rejectHeaders = {
+      cookie: `${SESSION_COOKIE_NAME}=${adminCookie}`,
+      'idempotency-key': `reject_api_${round.id}`,
+    };
+    const rejected = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/claims/${secondClaimId}/reject`,
+      headers: rejectHeaders,
+    });
+    expect(rejected.statusCode).toBe(200);
+    expect(rejected.json().claim.status).toBe('REJECTED');
+    const rejectReplay = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/claims/${secondClaimId}/reject`,
+      headers: rejectHeaders,
+    });
+    expect(rejectReplay.json()).toEqual(rejected.json());
+    const rejectOtherKey = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/claims/${secondClaimId}/reject`,
+      headers: { ...rejectHeaders, 'idempotency-key': `reject_api_other_${round.id}` },
+    });
+    expect(rejectOtherKey.statusCode).toBe(409);
+    const verifyRejected = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/claims/${secondClaimId}/verify`,
+      headers: { ...verifyHeaders, 'idempotency-key': `verify_rejected_${round.id}` },
+    });
+    expect(verifyRejected.statusCode).toBe(409);
+
+    const p1Wins = await app.inject({
+      method: 'GET',
+      url: '/api/v1/participant/wins?page=1&limit=10',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${participantCookie1}` },
+    });
+    const p2Wins = await app.inject({
+      method: 'GET',
+      url: '/api/v1/participant/wins?page=1&limit=10',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${participantCookie2}` },
+    });
+    const adminWinners = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/winners?page=1&limit=10',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(p1Wins.statusCode).toBe(200);
+    expect(p1Wins.json().data.map((winner: any) => winner.claimId)).toContain(firstClaimId);
+    expect(p2Wins.json().data.map((winner: any) => winner.claimId)).not.toContain(firstClaimId);
+    expect(adminWinners.json().data.map((winner: any) => winner.claimId)).toContain(firstClaimId);
+
+    const event2 = await eventRepository.create({ title: `Claim Event 2 ${Date.now()}`, status: 'READY' });
+    const event2Participant = await participantRepository.create(
+      {
+        email: `claim_event2_participant_${Date.now()}@test.internal`,
+        name: 'Event Two Participant',
+        passwordHash: await hashPassword('PartPass123!'),
+      },
+      { eventId: event2.id, externalId: `EXT_EVENT2_${Date.now()}` }
+    );
+    const event2User = await userRepository.findById(event2Participant.userId);
+    if (!event2User) throw new Error('Event Two participant user was not created');
+    const event2Login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' },
+      body: JSON.stringify({ email: event2User.email, password: 'PartPass123!' }),
+    });
+    const event2Cookie = extractCookie(event2Login, SESSION_COOKIE_NAME)!;
+    const event2Round = await roundRepository.create(
+      { eventId: event2.id, sequenceNumber: 1, name: `Event Two Round ${Date.now()}`, status: 'DRAFT' },
+      [
+        { patternType: 'EARLY_5', enabled: true, maxWinners: 1 },
+        { patternType: 'FULL_HOUSE', enabled: true, maxWinners: 1 },
+      ]
+    );
+    for (let index = 0; index < 18; index++) {
+      const value = `E2KEY_${Date.now()}_${index}`;
+      const key = await questionRepository.createKey(event2.id, value, value);
+      await questionRepository.createQuestion(event2Round.id, key.id, `Event Two clue ${index}`);
+    }
+    await ticketService.generateTickets({
+      roundId: event2Round.id,
+      actorId: adminUser.id,
+      idempotencyKey: `event2_tickets_${event2Round.id}`,
+    });
+    await roundService.completeRound(adminUser.id, round.id);
+    await roundService.readyRound(adminUser.id, event2Round.id);
+    await roundService.startRound(adminUser.id, event2Round.id, `event2_start_${event2Round.id}`);
+    await drawAllCandidates(event2Round.id, `event2_draw_${event2Round.id}`);
+    const event2Claim = await submitEarly5Claim(event2Cookie, event2Round.id);
+    expect(event2Claim.statusCode).toBe(200);
+    const event2ClaimId = event2Claim.json().claim.id;
+    const event2Verified = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/claims/${event2ClaimId}/verify`,
+      headers: {
+        cookie: `${SESSION_COOKIE_NAME}=${adminCookie}`,
+        'idempotency-key': `event2_verify_${event2Round.id}`,
+      },
+    });
+    expect(event2Verified.statusCode).toBe(200);
+
+    const allEventClaims = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/claims?page=1&limit=100',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    const allEventWinners = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/winners?page=1&limit=100',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    const event2Wins = await app.inject({
+      method: 'GET',
+      url: '/api/v1/participant/wins?page=1&limit=10',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${event2Cookie}` },
+    });
+    expect(allEventClaims.json().data.map((claim: any) => claim.id)).toContain(event2ClaimId);
+    expect(allEventClaims.json().data.find((claim: any) => claim.id === event2ClaimId).eventId).toBe(event2.id);
+    expect(allEventWinners.json().data.map((winner: any) => winner.claimId)).toContain(event2ClaimId);
+    expect(allEventWinners.json().data.find((winner: any) => winner.claimId === event2ClaimId).eventId).toBe(event2.id);
+    expect(event2Wins.statusCode).toBe(200);
+    expect(event2Wins.json().data.map((winner: any) => winner.claimId)).toEqual([event2ClaimId]);
+    expect(event2Wins.json().data.map((winner: any) => winner.claimId)).not.toContain(firstClaimId);
+
+    winnerService.setRealtimePublisher({ broadcastCommitted: async () => undefined });
+
+    await roundService.completeRound(adminUser.id, event2Round.id);
+  });
+
+  it('rolls back Claim verification and Winner persistence when audit fails in PostgreSQL', async () => {
+    const { round } = await setupActiveRoundWithPatterns([
+      { patternType: 'EARLY_5', enabled: true, maxWinners: 1 },
+      { patternType: 'FULL_HOUSE', enabled: true, maxWinners: 1 },
+    ]);
+    await drawAllCandidates(round.id, 'verify_rollback_draw');
+    const claimResponse = await submitEarly5Claim(participantCookie1, round.id);
+    const claimId = claimResponse.json().claim.id;
+    const failingAudit = { record: async () => { throw new Error('audit storage unavailable'); } };
+    const service = new WinnerService({
+      claimRepo: claimRepository,
+      winnerRepo: winnerRepository,
+      ticketRepo: ticketRepository,
+      drawRepo: drawRepository,
+      audit: failingAudit as any,
+      idempotency: idempotencyRepository,
+      transactionRunner: { transaction: (callback) => getDb().transaction(callback) },
+    });
+
+    await expect(service.verifyClaim({
+      claimId,
+      actorId: adminUser.id,
+      actorType: 'ADMIN',
+      idempotencyKey: `verify_rollback_${round.id}`,
+    })).rejects.toThrow('audit storage unavailable');
+
+    const [unchangedClaim] = await getDb().select().from(claims).where(eq(claims.id, claimId));
+    const persistedWinners = await getDb().select().from(winners).where(eq(winners.claimId, claimId));
+    expect(unchangedClaim.status).toBe('PENDING_VERIFICATION');
+    expect(persistedWinners).toHaveLength(0);
+    await roundService.completeRound(adminUser.id, round.id);
+  });
+
+  it('serializes final Pattern capacity with two independent PostgreSQL connections', async () => {
+    const { round } = await setupActiveRoundWithPatterns([
+      { patternType: 'EARLY_5', enabled: true, maxWinners: 1 },
+      { patternType: 'FULL_HOUSE', enabled: true, maxWinners: 1 },
+    ]);
+    await drawAllCandidates(round.id, 'verify_race_draw');
+    const first = await submitEarly5Claim(participantCookie1, round.id);
+    const second = await submitEarly5Claim(participantCookie2, round.id);
+    const claimIds = [first.json().claim.id, second.json().claim.id];
+
+    const clientA = postgres(testDbUrl, { max: 1, connect_timeout: 5 });
+    const clientB = postgres(testDbUrl, { max: 1, connect_timeout: 5 });
+    try {
+      const [pidA] = await clientA<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
+      const [pidB] = await clientB<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
+      expect(pidA.pid).not.toBe(pidB.pid);
+      const dbA = drizzle(clientA, { schema });
+      const dbB = drizzle(clientB, { schema });
+      const serviceA = new WinnerService({
+        claimRepo: claimRepository,
+        winnerRepo: winnerRepository,
+        ticketRepo: ticketRepository,
+        drawRepo: drawRepository,
+        audit: auditService,
+        idempotency: idempotencyRepository,
+        transactionRunner: { transaction: (callback) => dbA.transaction(callback) },
+      });
+      const serviceB = new WinnerService({
+        claimRepo: claimRepository,
+        winnerRepo: winnerRepository,
+        ticketRepo: ticketRepository,
+        drawRepo: drawRepository,
+        audit: auditService,
+        idempotency: idempotencyRepository,
+        transactionRunner: { transaction: (callback) => dbB.transaction(callback) },
+      });
+      const outcomes = await Promise.allSettled([
+        serviceA.verifyClaim({ claimId: claimIds[0], actorId: adminUser.id, actorType: 'ADMIN', idempotencyKey: `race_a_${round.id}` }),
+        serviceB.verifyClaim({ claimId: claimIds[1], actorId: adminUser.id, actorType: 'ADMIN', idempotencyKey: `race_b_${round.id}` }),
+      ]);
+      expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(1);
+      const rejected = outcomes.find((outcome) => outcome.status === 'rejected') as PromiseRejectedResult;
+      expect(rejected.reason).toMatchObject({ statusCode: 409, code: 'PATTERN_ALREADY_CLOSED' });
+      const roundWinners = await getDb().select().from(winners).where(eq(winners.roundId, round.id));
+      expect(roundWinners).toHaveLength(1);
+      const finalClaims = await getDb().select().from(claims).where(and(eq(claims.roundId, round.id), eq(claims.patternType, 'EARLY_5')));
+      expect(finalClaims.filter((claim) => claim.status === 'VERIFIED')).toHaveLength(1);
+      expect(finalClaims.filter((claim) => claim.status === 'REJECTED_PATTERN_ALREADY_CLOSED')).toHaveLength(1);
+    } finally {
+      await Promise.all([clientA.end(), clientB.end()]);
+    }
     await roundService.completeRound(adminUser.id, round.id);
   });
 });

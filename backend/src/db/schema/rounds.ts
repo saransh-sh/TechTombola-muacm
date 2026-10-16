@@ -1,4 +1,5 @@
-import { boolean, index, integer, pgTable, timestamp, unique, uuid, varchar } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { boolean, check, index, integer, pgTable, timestamp, unique, uuid, varchar } from 'drizzle-orm/pg-core';
 import { events } from './events.ts';
 
 export const rounds = pgTable(
@@ -38,6 +39,7 @@ export const roundPatterns = pgTable(
   (table) => [
     unique('uq_round_patterns_round_type').on(table.roundId, table.patternType),
     index('round_patterns_round_id_idx').on(table.roundId),
+    check('round_patterns_enabled_max_winners_positive', sql`NOT ${table.enabled} OR ${table.maxWinners} >= 1`),
   ]
 );
 

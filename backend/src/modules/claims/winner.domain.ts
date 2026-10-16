@@ -13,6 +13,82 @@ export interface TicketCellEvaluationInput {
   keyId: string;
 }
 
+export interface WinnerCapacityDecision {
+  canAward: boolean;
+  closesPattern: boolean;
+}
+
+export type WinnerVerificationDecision =
+  | { outcome: 'VERIFY'; closesPattern: boolean }
+  | {
+      outcome: 'REJECT';
+      status: 'REJECTED' | 'REJECTED_PATTERN_ALREADY_CLOSED';
+      reason: string;
+      code: string;
+      message: string;
+    };
+
+/**
+ * Decide whether one more verified Claim fits the configured winner capacity.
+ * The caller must serialize this decision with the Pattern row lock.
+ */
+export function evaluateWinnerCapacity(
+  verifiedWinnerCount: number,
+  maxWinners: number
+): WinnerCapacityDecision {
+  if (!Number.isInteger(verifiedWinnerCount) || verifiedWinnerCount < 0) {
+    throw new UnprocessableEntityError('Verified winner count must be a non-negative integer', 'INVALID_WINNER_COUNT');
+  }
+  if (!Number.isInteger(maxWinners) || maxWinners < 1) {
+    throw new UnprocessableEntityError('Maximum winners must be a positive integer', 'INVALID_WINNER_CAPACITY');
+  }
+
+  const canAward = verifiedWinnerCount < maxWinners;
+  return {
+    canAward,
+    closesPattern: canAward && verifiedWinnerCount + 1 >= maxWinners,
+  };
+}
+
+export function evaluateWinnerVerification(params: {
+  eligible: boolean;
+  patternEnabled: boolean;
+  patternStatus: string;
+  verifiedWinnerCount: number;
+  maxWinners: number;
+}): WinnerVerificationDecision {
+  if (!params.patternEnabled) {
+    return {
+      outcome: 'REJECT',
+      status: 'REJECTED',
+      reason: 'PATTERN_DISABLED',
+      code: 'PATTERN_DISABLED',
+      message: 'Pattern is disabled for this round',
+    };
+  }
+  if (!params.eligible) {
+    return {
+      outcome: 'REJECT',
+      status: 'REJECTED',
+      reason: 'ELIGIBILITY_NO_LONGER_MET',
+      code: 'CLAIM_INELIGIBLE_STALE',
+      message: 'Claim is no longer eligible for verification',
+    };
+  }
+
+  const capacity = evaluateWinnerCapacity(params.verifiedWinnerCount, params.maxWinners);
+  if (params.patternStatus !== 'OPEN' || !capacity.canAward) {
+    return {
+      outcome: 'REJECT',
+      status: 'REJECTED_PATTERN_ALREADY_CLOSED',
+      reason: 'PATTERN_ALREADY_CLOSED',
+      code: 'PATTERN_ALREADY_CLOSED',
+      message: 'Pattern winner capacity has already been reached',
+    };
+  }
+  return { outcome: 'VERIFY', closesPattern: capacity.closesPattern };
+}
+
 /**
  * Early 5 is satisfied when at least five Keys on the assigned Ticket
  * have been officially drawn.
