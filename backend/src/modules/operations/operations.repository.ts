@@ -1,10 +1,11 @@
 import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
-import { getDb, getSqlClient } from '../../db/client.ts';
+import { getDb } from '../../db/client.ts';
 import { auditLogs, type AuditLogRecord } from '../../db/schema/audit.ts';
 import { claims, winners } from '../../db/schema/claims.ts';
 import { draws } from '../../db/schema/draws.ts';
 import { events } from '../../db/schema/events.ts';
 import { rounds } from '../../db/schema/rounds.ts';
+import { schemaMigrations } from '../../db/schema/foundation.ts';
 import { participantProfiles } from '../../db/schema/users.ts';
 import type { AuditQuery } from './operations.schemas.ts';
 
@@ -12,7 +13,6 @@ export interface AuditFilters extends Pick<AuditQuery, 'actorId' | 'action' | 'f
   page: number;
   limit: number;
 }
-
 export interface DashboardReadModel {
   event: { id: string; title: string; status: string } | null;
   round: { id: string; name: string; sequenceNumber: number; status: string } | null;
@@ -23,7 +23,6 @@ export interface DashboardReadModel {
   recoveryRequired: boolean;
   systemStatus: 'operational' | 'recovery_required';
 }
-
 export interface SystemReadModel {
   recoveryRequiredRounds: number;
   latestMigration: { version: string; appliedAt: Date } | null;
@@ -36,12 +35,15 @@ export interface IOperationsRepository {
 }
 
 export class OperationsRepository implements IOperationsRepository {
+  constructor(private readonly databaseProvider: () => ReturnType<typeof getDb> = getDb) {}
+
   async getDashboard(): Promise<DashboardReadModel> {
-    return getDb().transaction(async (tx) => {
+    return this.databaseProvider().transaction(async (tx) => {
       const [event] = await tx
         .select({ id: events.id, title: events.title, status: events.status })
         .from(events)
         .where(eq(events.status, 'LIVE'))
+        .orderBy(desc(events.updatedAt), desc(events.id))
         .limit(1);
       if (!event) {
         return { event: null, round: null, participants: 0, drawCount: 0, pendingClaims: 0, verifiedWinners: 0, recoveryRequired: false, systemStatus: 'operational' };
@@ -94,7 +96,7 @@ export class OperationsRepository implements IOperationsRepository {
     if (filters.from) conditions.push(gte(auditLogs.createdAt, filters.from));
     if (filters.to) conditions.push(lte(auditLogs.createdAt, filters.to));
 
-    return getDb()
+    return this.databaseProvider()
       .select()
       .from(auditLogs)
       .where(conditions.length ? and(...conditions) : undefined)
@@ -104,16 +106,15 @@ export class OperationsRepository implements IOperationsRepository {
   }
 
   async getSystemReadModel(): Promise<SystemReadModel> {
-    const db = getDb();
+    const db = this.databaseProvider();
     const [recovery] = await db.select({ count: sql<number>`count(*)::int` }).from(rounds).where(eq(rounds.status, 'RECOVERY_REQUIRED'));
-    const [latestMigration] = await getSqlClient().unsafe<{ version: string; applied_at: Date }[]>(
-      'SELECT version, applied_at FROM schema_migrations ORDER BY version DESC LIMIT 1'
-    );
+    const [latestMigration] = await db.select({ version: schemaMigrations.version, appliedAt: schemaMigrations.appliedAt })
+      .from(schemaMigrations)
+      .orderBy(desc(schemaMigrations.version))
+      .limit(1);
     return {
       recoveryRequiredRounds: recovery?.count ?? 0,
-      latestMigration: latestMigration ? { version: latestMigration.version, appliedAt: new Date(latestMigration.applied_at) } : null,
+      latestMigration: latestMigration ?? null,
     };
   }
 }
-
-export const operationsRepository = new OperationsRepository();

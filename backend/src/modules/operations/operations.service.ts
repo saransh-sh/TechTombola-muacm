@@ -1,6 +1,6 @@
 import { checkDbHealth } from '../../db/client.ts';
 import packageInfo from '../../../package.json' with { type: 'json' };
-import { operationsRepository, type IOperationsRepository } from './operations.repository.ts';
+import type { IOperationsRepository } from './operations.repository.ts';
 import type { AuditQuery } from './operations.schemas.ts';
 import { serializeAuditPage } from './operations.serializers.ts';
 
@@ -8,10 +8,10 @@ export interface ConnectionCounter { connectionCount(): number; }
 
 export class OperationsService {
   constructor(
-    private readonly repository: IOperationsRepository = operationsRepository,
+    private readonly repository: IOperationsRepository,
     private readonly connections?: ConnectionCounter,
     private readonly healthCheck: typeof checkDbHealth = checkDbHealth,
-    private readonly version = process.env.APP_VERSION ?? packageInfo.version
+    private readonly version = process.env.APP_VERSION || packageInfo.version
   ) {}
 
   async getDashboard() {
@@ -33,7 +33,7 @@ export class OperationsService {
     if (!database.ok) {
       return {
         version: this.version,
-        readiness: { status: 'not_ready', dependencies: { database: 'unavailable' } },
+        readiness: { status: 'not_ready', dependencies: { database: 'unavailable', configuration: 'available' } },
         recoveryRequiredRounds: null,
         latestMigration: null,
       };
@@ -43,20 +43,16 @@ export class OperationsService {
       const readModel = await this.repository.getSystemReadModel();
       return {
         version: this.version,
-        readiness: { status: 'ready', dependencies: { database: 'available' } },
+        readiness: { status: 'ready', dependencies: { database: 'available', configuration: 'available' } },
         ...readModel,
       };
     } catch {
       return {
         version: this.version,
-        readiness: { status: 'not_ready', dependencies: { database: 'available', operationsSchema: 'unavailable' } },
+        readiness: { status: 'not_ready', dependencies: { database: 'available', configuration: 'available', operationsSchema: 'unavailable' } },
         recoveryRequiredRounds: null,
         latestMigration: null,
       };
     }
   }
-}
-
-export function createOperationsService(connections?: ConnectionCounter) {
-  return new OperationsService(operationsRepository, connections);
 }

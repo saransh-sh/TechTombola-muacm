@@ -1,10 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { requireAdmin, requireSuperAdmin } from '../../middleware/auth.ts';
-import { createOperationsService, type ConnectionCounter } from './operations.service.ts';
+import type { OperationsService } from './operations.service.ts';
 import { auditQuerySchema } from './operations.schemas.ts';
 
-export function createOperationsRoutes(connections?: ConnectionCounter): FastifyPluginAsync {
-  const service = createOperationsService(connections);
+export function createOperationsRoutes(service: OperationsService): FastifyPluginAsync {
   return async (fastify) => {
     fastify.get('/admin/dashboard', { preHandler: [requireAdmin] }, async () => service.getDashboard());
     fastify.get('/admin/audit', { preHandler: [requireAdmin] }, async (request) => {

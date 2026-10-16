@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test';
-import type { AuditLogRecord } from '../../src/db/schema/audit.ts';
-import { OperationsService } from '../../src/modules/operations/operations.service.ts';
-import { auditQuerySchema } from '../../src/modules/operations/operations.schemas.ts';
-import { serializeAuditRecord } from '../../src/modules/operations/operations.serializers.ts';
-import type { IOperationsRepository } from '../../src/modules/operations/operations.repository.ts';
+import type { AuditLogRecord } from '../../db/schema/audit.ts';
+import { OperationsService } from './operations.service.ts';
+import { auditQuerySchema } from './operations.schemas.ts';
+import { serializeAuditRecord } from './operations.serializers.ts';
+import type { IOperationsRepository } from './operations.repository.ts';
 
 const timestamp = new Date('2026-10-15T12:00:00.000Z');
 const auditRow: AuditLogRecord = {
@@ -100,7 +100,7 @@ describe('Operations read models', () => {
     }), undefined, async () => ({ ok: false, latencyMs: 1500, error: 'secret connection string' }));
     const system = await service.getSystem();
     expect(system).toMatchObject({
-      readiness: { status: 'not_ready', dependencies: { database: 'unavailable' } },
+      readiness: { status: 'not_ready', dependencies: { database: 'unavailable', configuration: 'available' } },
       recoveryRequiredRounds: null,
       latestMigration: null,
     });
@@ -113,7 +113,7 @@ describe('Operations read models', () => {
     }), undefined, async () => ({ ok: true, latencyMs: 4 }), '1.2.3');
     expect(await service.getSystem()).toEqual({
       version: '1.2.3',
-      readiness: { status: 'ready', dependencies: { database: 'available' } },
+      readiness: { status: 'ready', dependencies: { database: 'available', configuration: 'available' } },
       recoveryRequiredRounds: 2,
       latestMigration: { version: '0012_winners.sql', appliedAt: timestamp },
     });
