@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { liveReadService, type LiveReadService } from './live.service.ts';
+import type { LiveReadService } from './live.service.ts';
 
-export function createLiveRoutes(service: LiveReadService = liveReadService): FastifyPluginAsync {
+export function createLiveRoutes(service: LiveReadService): FastifyPluginAsync {
   return async (fastify) => {
     fastify.get('/live/event', async () => service.event());
     fastify.get('/live/round', async () => service.round());

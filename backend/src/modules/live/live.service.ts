@@ -1,8 +1,8 @@
-import { liveReadRepository, type ILiveReadRepository } from './live.repository.ts';
+import type { ILiveReadRepository } from './live.repository.ts';
 import { groupWinnersByPattern, serializeLiveDraw, serializeLiveEvent, serializeLiveRound } from './live.domain.ts';
 
 export class LiveReadService {
-  constructor(private readonly repository: ILiveReadRepository = liveReadRepository) {}
+  constructor(private readonly repository: ILiveReadRepository) {}
 
   async event() {
     const event = await this.repository.findCurrentEvent();
@@ -18,16 +18,16 @@ export class LiveReadService {
 
   async draws() {
     const state = await this.currentState();
-    if (!state) return { draws: [] };
+    if (!state) return { roundId: null, data: [] };
     const draws = await this.repository.listDraws(state.event.id, state.round.id);
-    return { draws: draws.map(serializeLiveDraw) };
+    return { roundId: state.round.id, data: draws.map(serializeLiveDraw) };
   }
 
   async winners() {
     const state = await this.currentState();
-    if (!state) return { winners: groupWinnersByPattern([]) };
+    if (!state) return { roundId: null, data: [] };
     const winners = await this.repository.listVerifiedWinners(state.event.id, state.round.id);
-    return { winners: groupWinnersByPattern(winners) };
+    return { roundId: state.round.id, data: groupWinnersByPattern(winners) };
   }
 
   private async currentState() {
@@ -37,5 +37,3 @@ export class LiveReadService {
     return round ? { event, round } : null;
   }
 }
-
-export const liveReadService = new LiveReadService();

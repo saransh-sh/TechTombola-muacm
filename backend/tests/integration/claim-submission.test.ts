@@ -510,7 +510,8 @@ describe('Winner Evaluation and Claim Submission Integration', () => {
     expect(resClaimPaused.statusCode).toBe(409);
     expect(resClaimPaused.json().error.code).toBe('ROUND_NOT_ACTIVE');
 
-    await roundService.cancelRound(adminUser.id, round.id);
+    await roundService.resumeRound(adminUser.id, round.id, `claim-test-cleanup-${round.id}`);
+    await roundService.completeRound(adminUser.id, round.id);
   });
 
   it('lists participant claims with scope isolation and audit trail', async () => {

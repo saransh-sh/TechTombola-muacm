@@ -16,6 +16,7 @@ export const events = pgTable(
   (table) => [
     index('events_status_idx').on(table.status),
     index('events_created_at_idx').on(table.createdAt),
+    index('events_live_started_at_idx').on(table.status, table.startedAt.desc().nullsLast(), table.id.desc()),
   ]
 );
 
