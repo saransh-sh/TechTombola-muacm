@@ -1,0 +1,121 @@
+import { describe, expect, it } from 'bun:test';
+import type { AuditLogRecord } from '../../src/db/schema/audit.ts';
+import { OperationsService } from '../../src/modules/operations/operations.service.ts';
+import { auditQuerySchema } from '../../src/modules/operations/operations.schemas.ts';
+import { serializeAuditRecord } from '../../src/modules/operations/operations.serializers.ts';
+import type { IOperationsRepository } from '../../src/modules/operations/operations.repository.ts';
+
+const timestamp = new Date('2026-10-15T12:00:00.000Z');
+const auditRow: AuditLogRecord = {
+  id: '11111111-1111-4111-8111-111111111111',
+  actorId: '22222222-2222-4222-8222-222222222222',
+  actorType: 'ADMIN',
+  action: 'ROUND_STARTED',
+  resourceType: 'round',
+  resourceId: 'round-1',
+  metadata: { reason: 'operator' },
+  ip: '192.0.2.1',
+  userAgent: 'private browser string',
+  requestId: 'private-request-id',
+  createdAt: timestamp,
+};
+
+function repository(overrides: Partial<IOperationsRepository> = {}): IOperationsRepository {
+  return {
+    getDashboard: async () => ({
+      event: null, round: null, participants: 0, drawCount: 0,
+      pendingClaims: 0, verifiedWinners: 0, recoveryRequired: false, systemStatus: 'operational',
+    }),
+    listAudit: async () => [auditRow],
+    getSystemReadModel: async () => ({ recoveryRequiredRounds: 0, latestMigration: null }),
+    ...overrides,
+  };
+}
+
+describe('Operations read models', () => {
+  it('uses a consistent empty Dashboard state and includes all process connections', async () => {
+    const service = new OperationsService(repository(), { connectionCount: () => 13 });
+    expect(await service.getDashboard()).toEqual({
+      event: null, round: null, participants: 0, drawCount: 0,
+      pendingClaims: 0, verifiedWinners: 0, recoveryRequired: false, systemStatus: 'operational',
+      connectedConnections: 13,
+    });
+  });
+
+  it('returns populated dashboard operational counts and Event-scoped recovery state', async () => {
+    const expected = {
+      event: { id: 'event-1', title: 'Tech Tombola', status: 'LIVE' },
+      round: { id: 'round-1', name: 'Round 1', sequenceNumber: 1, status: 'RECOVERY_REQUIRED' },
+      participants: 500, drawCount: 12, pendingClaims: 2, verifiedWinners: 4, recoveryRequired: true, systemStatus: 'recovery_required' as const,
+    };
+    const service = new OperationsService(repository({ getDashboard: async () => expected }), { connectionCount: () => 8 });
+    expect(await service.getDashboard()).toEqual({ ...expected, connectedConnections: 8 });
+  });
+
+  it('validates bounded numbered audit pagination and filters, rejecting unknown filters and invalid ranges', () => {
+    expect(auditQuerySchema.parse({})).toEqual({ page: 1, limit: 20 });
+    expect(auditQuerySchema.parse({ page: '2', limit: '100', action: 'DRAW_CREATED' })).toMatchObject({ page: 2, limit: 100 });
+    expect(auditQuerySchema.safeParse({ page: 0 }).success).toBe(false);
+    expect(auditQuerySchema.safeParse({ limit: 101 }).success).toBe(false);
+    expect(auditQuerySchema.safeParse({ unknown: 'secret' }).success).toBe(false);
+    expect(auditQuerySchema.safeParse({ from: '2026-10-16T00:00:00Z', to: '2026-10-15T00:00:00Z' }).success).toBe(false);
+  });
+
+  it('returns bounded audit page metadata and excludes network/request fields', async () => {
+    let requestedLimit = 0;
+    const service = new OperationsService(repository({
+      listAudit: async (filters) => { requestedLimit = filters.limit; return [auditRow, { ...auditRow, id: '33333333-3333-4333-8333-333333333333' }]; },
+    }));
+    const page = await service.listAudit(auditQuerySchema.parse({ page: '3', limit: '1', actorId: auditRow.actorId }));
+    expect(requestedLimit).toBe(1);
+    expect(page.page).toBe(3);
+    expect(page.limit).toBe(1);
+    expect(page.hasMore).toBe(true);
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]).not.toHaveProperty('ip');
+    expect(page.items[0]).not.toHaveProperty('userAgent');
+    expect(page.items[0]).not.toHaveProperty('requestId');
+  });
+
+  it('keeps audit serialization allowlisted and preserves redacted metadata', () => {
+    const serialized = serializeAuditRecord({
+      ...auditRow,
+      metadata: { reason: 'operator', password: 'must-not-leak', nested: { apiKey: 'must-not-leak-either' } },
+    });
+    expect(serialized).toEqual({
+      id: auditRow.id,
+      actorId: auditRow.actorId,
+      actorType: 'ADMIN',
+      action: 'ROUND_STARTED',
+      resourceType: 'round',
+      resourceId: 'round-1',
+      metadata: { reason: 'operator', password: '***', nested: { apiKey: '***' } },
+      createdAt: timestamp.toISOString(),
+    });
+  });
+
+  it('reports a safe database-unready system state without leaking the health error or querying recovery data', async () => {
+    const service = new OperationsService(repository({
+      getSystemReadModel: async () => { throw new Error('must not run'); },
+    }), undefined, async () => ({ ok: false, latencyMs: 1500, error: 'secret connection string' }));
+    const system = await service.getSystem();
+    expect(system).toMatchObject({
+      readiness: { status: 'not_ready', dependencies: { database: 'unavailable' } },
+      recoveryRequiredRounds: null,
+      latestMigration: null,
+    });
+    expect(JSON.stringify(system)).not.toContain('secret connection string');
+  });
+
+  it('reports safe system readiness, migration, and global recovery metadata when available', async () => {
+    const service = new OperationsService(repository({
+      getSystemReadModel: async () => ({ recoveryRequiredRounds: 2, latestMigration: { version: '0012_winners.sql', appliedAt: timestamp } }),
+    }), undefined, async () => ({ ok: true, latencyMs: 4 }), '1.2.3');
+    expect(await service.getSystem()).toEqual({
+      version: '1.2.3',
+      readiness: { status: 'ready', dependencies: { database: 'available' } },
+      recoveryRequiredRounds: 2,
+      latestMigration: { version: '0012_winners.sql', appliedAt: timestamp },
+    });
+  });
+});

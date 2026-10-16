@@ -21,6 +21,7 @@ import { createRecoveryRoutes } from '../modules/recovery/recovery.routes.ts';
 import { RecoveryService } from '../modules/recovery/recovery.service.ts';
 import { claimService } from '../modules/claims/claim.service.ts';
 import type { WinnerService } from '../modules/claims/winner.service.ts';
+import { createOperationsRoutes } from '../modules/operations/operations.routes.ts';
 
 export interface AppRouteDependencies {
   realtimeConnectionManager: RealtimeConnectionManager;
@@ -47,6 +48,7 @@ export function createAppRoutes({
         v1.get('/ping', async () => ({ message: 'pong' }));
         await v1.register(createAuthRoutes({ onSessionRevoked: (sessionId) => realtimeConnectionManager.closeSession(sessionId) }));
         await v1.register(adminRoutes);
+        await v1.register(createOperationsRoutes(realtimeConnectionManager));
         await v1.register(eventRoutes);
         await v1.register(roundRoutes);
         await v1.register(
