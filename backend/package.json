@@ -12,7 +12,7 @@
     "db:migrate": "bun src/db/migrate.ts",
     "db:check": "bun src/db/check.ts",
     "test": "bun test tests/unit src/modules/claims/*.test.ts src/modules/live/*.test.ts src/realtime/*.test.ts",
-    "test:integration": "bun test tests/integration src/realtime/realtime.routes.test.ts"
+    "test:integration": "bun test --parallel=1 tests/integration src/realtime/realtime.routes.test.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.3",

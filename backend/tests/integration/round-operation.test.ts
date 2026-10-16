@@ -368,6 +368,17 @@ describe('Round Readiness and Live Operation Integration', () => {
     expect(resRepeatedPause.statusCode).toBe(409);
     expect(resRepeatedPause.json().error.code).toBe('INVALID_STATE_TRANSITION');
 
+    const resCancelPaused = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/rounds/${round1.id}/cancel`,
+      headers: {
+        cookie: `${SESSION_COOKIE_NAME}=${adminCookie}`,
+        origin: 'http://localhost:3000',
+      },
+    });
+    expect(resCancelPaused.statusCode).toBe(409);
+    expect(resCancelPaused.json().error.code).toBe('INVALID_STATE_TRANSITION');
+
     // 3. While Round 1 is PAUSED, Round 2 CAN start
     const round2 = (await roundRepository.list({ eventId: event1.id, limit: 2 })).data[1];
     const resStartR2 = await app.inject({
