@@ -153,12 +153,14 @@ describe('Participant Mark Persistence Integration', () => {
     await closeDb();
   });
 
+  let nextRoundSeq = 1;
+
   async function setupActiveRoundWithTickets() {
     const db = getDb();
     await db.update(rounds).set({ status: 'COMPLETED' }).where(eq(rounds.status, 'ACTIVE'));
 
     const round = await roundRepository.create(
-      { eventId: event1.id, sequenceNumber: Math.floor(Math.random() * 1000) + 1, name: `Round ${Date.now()}`, status: 'DRAFT' },
+      { eventId: event1.id, sequenceNumber: nextRoundSeq++, name: `Round ${Date.now()}_${nextRoundSeq}`, status: 'DRAFT' },
       [{ patternType: 'FULL_HOUSE', enabled: true, maxWinners: 1 }]
     );
 

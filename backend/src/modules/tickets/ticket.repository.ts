@@ -186,3 +186,5 @@ export class TicketRepository implements ITicketRepository {
     return { data, total };
   }
 }
+
+export const ticketRepository = new TicketRepository();
