@@ -5,6 +5,7 @@ import { createAuthRoutes } from '../modules/auth/auth.routes.ts';
 import { adminRoutes } from '../modules/admins/admin.routes.ts';
 import { eventRoutes } from '../modules/events/event.routes.ts';
 import { roundRoutes } from '../modules/rounds/round.routes.ts';
+import { roundService } from '../modules/rounds/round.service.ts';
 import { createRealtimeRoutes } from '../realtime/realtime.routes.ts';
 import type { RealtimeConnectionManager } from '../realtime/connection-manager.ts';
 import type { RealtimeSubscriptionService } from '../realtime/subscription.service.ts';
@@ -21,6 +22,8 @@ export function createAppRoutes({
   realtimeConnectionManager,
   realtimeSubscriptionService,
 }: AppRouteDependencies): FastifyPluginAsync {
+  roundService.setRealtimePublisher(realtimeConnectionManager);
+
   return async (fastify) => {
     await fastify.register(healthRoutes);
     await fastify.register(

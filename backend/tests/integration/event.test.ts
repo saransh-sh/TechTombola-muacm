@@ -8,6 +8,8 @@ import { hashPassword, SESSION_COOKIE_NAME } from '../../src/modules/auth/auth.d
 import { ERROR_CODES } from '../../src/config/constants.ts';
 import { resetCachedEnv } from '../../src/config/env.ts';
 import { auditLogs } from '../../src/db/schema/audit.ts';
+import { events } from '../../src/db/schema/events.ts';
+import { rounds } from '../../src/db/schema/rounds.ts';
 import { eq } from 'drizzle-orm';
 
 describe('Event Lifecycle Integration', () => {
@@ -27,6 +29,11 @@ describe('Event Lifecycle Integration', () => {
     resetCachedEnv();
     await closeDb();
     await runMigrations(testDbUrl);
+
+    // Clean up any stale active rounds or live events from other suites
+    const db = getDb();
+    await db.update(rounds).set({ status: 'COMPLETED' }).where(eq(rounds.status, 'ACTIVE'));
+    await db.update(events).set({ status: 'COMPLETED' }).where(eq(events.status, 'LIVE'));
 
     // Create Admin User
     const adminPassword = await hashPassword('AdminEventPassword123!');
@@ -53,6 +60,11 @@ describe('Event Lifecycle Integration', () => {
   });
 
   afterAll(async () => {
+    try {
+      const db = getDb();
+      await db.update(rounds).set({ status: 'COMPLETED' }).where(eq(rounds.status, 'ACTIVE'));
+      await db.update(events).set({ status: 'COMPLETED' }).where(eq(events.status, 'LIVE'));
+    } catch {}
     await app.close();
     await closeDb();
   });

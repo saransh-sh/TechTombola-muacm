@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_round_operation`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -25,10 +25,10 @@
 
 ## Acceptance criteria
 
-- [ ] Pure Event/Round transition tables define every allowed and rejected path.
-- [ ] Generic PATCH cannot bypass transition commands or readiness checks.
-- [ ] Database locking prevents two Rounds becoming ACTIVE concurrently, including across Events.
-- [ ] Start/resume idempotent retries return the original result without duplicate audit or event delivery; other repeated commands follow their explicit state-transition result.
+- [x] Pure Event/Round transition tables define every allowed and rejected path.
+- [x] Generic PATCH cannot bypass transition commands or readiness checks.
+- [x] Database locking prevents two Rounds becoming ACTIVE concurrently, including across Events.
+- [x] Start/resume idempotent retries return the original result without duplicate audit or event delivery; other repeated commands follow their explicit state-transition result.
 
 ## Required scenarios
 
@@ -47,6 +47,6 @@ cd backend && bun run typecheck && bun run lint && bun test && bun run test:inte
 
 ## Completion evidence
 
-- [ ] PR includes the approved transition/readiness table, command/read DTOs, and one test per scenario.
-- [ ] Global-active race, idempotency, transaction, audit, and post-commit event evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR includes the approved transition/readiness table, command/read DTOs, and one test per scenario.
+- [x] Global-active race, idempotency, transaction, audit, and post-commit event evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.

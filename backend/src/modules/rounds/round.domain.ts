@@ -46,3 +46,65 @@ export function getDefaultPatternConfigs(): PatternConfig[] {
     maxWinners: 1,
   }));
 }
+
+export const ALLOWED_ROUND_TRANSITIONS: Record<RoundStatus, RoundStatus[]> = {
+  DRAFT: ['READY', 'CANCELLED'],
+  READY: ['ACTIVE', 'CANCELLED'],
+  ACTIVE: ['PAUSED', 'RECOVERY_REQUIRED', 'COMPLETED', 'CANCELLED'],
+  PAUSED: ['ACTIVE', 'CANCELLED'],
+  RECOVERY_REQUIRED: ['ACTIVE', 'CANCELLED'],
+  COMPLETED: [],
+  CANCELLED: [],
+};
+
+export function canTransitionRound(current: RoundStatus, next: RoundStatus): boolean {
+  const allowed = ALLOWED_ROUND_TRANSITIONS[current] || [];
+  return allowed.includes(next);
+}
+
+export function assertValidRoundTransition(current: RoundStatus, next: RoundStatus): void {
+  if (!canTransitionRound(current, next)) {
+    throw new ConflictError(
+      `Invalid round state transition from '${current}' to '${next}'`,
+      'INVALID_STATE_TRANSITION'
+    );
+  }
+}
+
+export interface RoundReadinessInput {
+  status: RoundStatus;
+  enabledPatternCount: number;
+  questionCount: number;
+  activeParticipantsCount: number;
+  ticketsCount: number;
+}
+
+export function validateRoundReadiness(input: RoundReadinessInput): void {
+  if (input.status !== 'DRAFT') {
+    throw new ConflictError(
+      `Cannot prepare round in '${input.status}' status. Only DRAFT rounds can become READY.`,
+      'INVALID_STATE_TRANSITION'
+    );
+  }
+
+  if (input.enabledPatternCount < 1) {
+    throw new ConflictError(
+      'Round must have at least one enabled winning pattern to become READY',
+      'MISSING_PATTERNS'
+    );
+  }
+
+  if (input.questionCount < 15) {
+    throw new ConflictError(
+      `Round must have at least 15 distinct Question/Key pairs to become READY (found ${input.questionCount})`,
+      'INSUFFICIENT_QUESTIONS'
+    );
+  }
+
+  if (input.activeParticipantsCount > 0 && input.ticketsCount < input.activeParticipantsCount) {
+    throw new ConflictError(
+      `Tickets must be generated for all active participants before the round can become READY (generated: ${input.ticketsCount}, active participants: ${input.activeParticipantsCount})`,
+      'INSUFFICIENT_TICKETS'
+    );
+  }
+}

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client.ts';
 import {
   rounds,
@@ -7,6 +7,9 @@ import {
   type RoundPatternRecord,
   type InsertRound,
 } from '../../db/schema/rounds.ts';
+import { roundQuestions } from '../../db/schema/questions.ts';
+import { participantProfiles } from '../../db/schema/users.ts';
+import { tickets } from '../../db/schema/tickets.ts';
 import type {
   PatternConfig,
   PatternSummary,
@@ -18,7 +21,11 @@ export interface IRoundRepository {
   create(roundData: InsertRound, patterns: PatternConfig[], tx?: any): Promise<RoundSummary>;
   findById(id: string, tx?: any): Promise<RoundSummary | null>;
   findByEventAndSequence(eventId: string, sequenceNumber: number, tx?: any): Promise<RoundSummary | null>;
-  list(options: { page: number; limit: number; eventId?: string; status?: RoundStatus }, tx?: any): Promise<{ data: RoundSummary[]; total: number }>;
+  findActiveRound(tx?: any): Promise<RoundSummary | null>;
+  findCurrentRoundForEvent(eventId: string, tx?: any): Promise<RoundSummary | null>;
+  getReadinessMetrics(roundId: string, eventId: string, tx?: any): Promise<{ questionCount: number; activeParticipantsCount: number; ticketsCount: number }>;
+  acquireGlobalActiveLock(tx: any): Promise<void>;
+  list(options: { page?: number; limit: number; eventId?: string; status?: RoundStatus }, tx?: any): Promise<{ data: RoundSummary[]; total: number }>;
   update(id: string, roundData: Partial<InsertRound>, patterns?: PatternConfig[], tx?: any): Promise<RoundSummary>;
 }
 
@@ -113,11 +120,12 @@ export class RoundRepository implements IRoundRepository {
   }
 
   async list(
-    options: { page: number; limit: number; eventId?: string; status?: RoundStatus },
+    options: { page?: number; limit: number; eventId?: string; status?: RoundStatus },
     tx?: any
   ): Promise<{ data: RoundSummary[]; total: number }> {
     const client = this.getClient(tx);
-    const offset = (options.page - 1) * options.limit;
+    const page = options.page ?? 1;
+    const offset = (page - 1) * options.limit;
 
     const conditions = [];
     if (options.eventId) conditions.push(eq(rounds.eventId, options.eventId));
@@ -216,6 +224,79 @@ export class RoundRepository implements IRoundRepository {
       .where(eq(roundPatterns.roundId, id));
 
     return this.mapRound(roundRecord, patternRecords);
+  }
+
+  async findActiveRound(tx?: any): Promise<RoundSummary | null> {
+    const client = this.getClient(tx);
+    const [roundRecord] = await client
+      .select()
+      .from(rounds)
+      .where(eq(rounds.status, 'ACTIVE'))
+      .limit(1);
+
+    if (!roundRecord) return null;
+
+    const patternRecords = await client
+      .select()
+      .from(roundPatterns)
+      .where(eq(roundPatterns.roundId, roundRecord.id));
+
+    return this.mapRound(roundRecord, patternRecords);
+  }
+
+  async findCurrentRoundForEvent(eventId: string, tx?: any): Promise<RoundSummary | null> {
+    const client = this.getClient(tx);
+    const roundRows: RoundRecord[] = await client
+      .select()
+      .from(rounds)
+      .where(and(eq(rounds.eventId, eventId), inArray(rounds.status, ['ACTIVE', 'PAUSED', 'READY'])))
+      .orderBy(desc(rounds.updatedAt));
+
+    if (roundRows.length === 0) return null;
+
+    const activeOrPaused = roundRows.find((r) => r.status === 'ACTIVE' || r.status === 'PAUSED');
+    const selected = activeOrPaused || roundRows[0]!;
+
+    const patternRecords = await client
+      .select()
+      .from(roundPatterns)
+      .where(eq(roundPatterns.roundId, selected.id));
+
+    return this.mapRound(selected, patternRecords);
+  }
+
+  async getReadinessMetrics(
+    roundId: string,
+    eventId: string,
+    tx?: any
+  ): Promise<{ questionCount: number; activeParticipantsCount: number; ticketsCount: number }> {
+    const client = this.getClient(tx);
+
+    const [qRow] = await client
+      .select({ count: count() })
+      .from(roundQuestions)
+      .where(eq(roundQuestions.roundId, roundId));
+
+    const [pRow] = await client
+      .select({ count: count() })
+      .from(participantProfiles)
+      .where(and(eq(participantProfiles.eventId, eventId), eq(participantProfiles.status, 'ACTIVE')));
+
+    const [tRow] = await client
+      .select({ count: count() })
+      .from(tickets)
+      .where(eq(tickets.roundId, roundId));
+
+    return {
+      questionCount: Number(qRow?.count || 0),
+      activeParticipantsCount: Number(pRow?.count || 0),
+      ticketsCount: Number(tRow?.count || 0),
+    };
+  }
+
+  async acquireGlobalActiveLock(tx: any): Promise<void> {
+    const client = this.getClient(tx);
+    await client.execute(sql`SELECT pg_advisory_xact_lock(hashtext('global_active_round_lock'));`);
   }
 }
 
