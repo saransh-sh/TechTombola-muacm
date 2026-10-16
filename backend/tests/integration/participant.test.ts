@@ -7,7 +7,6 @@ import { userRepository } from '../../src/modules/auth/user.repository.ts';
 import { hashPassword, SESSION_COOKIE_NAME } from '../../src/modules/auth/auth.domain.ts';
 import { resetCachedEnv } from '../../src/config/env.ts';
 import { eventRepository } from '../../src/modules/events/event.repository.ts';
-import { emailService } from '../../src/shared/email/email.service.ts';
 import { auditLogs } from '../../src/db/schema/audit.ts';
 import { eq } from 'drizzle-orm';
 
@@ -20,12 +19,26 @@ describe('Participant Management Integration', () => {
   let adminCookie: string;
   let eventA: any;
   let eventB: any;
+  let providerServer: ReturnType<typeof Bun.serve>;
+  let emailProviderFail = false;
 
   beforeAll(async () => {
+    providerServer = Bun.serve({
+      port: 0,
+      fetch: async (request) => {
+        if (emailProviderFail) return new Response('unavailable', { status: 503 });
+        const message = await request.json();
+        expect(request.headers.get('authorization')).toBe('Bearer test_email_key');
+        expect(message.to).toBeString();
+        return Response.json({ accepted: true }, { status: 202 });
+      },
+    });
     process.env.NODE_ENV = 'test';
     process.env.DATABASE_URL = testDbUrl;
     process.env.JWT_SECRET = 'test-jwt-secret-min-length-sufficient';
     process.env.SESSION_SECRET = 'test-session-secret-min-length-sufficient';
+    process.env.EMAIL_PROVIDER_API_KEY = 'test_email_key';
+    process.env.EMAIL_PROVIDER_URL = `http://127.0.0.1:${providerServer.port}/send`;
 
     resetCachedEnv();
     await closeDb();
@@ -61,6 +74,7 @@ describe('Participant Management Integration', () => {
 
   afterAll(async () => {
     await app.close();
+    providerServer.stop(true);
     await closeDb();
   });
 
@@ -174,7 +188,7 @@ describe('Participant Management Integration', () => {
   });
 
   it('handles email provider failure by recording FAILED delivery state while preserving account', async () => {
-    emailService.setSimulateFailure(true);
+    emailProviderFail = true;
 
     const res = await app.inject({
       method: 'POST',
@@ -187,7 +201,7 @@ describe('Participant Management Integration', () => {
       },
     });
 
-    emailService.setSimulateFailure(false);
+    emailProviderFail = false;
 
     expect(res.statusCode).toBe(201);
     const body = JSON.parse(res.body);

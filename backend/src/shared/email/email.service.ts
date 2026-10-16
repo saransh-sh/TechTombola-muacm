@@ -15,41 +15,43 @@ export interface IEmailService {
 }
 
 export class EmailService implements IEmailService {
-  private shouldFailNext = false;
-
-  // Test helper seam for simulating provider failures
-  setSimulateFailure(fail: boolean) {
-    this.shouldFailNext = fail;
-  }
-
   async sendParticipantCredentials(
     to: string,
     name: string,
-    _tempPassword: string, // Plaintext password held only in memory, NEVER logged
-    _eventTitle: string
+    tempPassword: string, // Plaintext password held only in memory, NEVER logged
+    eventTitle: string
   ): Promise<EmailDeliveryResult> {
-    if (this.shouldFailNext) {
-      return {
-        success: false,
-        error: 'Simulated email provider network failure',
-      };
-    }
-
     try {
       const env = getEnv();
-      if (!env.EMAIL_PROVIDER_API_KEY) {
+      if (!env.EMAIL_PROVIDER_API_KEY || !env.EMAIL_PROVIDER_URL) {
         return {
           success: false,
           error: 'Email provider not configured',
         };
       }
 
-      // Simulated external provider call (e.g. Resend, Sendgrid, SES)
+      const response = await fetch(env.EMAIL_PROVIDER_URL, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${env.EMAIL_PROVIDER_API_KEY}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: env.EMAIL_FROM,
+          to,
+          subject: `Your ${eventTitle} participant account`,
+          text: `Hello ${name},\n\nYour temporary password is: ${tempPassword}\n\nSign in at ${env.APP_URL}.`,
+        }),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!response.ok) {
+        return { success: false, error: 'Email provider rejected the message' };
+      }
       return { success: true };
-    } catch (err: any) {
+    } catch {
       return {
         success: false,
-        error: err.message || 'Unknown email transmission error',
+        error: 'Email provider request failed',
       };
     }
   }

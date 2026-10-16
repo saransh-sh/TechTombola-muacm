@@ -40,7 +40,14 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     logger: isLoggingEnabled
       ? {
           level: env.LOG_LEVEL,
-          redact: ['req.headers.authorization', 'req.headers.cookie', '*.password', '*.secret', '*.token'],
+          redact: [
+            'req.headers.authorization',
+            'req.headers.cookie',
+            'req.headers.x-bootstrap-secret',
+            '*.password',
+            '*.secret',
+            '*.token',
+          ],
         }
       : false,
     genReqId: (req) => normalizeRequestId(req.headers[REQUEST_ID_HEADER]),
