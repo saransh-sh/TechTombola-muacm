@@ -12,7 +12,7 @@ export interface IRecoveryRepository {
   listActiveRoundIds(tx: unknown): Promise<string[]>;
   findRound(roundId: string, tx: unknown): Promise<{ id: string; eventId: string; status: string } | null>;
   updateRoundStatus(roundId: string, status: 'RECOVERY_REQUIRED' | 'ACTIVE', tx: unknown): Promise<void>;
-  getSnapshot(roundId: string, eventId: string, tx: unknown): Promise<RecoverySnapshot & { inconsistentClaims: boolean; inconsistentTicketScope: boolean; inconsistentWinnerScope: boolean; inconsistentWinnerClaims: boolean }>;
+  getSnapshot(roundId: string, eventId: string, tx: unknown): Promise<RecoverySnapshot>;
 }
 
 export class RecoveryRepository implements IRecoveryRepository {
@@ -50,26 +50,18 @@ export class RecoveryRepository implements IRecoveryRepository {
     ]);
     const cellsByTicket = new Map<string, Array<{ keyId: string; rowIndex: number; colIndex: number }>>();
     for (const cell of cellRows as Array<{ ticketId: string; keyId: string; rowIndex: number; colIndex: number }>) cellsByTicket.set(cell.ticketId, [...(cellsByTicket.get(cell.ticketId) ?? []), { keyId: cell.keyId, rowIndex: cell.rowIndex, colIndex: cell.colIndex }]);
-    const configuredPatterns = new Set((patternRows as Array<{ patternType: string }>).map((pattern) => pattern.patternType));
-    const winnerCounts = new Map<string, number>();
-    for (const winner of winnerRows as Array<{ patternType: string; eventId: string }>) winnerCounts.set(winner.patternType, (winnerCounts.get(winner.patternType) ?? 0) + 1);
-    const inconsistentClaims = (claimRows as Array<{ claimStatus: string; claimRoundId: string; claimParticipantId: string; claimPatternType: string; claimTicketId: string; ticketId: string | null; ticketRoundId: string | null; ticketParticipantId: string | null; winnerClaimId: string | null; winnerRoundId: string | null; winnerEventId: string | null; winnerParticipantId: string | null; winnerPatternType: string | null }>).some((claim) => {
-      const hasWinner = claim.winnerClaimId !== null;
-      return claim.ticketId !== claim.claimTicketId || claim.ticketRoundId !== claim.claimRoundId || claim.ticketParticipantId !== claim.claimParticipantId || (claim.claimStatus === 'VERIFIED') !== hasWinner || (hasWinner && (claim.claimStatus !== 'VERIFIED' || claim.winnerRoundId !== claim.claimRoundId || claim.winnerEventId !== eventId || claim.winnerParticipantId !== claim.claimParticipantId || claim.winnerPatternType !== claim.claimPatternType));
-    });
-    const inconsistentWinnerClaims = (winnerRows as Array<{ claimId: string; roundId: string; participantId: string; patternType: string; claimRoundId: string | null; claimParticipantId: string | null; claimPatternType: string | null }>).some((winner) => winner.claimRoundId !== winner.roundId || winner.claimParticipantId !== winner.participantId || winner.claimPatternType !== winner.patternType);
     return {
       drawSequences: (drawRows as Array<{ sequenceNumber: number }>).map((draw) => draw.sequenceNumber),
       tickets: (ticketRows as Array<{ id: string }>).map((ticket) => ({ id: ticket.id, cells: cellsByTicket.get(ticket.id) ?? [] })),
       marks: (markRows as Array<{ ticketId: string; cellTicketId: string; keyId: string }>).map((mark) => ({ ticketId: mark.ticketId, cellTicketId: mark.cellTicketId, keyId: mark.keyId })),
       drawnKeyIds: (drawnRows as Array<{ keyId: string }>).map((draw) => draw.keyId),
-      winnersByPattern: (patternRows as Array<{ patternType: string; maxWinners: number; patternStatus: string }>).map((pattern) => ({ patternType: pattern.patternType, count: winnerCounts.get(pattern.patternType) ?? 0, maxWinners: pattern.maxWinners, patternStatus: pattern.patternStatus as 'OPEN' | 'CLOSED' })),
-      unconfiguredWinnerPatterns: [...winnerCounts.keys()].filter((patternType) => !configuredPatterns.has(patternType)),
+      configuredPatterns: (patternRows as Array<{ patternType: string; maxWinners: number; patternStatus: string }>).map((pattern) => ({ patternType: pattern.patternType, maxWinners: pattern.maxWinners, patternStatus: pattern.patternStatus as 'OPEN' | 'CLOSED' })),
+      winnerPatternTypes: (winnerRows as Array<{ patternType: string }>).map((winner) => winner.patternType),
       activeRoundCount: Number((activeCountRows as Array<{ count: number }>)[0]?.count ?? 0),
-      inconsistentClaims,
-      inconsistentTicketScope: (ticketRows as Array<{ eventId: string }>).some((ticket) => ticket.eventId !== eventId),
-      inconsistentWinnerScope: (winnerRows as Array<{ eventId: string }>).some((winner) => winner.eventId !== eventId),
-      inconsistentWinnerClaims,
+      eventId,
+      ticketEventIds: (ticketRows as Array<{ eventId: string }>).map((ticket) => ticket.eventId),
+      claimRelations: claimRows,
+      winnerRelations: winnerRows,
     };
   }
 }

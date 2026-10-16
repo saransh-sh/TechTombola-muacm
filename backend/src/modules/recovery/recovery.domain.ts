@@ -5,18 +5,31 @@ export interface RecoverySnapshot {
   tickets: Array<{ id: string; cells: Array<{ keyId: string; rowIndex: number; colIndex: number }> }>;
   marks: Array<{ ticketId: string; cellTicketId: string; keyId: string }>;
   drawnKeyIds: string[];
-  winnersByPattern: Array<{ patternType: string; count: number; maxWinners: number; patternStatus: 'OPEN' | 'CLOSED' }>;
-  unconfiguredWinnerPatterns: string[];
+  configuredPatterns: Array<{ patternType: string; maxWinners: number; patternStatus: 'OPEN' | 'CLOSED' }>;
+  winnerPatternTypes: string[];
   activeRoundCount: number;
+  eventId: string;
+  ticketEventIds: string[];
+  claimRelations: Array<{ claimStatus: string; claimRoundId: string; claimParticipantId: string; claimPatternType: string; claimTicketId: string; ticketId: string | null; ticketRoundId: string | null; ticketParticipantId: string | null; winnerClaimId: string | null; winnerRoundId: string | null; winnerEventId: string | null; winnerParticipantId: string | null; winnerPatternType: string | null }>;
+  winnerRelations: Array<{ eventId: string; roundId: string; participantId: string; patternType: string; claimRoundId: string | null; claimParticipantId: string | null; claimPatternType: string | null }>;
 }
 
 export function validateRecoverySnapshot(snapshot: RecoverySnapshot): void {
   assertContinuousDrawSequences(snapshot.drawSequences);
   assertTicketShapes(snapshot.tickets);
   assertMarksReferenceDrawnTicketKeys(snapshot.marks, new Set(snapshot.drawnKeyIds));
-  assertWinnerCapacityAndClosure(snapshot.winnersByPattern);
-  if (snapshot.unconfiguredWinnerPatterns.length > 0) throw new ConflictError('Winner references an unconfigured Pattern', 'RECOVERY_WINNER_INVALID');
+  const winnerCounts = new Map<string, number>();
+  for (const patternType of snapshot.winnerPatternTypes) winnerCounts.set(patternType, (winnerCounts.get(patternType) ?? 0) + 1);
+  if (snapshot.winnerPatternTypes.some((patternType) => !snapshot.configuredPatterns.some((pattern) => pattern.patternType === patternType))) throw new ConflictError('Winner references an unconfigured Pattern', 'RECOVERY_WINNER_INVALID');
+  assertWinnerCapacityAndClosure(snapshot.configuredPatterns.map((pattern) => ({ ...pattern, count: winnerCounts.get(pattern.patternType) ?? 0 })));
   if (snapshot.activeRoundCount > 0) throw new ConflictError('Another Round is already active', 'RECOVERY_MULTIPLE_ACTIVE_ROUNDS');
+  if (snapshot.ticketEventIds.some((ticketEventId) => ticketEventId !== snapshot.eventId)) throw new ConflictError('Ticket Event does not match its Round Event', 'RECOVERY_TICKET_SCOPE_INVALID');
+  if (snapshot.winnerRelations.some((winner) => winner.eventId !== snapshot.eventId)) throw new ConflictError('Winner Event does not match its Round Event', 'RECOVERY_WINNER_INVALID');
+  if (snapshot.winnerRelations.some((winner) => winner.claimRoundId !== winner.roundId || winner.claimParticipantId !== winner.participantId || winner.claimPatternType !== winner.patternType)) throw new ConflictError('Winner does not match its Claim', 'RECOVERY_CLAIM_INVALID');
+  if (snapshot.claimRelations.some((claim) => {
+    const hasWinner = claim.winnerClaimId !== null;
+    return claim.ticketId !== claim.claimTicketId || claim.ticketRoundId !== claim.claimRoundId || claim.ticketParticipantId !== claim.claimParticipantId || (claim.claimStatus === 'VERIFIED') !== hasWinner || (hasWinner && (claim.claimStatus !== 'VERIFIED' || claim.winnerRoundId !== claim.claimRoundId || claim.winnerEventId !== snapshot.eventId || claim.winnerParticipantId !== claim.claimParticipantId || claim.winnerPatternType !== claim.claimPatternType));
+  })) throw new ConflictError('Claim and verified Winner records do not agree', 'RECOVERY_CLAIM_INVALID');
 }
 
 export function assertContinuousDrawSequences(sequences: number[]): void {
@@ -43,14 +56,10 @@ export function assertMarksReferenceDrawnTicketKeys(marks: RecoverySnapshot['mar
   }
 }
 
-export function assertWinnerCapacityAndClosure(patterns: RecoverySnapshot['winnersByPattern']): void {
+export function assertWinnerCapacityAndClosure(patterns: Array<{ patternType: string; count: number; maxWinners: number; patternStatus: 'OPEN' | 'CLOSED' }>): void {
   for (const pattern of patterns) {
     if (pattern.count > pattern.maxWinners || (pattern.count >= pattern.maxWinners && pattern.patternStatus !== 'CLOSED') || (pattern.patternStatus === 'CLOSED' && pattern.count < pattern.maxWinners)) {
       throw new ConflictError('Winner capacity or Pattern closure is inconsistent', 'RECOVERY_WINNER_INVALID');
     }
   }
-}
-
-export function assertClaimWinnerConsistency(inconsistent: boolean): void {
-  if (inconsistent) throw new ConflictError('Claim and verified Winner records do not agree', 'RECOVERY_CLAIM_INVALID');
 }
