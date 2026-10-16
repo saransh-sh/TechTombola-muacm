@@ -32,7 +32,7 @@ describe('Round State Transitions and Readiness Domain Logic', () => {
     });
 
     it('defines valid forward transitions from RECOVERY_REQUIRED', () => {
-      expect(ALLOWED_ROUND_TRANSITIONS.RECOVERY_REQUIRED).toEqual(['ACTIVE', 'CANCELLED']);
+      expect(ALLOWED_ROUND_TRANSITIONS.RECOVERY_REQUIRED).toEqual(['CANCELLED']);
     });
 
     it('defines terminal states COMPLETED and CANCELLED with no outgoing transitions', () => {
@@ -53,7 +53,6 @@ describe('Round State Transitions and Readiness Domain Logic', () => {
       ['ACTIVE', 'CANCELLED'],
       ['PAUSED', 'ACTIVE'],
       ['PAUSED', 'CANCELLED'],
-      ['RECOVERY_REQUIRED', 'ACTIVE'],
       ['RECOVERY_REQUIRED', 'CANCELLED'],
     ];
 
@@ -80,6 +79,7 @@ describe('Round State Transitions and Readiness Domain Logic', () => {
       ['CANCELLED', 'ACTIVE'],
       ['CANCELLED', 'DRAFT'],
       ['CANCELLED', 'CANCELLED'],
+      ['RECOVERY_REQUIRED', 'ACTIVE'], // explicit recovery validation required
     ];
 
     for (const [from, to] of invalidPairs) {

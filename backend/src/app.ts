@@ -21,6 +21,7 @@ import { WinnerRepository } from './modules/claims/winner.repository.ts';
 import { ticketRepository } from './modules/tickets/ticket.repository.ts';
 import { idempotencyRepository } from './shared/idempotency/idempotency.repository.ts';
 import { WinnerService } from './modules/claims/winner.service.ts';
+import { RecoveryService } from './modules/recovery/recovery.service.ts';
 
 export interface BuildAppOptions {
   enableLogging?: boolean;
@@ -163,7 +164,11 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     idempotency: idempotencyRepository,
     transactionRunner: { transaction: (callback) => getDb().transaction(callback) },
   });
-  await app.register(createAppRoutes({ realtimeConnectionManager, realtimeSubscriptionService, winnerService }));
+  const recoveryService = new RecoveryService(undefined, undefined, undefined, undefined, realtimeConnectionManager);
+  app.addHook('onReady', async () => {
+    await recoveryService.markInterruptedRounds();
+  });
+  await app.register(createAppRoutes({ realtimeConnectionManager, realtimeSubscriptionService, winnerService, recoveryService }));
 
   return app;
 }
