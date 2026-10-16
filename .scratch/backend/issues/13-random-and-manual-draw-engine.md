@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_draw_engine`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -25,10 +25,10 @@
 
 ## Acceptance criteria
 
-- [ ] Only ACTIVE Rounds accept Draws; an exhausted pool returns a stable conflict.
-- [ ] Concurrent same-key retries replay one Draw; independent commands serialize into distinct gap-free Draws.
-- [ ] Later Question/Key edits cannot alter historical responses.
-- [ ] Admin and Participant history apply strict role/scope and deterministic pagination/order.
+- [x] Only ACTIVE Rounds accept Draws; an exhausted pool returns a stable conflict.
+- [x] Concurrent same-key retries replay one Draw; independent commands serialize into distinct gap-free Draws.
+- [x] Later Question/Key edits cannot alter historical responses.
+- [x] Admin and Participant history apply strict role/scope and deterministic pagination/order.
 
 ## Required scenarios
 
@@ -47,6 +47,6 @@ cd backend && bun run typecheck && bun run lint && bun test && bun run test:inte
 
 ## Completion evidence
 
-- [ ] PR includes random/manual/history DTO and error examples and maps every scenario to a test.
-- [ ] Two-connection race, snapshot, idempotency, audit, and post-commit broadcast evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR includes random/manual/history DTO and error examples and maps every scenario to a test.
+- [x] Two-connection race, snapshot, idempotency, audit, and post-commit broadcast evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.

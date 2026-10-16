@@ -12,6 +12,8 @@ import type { RealtimeSubscriptionService } from '../realtime/subscription.servi
 import { questionRoutes } from '../modules/questions/question.routes.ts';
 import { participantRoutes } from '../modules/participants/participant.routes.ts';
 import { ticketRoutes } from '../modules/tickets/ticket.routes.ts';
+import { drawRoutes } from '../modules/draws/draw.routes.ts';
+import { drawService } from '../modules/draws/draw.service.ts';
 
 export interface AppRouteDependencies {
   realtimeConnectionManager: RealtimeConnectionManager;
@@ -23,6 +25,7 @@ export function createAppRoutes({
   realtimeSubscriptionService,
 }: AppRouteDependencies): FastifyPluginAsync {
   roundService.setRealtimePublisher(realtimeConnectionManager);
+  drawService.setRealtimePublisher(realtimeConnectionManager);
 
   return async (fastify) => {
     await fastify.register(healthRoutes);
@@ -42,6 +45,7 @@ export function createAppRoutes({
         await v1.register(questionRoutes);
         await v1.register(participantRoutes);
         await v1.register(ticketRoutes);
+        await v1.register(drawRoutes);
       },
       { prefix: API_PREFIX }
     );
