@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import websocket from '@fastify/websocket';
 import cookie from '@fastify/cookie';
+import { WEBSOCKET_MAX_PAYLOAD_BYTES } from '../config/constants.ts';
 import WebSocket from 'ws';
 import { RealtimeConnectionManager } from './connection-manager.ts';
 import { createRealtimeRoutes } from './realtime.routes.ts';
@@ -34,7 +35,7 @@ describe('real-time WebSocket transport integration', () => {
   };
 
   beforeAll(async () => {
-    manager = new RealtimeConnectionManager({ heartbeatIntervalMs: 60_000 }); app = Fastify(); await app.register(cookie, { secret: 'test-session-secret-min-length-sufficient' }); await app.register(websocket);
+    manager = new RealtimeConnectionManager({ heartbeatIntervalMs: 60_000 }); app = Fastify(); await app.register(cookie, { secret: 'test-session-secret-min-length-sufficient' }); await app.register(websocket, { options: { maxPayload: WEBSOCKET_MAX_PAYLOAD_BYTES } });
     await app.register(createRealtimeRoutes({
       connectionManager: manager, authenticate,
       validateSession: async () => { if (!sessionActive) throw new Error('revoked'); return { user: { id: 'participant', email: 'user@example.test', name: 'User', role: 'PARTICIPANT', status: 'ACTIVE', eventId }, session: { id: 'session-1', userId: 'participant', expiresAt: new Date() } }; },
@@ -72,6 +73,14 @@ describe('real-time WebSocket transport integration', () => {
   it('rejects invalid public scope and client mutation frames', async () => {
     const invalid = await connect(websocketUrl, `/api/v1/live/ws?eventId=${eventId}&roundId=44444444-4444-4444-8444-444444444444`); expect(await waitForClose(invalid)).toBe(1008);
     const socket = await connect(websocketUrl, `/api/v1/live/ws?eventId=${eventId}&roundId=${roundId}`); const closed = waitForClose(socket); socket.send('{'); expect(await closed).toBe(1008);
+  });
+
+  it('configures a 1 MiB WebSocket payload limit and closes oversized client frames', async () => {
+    expect(app.websocketServer.options.maxPayload).toBe(WEBSOCKET_MAX_PAYLOAD_BYTES);
+    const socket = await connect(websocketUrl, `/api/v1/live/ws?eventId=${eventId}&roundId=${roundId}`);
+    const closed = waitForClose(socket);
+    socket.send('x'.repeat(2_000_000));
+    expect(await closed).toBe(1008);
   });
 
   it('closes a revoked authenticated socket before it receives another event', async () => {

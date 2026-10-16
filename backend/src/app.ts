@@ -5,8 +5,9 @@ import websocket from '@fastify/websocket';
 import multipart from '@fastify/multipart';
 import { ZodError } from 'zod';
 import { getEnv } from './config/env.ts';
-import { REQUEST_ID_HEADER, ERROR_CODES } from './config/constants.ts';
+import { REQUEST_ID_HEADER, ERROR_CODES, WEBSOCKET_MAX_PAYLOAD_BYTES } from './config/constants.ts';
 import { normalizeRequestId } from './shared/utils/request-id.ts';
+import { APP_LOG_REDACT_PATHS } from './shared/utils/logger.ts';
 import { AppError } from './shared/errors/app-error.ts';
 import { createAppRoutes } from './routes/index.ts';
 import { RealtimeConnectionManager } from './realtime/connection-manager.ts';
@@ -45,14 +46,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     logger: isLoggingEnabled
       ? {
           level: env.LOG_LEVEL,
-          redact: [
-            'req.headers.authorization',
-            'req.headers.cookie',
-            'req.headers.x-bootstrap-secret',
-            '*.password',
-            '*.secret',
-            '*.token',
-          ],
+          redact: APP_LOG_REDACT_PATHS,
         }
       : false,
     genReqId: (req) => normalizeRequestId(req.headers[REQUEST_ID_HEADER]),
@@ -77,7 +71,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     secret: env.SESSION_SECRET,
     hook: 'onRequest',
   });
-  await app.register(websocket);
+  await app.register(websocket, { options: { maxPayload: WEBSOCKET_MAX_PAYLOAD_BYTES } });
 
   // Enable Multipart File Upload
   await app.register(multipart, {
@@ -134,6 +128,17 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         error: {
           code: ERROR_CODES.VALIDATION_ERROR,
           message,
+        },
+        requestId,
+      });
+      return;
+    }
+
+    if (typeof error === 'object' && error !== null && 'statusCode' in error && error.statusCode === 413) {
+      reply.status(413).send({
+        error: {
+          code: ERROR_CODES.PAYLOAD_TOO_LARGE,
+          message: 'Request payload is too large.',
         },
         requestId,
       });

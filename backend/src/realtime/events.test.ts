@@ -24,4 +24,8 @@ describe('realtime event schemas', () => {
     expect(() => serializeRealtimeEvent({ type: 'WINNER_VERIFIED', eventId: ids.eventId, roundId: ids.roundId, occurredAt: '2026-10-15T12:00:00.000Z', payload: { winnerId: ids.claimId, participantName: 'Asha', pattern: 'FULL_HOUSE', email: 'asha@example.test' } })).toThrow();
     expect(realtimeReconnectProtocol).toContain('REST');
   });
+
+  it('rejects future-Key fields from public Draw events', () => {
+    expect(() => serializeRealtimeEvent({ type: 'DRAW_CREATED', eventId: ids.eventId, roundId: ids.roundId, occurredAt: '2026-10-15T12:00:00.000Z', payload: { sequence: 1, key: 'DOCKER', question: 'Container platform?', drawnAt: '2026-10-15T12:00:00.000Z', futureKey: 'KUBERNETES' } })).toThrow();
+  });
 });

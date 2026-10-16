@@ -8,6 +8,8 @@ import {
 } from '../../src/modules/auth/auth.domain.ts';
 import { LoginRateLimiter } from '../../src/modules/auth/auth.rate-limiter.ts';
 import { RateLimitError, UnauthorizedError } from '../../src/shared/errors/app-error.ts';
+import { getSessionCookieOptions } from '../../src/modules/auth/auth.domain.ts';
+import { resetCachedEnv } from '../../src/config/env.ts';
 
 describe('Password hashing & verification', () => {
   it('hashes and verifies passwords using Argon2id', async () => {
@@ -108,5 +110,23 @@ describe('Login rate limiter', () => {
 
     limiter.reset(email, ip);
     expect(() => limiter.checkLimit(email, ip)).not.toThrow();
+  });
+});
+
+describe('Session cookie security flags', () => {
+  it('sets Secure only for production while keeping HttpOnly, SameSite, and path flags', () => {
+    const originalEnvironment = process.env.NODE_ENV;
+    try {
+      process.env.NODE_ENV = 'production';
+      resetCachedEnv();
+      expect(getSessionCookieOptions()).toMatchObject({ httpOnly: true, secure: true, sameSite: 'lax', path: '/' });
+
+      process.env.NODE_ENV = 'test';
+      resetCachedEnv();
+      expect(getSessionCookieOptions()).toMatchObject({ httpOnly: true, secure: false, sameSite: 'lax', path: '/' });
+    } finally {
+      process.env.NODE_ENV = originalEnvironment;
+      resetCachedEnv();
+    }
   });
 });

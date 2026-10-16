@@ -445,6 +445,22 @@ describe('Ticket Generation, Allocation, and Retrieval Integration', () => {
     expect(ticket2.id).not.toBe(ticket1.id);
   });
 
+  it('hides a Ticket lookup for a Round in another Event', async () => {
+    const otherEvent = await eventRepository.create({ title: `Ticket Other Event ${Date.now()}`, status: 'DRAFT' });
+    const otherRound = await roundRepository.create(
+      { eventId: otherEvent.id, sequenceNumber: 1, name: 'Other Event Round', status: 'DRAFT' },
+      []
+    );
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/v1/participant/ticket?roundId=${otherRound.id}`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${participantCookie1}` },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.body).not.toContain(otherRound.id);
+  });
+
   it('denies ticket retrieval to Admins on participant endpoint', async () => {
     const res = await app.inject({
       method: 'GET',

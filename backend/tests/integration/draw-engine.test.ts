@@ -547,6 +547,23 @@ describe('Random and Manual Draw Engine Integration', () => {
       expect(d.drawnAt).toBeDefined();
     }
 
+    const paginatedDraws = await app.inject({
+      method: 'GET',
+      url: `/api/v1/participant/draws?roundId=${round.id}&page=1&limit=1`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${participantCookie1}` },
+    });
+    const futureKeys = await getDb().select({ value: eventKeys.value, question: roundQuestions.questionText })
+      .from(roundQuestions)
+      .innerJoin(eventKeys, eq(eventKeys.id, roundQuestions.keyId))
+      .where(eq(roundQuestions.roundId, round.id));
+    const serializedPage = paginatedDraws.body;
+    expect(paginatedDraws.statusCode).toBe(200);
+    expect(paginatedDraws.json().data).toHaveLength(1);
+    for (const future of futureKeys.filter((item) => !data.some((draw: { keyValue: string }) => draw.keyValue === item.value))) {
+      expect(serializedPage).not.toContain(future.value);
+      expect(serializedPage).not.toContain(future.question);
+    }
+
     // 2. Admin retrieving draw history
     const resAdminDraws = await app.inject({
       method: 'GET',
@@ -559,6 +576,22 @@ describe('Random and Manual Draw Engine Integration', () => {
     expect(resAdminDraws.json().data).toHaveLength(2);
 
     await roundService.completeRound(adminUser.id, round.id);
+  });
+
+  it('hides participant Draw history for a Round in another Event', async () => {
+    const otherEvent = await eventRepository.create({ title: `Draw Other Event ${Date.now()}`, status: 'DRAFT' });
+    const otherRound = await roundRepository.create(
+      { eventId: otherEvent.id, sequenceNumber: 1, name: 'Other Event Round', status: 'DRAFT' },
+      []
+    );
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/v1/participant/draws?roundId=${otherRound.id}`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${participantCookie1}` },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.body).not.toContain(otherRound.id);
   });
 
   it('enforces strict role-based access control across draw endpoints', async () => {

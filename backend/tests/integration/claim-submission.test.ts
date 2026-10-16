@@ -673,10 +673,11 @@ describe('Winner Evaluation and Claim Submission Integration', () => {
     expect(missingKey.statusCode).toBe(400);
     const malformedId = await app.inject({
       method: 'POST',
-      url: '/api/v1/admin/claims/not-a-uuid/verify',
+      url: '/api/v1/admin/claims/not-a-uuid/verify?futureKey=FUTURE_KEY_ERROR_PROBE',
       headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}`, 'idempotency-key': 'bad-id' },
     });
     expect(malformedId.statusCode).toBe(400);
+    expect(malformedId.body).not.toContain('FUTURE_KEY_ERROR_PROBE');
     const missingClaim = await app.inject({
       method: 'POST',
       url: '/api/v1/admin/claims/ffffffff-ffff-4fff-8fff-ffffffffffff/verify',
@@ -842,6 +843,9 @@ describe('Winner Evaluation and Claim Submission Integration', () => {
     await roundService.readyRound(adminUser.id, event2Round.id);
     await roundService.startRound(adminUser.id, event2Round.id, `event2_start_${event2Round.id}`);
     await drawAllCandidates(event2Round.id, `event2_draw_${event2Round.id}`);
+    const crossEventClaim = await submitEarly5Claim(participantCookie1, event2Round.id);
+    expect(crossEventClaim.statusCode).toBe(404);
+    expect(crossEventClaim.body).not.toContain(event2Round.id);
     const event2Claim = await submitEarly5Claim(event2Cookie, event2Round.id);
     expect(event2Claim.statusCode).toBe(200);
     const event2ClaimId = event2Claim.json().claim.id;

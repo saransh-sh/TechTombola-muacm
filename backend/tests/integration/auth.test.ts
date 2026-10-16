@@ -1,14 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import type { FastifyInstance } from 'fastify';
 import { runMigrations } from '../../src/db/migrate.ts';
-import { closeDb } from '../../src/db/client.ts';
+import { closeDb, getDb } from '../../src/db/client.ts';
 import { buildApp } from '../../src/app.ts';
 import { userRepository } from '../../src/modules/auth/user.repository.ts';
-import { hashPassword, SESSION_COOKIE_NAME } from '../../src/modules/auth/auth.domain.ts';
+import { hashPassword, SESSION_COOKIE_NAME, verifyAuthToken } from '../../src/modules/auth/auth.domain.ts';
 import { auditService } from '../../src/modules/audit/audit.service.ts';
 import { requireAdmin, requireSuperAdmin } from '../../src/middleware/auth.ts';
 import { ERROR_CODES } from '../../src/config/constants.ts';
 import { loginRateLimiter } from '../../src/modules/auth/auth.rate-limiter.ts';
+import { eq } from 'drizzle-orm';
+import { sessions, users } from '../../src/db/schema/users.ts';
 
 describe('Auth, Sessions, and Role Guards Integration', () => {
   const testDbUrl =
@@ -115,6 +117,11 @@ describe('Auth, Sessions, and Role Guards Integration', () => {
     expect(cookieVal).not.toBeNull();
     const setCookieHeader = res.headers['set-cookie'];
     expect(JSON.stringify(setCookieHeader)).toContain('HttpOnly');
+    const cookieHeader = JSON.stringify(setCookieHeader);
+    expect(cookieHeader).toContain('Path=/');
+    expect(cookieHeader).toContain('SameSite=Lax');
+    expect(cookieHeader).toContain('Max-Age=86400');
+    expect(cookieHeader).not.toContain('Secure');
 
     // Verify audit log
     const audits = await auditService.listByResource('auth');
@@ -312,6 +319,28 @@ describe('Auth, Sessions, and Role Guards Integration', () => {
     expect(secondLogout.statusCode).toBe(200);
   });
 
+  it('rejects an expired persisted Session', async () => {
+    const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email: adminUser.email, password: 'AdminPassword123!' } });
+    const token = extractCookie(login, SESSION_COOKIE_NAME)!;
+    const sessionId = verifyAuthToken(token).jti;
+    await getDb().update(sessions).set({ expiresAt: new Date(Date.now() - 1_000) }).where(eq(sessions.id, sessionId));
+
+    const response = await app.inject({ method: 'GET', url: '/api/v1/me', cookies: { [SESSION_COOKIE_NAME]: token } });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('rejects a Session after its user identity is deleted', async () => {
+    const deletedUser = await userRepository.create({
+      email: `deleted_${Date.now()}@test.internal`, passwordHash: await hashPassword('DeletedPassword123!'), name: 'Deleted Admin', status: 'ACTIVE',
+    }, { role: 'ADMIN' });
+    const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email: deletedUser.email, password: 'DeletedPassword123!' } });
+    const token = extractCookie(login, SESSION_COOKIE_NAME)!;
+    await getDb().update(users).set({ status: 'DELETED' }).where(eq(users.id, deletedUser.id));
+
+    const response = await app.inject({ method: 'GET', url: '/api/v1/me', cookies: { [SESSION_COOKIE_NAME]: token } });
+    expect(response.statusCode).toBe(401);
+  });
+
   it('enforces role guards between ADMIN and SUPER_ADMIN', async () => {
     // Admin login
     const adminLogin = await app.inject({
@@ -373,5 +402,29 @@ describe('Auth, Sessions, and Role Guards Integration', () => {
     const body = JSON.parse(res.body);
     expect(body.error.code).toBe(ERROR_CODES.FORBIDDEN);
     expect(body.error.message).toMatch(/(CORS origin not allowed|Invalid request origin)/);
+  });
+
+  it('rejects oversized JSON bodies before route processing', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      headers: { 'content-type': 'application/json' },
+      payload: { email: 'large-body@test.internal', padding: 'x'.repeat(1_100_000) },
+    });
+
+    expect(res.statusCode).toBe(413);
+    expect(JSON.parse(res.body).error).toEqual({ code: 'PAYLOAD_TOO_LARGE', message: 'Request payload is too large.' });
+    expect(res.body).not.toContain('padding');
+  });
+
+  it('rejects SQL-shaped login identifiers without exposing database details', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { email: "' OR 1=1 --", password: 'NoInjection123!' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).not.toMatch(/SQL|postgres|stack/i);
   });
 });
