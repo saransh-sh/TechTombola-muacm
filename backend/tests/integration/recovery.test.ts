@@ -12,7 +12,7 @@ import { draws } from '../../src/db/schema/draws.ts';
 import { events } from '../../src/db/schema/events.ts';
 import { eventKeys, roundQuestions } from '../../src/db/schema/questions.ts';
 import { ticketMarks } from '../../src/db/schema/marks.ts';
-import { rounds } from '../../src/db/schema/rounds.ts';
+import { roundPatterns, rounds } from '../../src/db/schema/rounds.ts';
 import { ticketCells, tickets } from '../../src/db/schema/tickets.ts';
 import { eventRepository } from '../../src/modules/events/event.repository.ts';
 import { hashPassword, SESSION_COOKIE_NAME } from '../../src/modules/auth/auth.domain.ts';
@@ -20,6 +20,7 @@ import { userRepository } from '../../src/modules/auth/user.repository.ts';
 import { participantRepository } from '../../src/modules/participants/participant.repository.ts';
 import { roundRepository } from '../../src/modules/rounds/round.repository.ts';
 import { computeNextDrawSequence } from '../../src/modules/draws/draw.domain.ts';
+import { RealtimeConnectionManager } from '../../src/realtime/connection-manager.ts';
 
 describe('Restart and crash recovery integration', () => {
   const testDbUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5433/techtombola_test';
@@ -36,6 +37,7 @@ describe('Restart and crash recovery integration', () => {
   let participantId: string;
   let websocketBaseUrl: string;
   let liveSocket: WebSocket | undefined;
+  let restartedConnections: RealtimeConnectionManager;
   const adminPassword = 'RecoveryAdminPass123!';
   const superAdminPassword = 'RecoverySuperPass123!';
   const participantPassword = 'RecoveryParticipant123!';
@@ -49,6 +51,14 @@ describe('Restart and crash recovery integration', () => {
       if (match) return match[1]!;
     }
     return null;
+  }
+
+  async function waitForConnections(count: number): Promise<void> {
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      if (restartedConnections.connectionCount() >= count) return;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error(`Expected ${count} registered connections, received ${restartedConnections.connectionCount()}`);
   }
 
   beforeAll(async () => {
@@ -106,8 +116,10 @@ describe('Restart and crash recovery integration', () => {
     const startupAudit = await db.select().from(auditLogs).where(eq(auditLogs.resourceId, active.id));
     expect(startupAudit.some((record) => record.action === 'RECOVERY_STARTED')).toBe(true);
 
-    secondApp = await buildApp({ enableLogging: false });
+    restartedConnections = new RealtimeConnectionManager();
+    secondApp = await buildApp({ enableLogging: false, realtimeConnectionManager: restartedConnections });
     await secondApp.ready();
+    expect(restartedConnections.connectionCount()).toBe(0);
     websocketBaseUrl = (await secondApp.listen({ port: 0, host: '127.0.0.1' })).replace(/^http/, 'ws');
     const unauthorized = await secondApp.inject({ method: 'POST', url: `/api/v1/admin/rounds/${roundId}/recover` });
     expect(unauthorized.statusCode).toBe(401);
@@ -130,6 +142,13 @@ describe('Restart and crash recovery integration', () => {
     expect(login.statusCode).toBe(200);
     const cookie = extractCookie(login);
     expect(cookie).toBeTruthy();
+    const eventId = (await getDb().select({ eventId: rounds.eventId }).from(rounds).where(eq(rounds.id, roundId)))[0]!.eventId;
+    liveSocket = new WebSocket(`${websocketBaseUrl}/api/v1/live/ws?eventId=${eventId}&roundId=${roundId}`);
+    await new Promise<void>((resolve, reject) => { liveSocket!.once('open', () => resolve()); liveSocket!.once('error', reject); });
+    const socketMessages: Array<{ type: string }> = [];
+    liveSocket.on('message', (data) => socketMessages.push(JSON.parse(data.toString())));
+    await waitForConnections(1);
+    expect(restartedConnections.connectionCount()).toBe(1);
 
     const markCorruption = await secondApp.inject({ method: 'POST', url: `/api/v1/admin/rounds/${corruptRoundId}/recover`, headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` } });
     expect(markCorruption.statusCode).toBe(409);
@@ -138,6 +157,7 @@ describe('Restart and crash recovery integration', () => {
     expect(corruptState?.status).toBe('RECOVERY_REQUIRED');
 
     await getDb().delete(ticketMarks).where(eq(ticketMarks.ticketId, externalTicketId));
+    await getDb().insert(roundPatterns).values({ roundId: corruptRoundId, patternType: 'EARLY_5', status: 'CLOSED' });
     const [badClaim] = await getDb().insert(claims).values({ roundId: externalRoundId, participantId, ticketId: externalTicketId, patternType: 'EARLY_5', status: 'VERIFIED', verifiedBy: adminId }).returning();
     await getDb().insert(winners).values({ claimId: badClaim!.id, participantId, roundId: corruptRoundId, eventId: (await getDb().select({ eventId: tickets.eventId }).from(tickets).where(eq(tickets.id, externalTicketId)))[0]!.eventId, patternType: 'EARLY_5', verifiedBy: adminId });
     const winnerCorruption = await secondApp.inject({ method: 'POST', url: `/api/v1/admin/rounds/${corruptRoundId}/recover`, headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` } });
@@ -146,6 +166,7 @@ describe('Restart and crash recovery integration', () => {
     [corruptState] = await getDb().select({ status: rounds.status }).from(rounds).where(eq(rounds.id, corruptRoundId));
     expect(corruptState?.status).toBe('RECOVERY_REQUIRED');
 
+    const resumeMessage = new Promise<{ type: string; payload: { status: string } }>((resolve) => liveSocket!.once('message', (data) => resolve(JSON.parse(data.toString()))));
     const [firstRecovery, secondRecovery] = await Promise.all([
       secondApp.inject({ method: 'POST', url: `/api/v1/admin/rounds/${roundId}/recover`, headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` } }),
       secondApp.inject({ method: 'POST', url: `/api/v1/admin/rounds/${roundId}/recover`, headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` } }),
@@ -153,17 +174,17 @@ describe('Restart and crash recovery integration', () => {
     expect(firstRecovery.statusCode).toBe(200);
     expect(secondRecovery.statusCode).toBe(200);
     expect([firstRecovery.json().recovered, secondRecovery.json().recovered].sort()).toEqual([false, true]);
+    const resumed = await resumeMessage;
+    expect(resumed).toMatchObject({ type: 'ROUND_RESUMED', payload: { status: 'ACTIVE' } });
+    const [committedRound] = await getDb().select({ status: rounds.status }).from(rounds).where(eq(rounds.id, roundId));
+    expect(committedRound?.status).toBe('ACTIVE');
+    const committedAudit = await getDb().select().from(auditLogs).where(eq(auditLogs.resourceId, roundId));
+    expect(committedAudit.some((record) => record.action === 'RECOVERY_COMPLETED')).toBe(true);
     const [round] = await getDb().select({ status: rounds.status }).from(rounds).where(eq(rounds.id, roundId));
     expect(round?.status).toBe('ACTIVE');
     const allDraws = await getDb().select({ sequenceNumber: draws.sequenceNumber }).from(draws).where(eq(draws.roundId, roundId)).orderBy(draws.sequenceNumber);
     expect(computeNextDrawSequence(allDraws.at(-1)?.sequenceNumber ?? null)).toBe(3);
-    const eventId = (await getDb().select({ eventId: rounds.eventId }).from(rounds).where(eq(rounds.id, roundId)))[0]!.eventId;
-    liveSocket = new WebSocket(`${websocketBaseUrl}/api/v1/ws?eventId=${eventId}&roundId=${roundId}`, { headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` } });
-    await new Promise<void>((resolve, reject) => { liveSocket!.once('open', () => resolve()); liveSocket!.once('error', reject); });
-    const socketMessages: Array<{ type: string }> = [];
-    liveSocket.on('message', (data) => socketMessages.push(JSON.parse(data.toString())));
-    await new Promise((resolve) => setTimeout(resolve, 30));
-    expect(socketMessages).toEqual([]);
+    expect(socketMessages.filter((message) => message.type === 'ROUND_RESUMED')).toHaveLength(1);
     const nextDrawMessage = new Promise<{ type: string; payload: { sequence: number } }>((resolve) => liveSocket!.once('message', (data) => resolve(JSON.parse(data.toString()))));
     const nextDraw = await secondApp.inject({ method: 'POST', url: `/api/v1/admin/rounds/${roundId}/draws`, headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}`, 'idempotency-key': `recovery-next-draw-${Date.now()}` } });
     expect(nextDraw.statusCode).toBe(200);

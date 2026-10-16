@@ -25,10 +25,18 @@
 
 ## Acceptance criteria
 
-- [ ] Arbitrary configured `maxWinners >= 1` is enforced under concurrent transactions.
-- [ ] Winner stores Claim, Participant, Round, Pattern, verifier, and timestamp and is never silently deleted.
-- [ ] Claim and Winner state cannot diverge on rollback or broadcast failure.
-- [ ] Audit action and public event contain safe display data only.
+- [x] Arbitrary configured `maxWinners >= 1` is enforced under concurrent transactions.
+- [x] Winner stores Claim, Participant, Round, Pattern, verifier, and timestamp and is never silently deleted.
+- [x] Claim and Winner state cannot diverge on rollback or broadcast failure.
+- [x] Audit action and public event contain safe display data only.
+
+## Implementation evidence
+
+- Capacity and eligibility domain scenarios: `backend/src/modules/claims/winner.domain.test.ts`.
+- Verification/rejection, idempotency, transaction rollback, and post-commit broadcast failure: `backend/src/modules/claims/winner.service.test.ts` and `backend/tests/integration/claim-submission.test.ts`.
+- Real PostgreSQL final-slot race with two connections and role/history isolation: `backend/tests/integration/claim-submission.test.ts`.
+- Clarified pre-start-only cancellation is covered by `backend/tests/unit/round-state.test.ts` and `backend/tests/integration/round-operation.test.ts`.
+- Full backend unit, integration, typecheck, lint, and build commands pass on this branch.
 
 ## Required scenarios
 
@@ -47,6 +55,6 @@ cd backend && bun run typecheck && bun run lint && bun test && bun run test:inte
 
 ## Completion evidence
 
-- [ ] PR includes verify/reject/history/idempotent replay DTO and error examples and maps every scenario to a test.
-- [ ] Final-slot race, rollback, audit, history isolation, and post-commit broadcast evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR includes verify/reject/history/idempotent replay DTO and error examples and maps every scenario to a test.
+- [x] Final-slot race, rollback, audit, history isolation, and post-commit broadcast evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.

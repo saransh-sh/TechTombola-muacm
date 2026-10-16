@@ -20,7 +20,8 @@ function makeHarness(initialStatus: string = 'RECOVERY_REQUIRED', options: { inv
     updateRoundStatus: async (_id: string, next: 'RECOVERY_REQUIRED' | 'ACTIVE') => { status = next; },
     getSnapshot: async () => ({
       drawSequences: options.invalid ? [1, 3] : [1],
-      tickets: [], marks: [], drawnKeyIds: [], winnersByPattern: [], unconfiguredWinnerPatterns: [], activeRoundCount: 0, inconsistentClaims: false, inconsistentTicketScope: false, inconsistentWinnerScope: options.invalidWinnerScope ?? false, inconsistentWinnerClaims: options.invalidWinnerClaim ?? false,
+      tickets: [], marks: [], drawnKeyIds: [], configuredPatterns: [], winnerPatternTypes: [], activeRoundCount: 0, eventId, ticketEventIds: [],
+      claimRelations: [], winnerRelations: options.invalidWinnerScope || options.invalidWinnerClaim ? [{ eventId: options.invalidWinnerScope ? 'other-event' : eventId, roundId: options.invalidWinnerClaim ? 'other-round' : roundId, participantId: actorId, patternType: 'EARLY_5', claimRoundId: roundId, claimParticipantId: actorId, claimPatternType: 'EARLY_5' }] : [],
     }),
   } as unknown as IRecoveryRepository;
   const rounds = {
@@ -137,6 +138,11 @@ describe('RecoveryService startup detection and command', () => {
 
   it('rejects completed rounds', async () => {
     const h = makeHarness('COMPLETED');
+    await expect(h.service.recover(actorId, 'ADMIN', roundId)).rejects.toMatchObject({ code: 'ROUND_NOT_RECOVERABLE' });
+  });
+
+  it('rejects cancelled rounds', async () => {
+    const h = makeHarness('CANCELLED');
     await expect(h.service.recover(actorId, 'ADMIN', roundId)).rejects.toMatchObject({ code: 'ROUND_NOT_RECOVERABLE' });
   });
 });

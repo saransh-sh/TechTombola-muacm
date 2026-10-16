@@ -52,13 +52,38 @@ describe('Operations read models', () => {
     expect(await service.getDashboard()).toEqual({ ...expected, connectedConnections: 8 });
   });
 
-  it('validates bounded numbered audit pagination and filters, rejecting unknown filters and invalid ranges', () => {
-    expect(auditQuerySchema.parse({})).toEqual({ page: 1, limit: 20 });
-    expect(auditQuerySchema.parse({ page: '2', limit: '100', action: 'DRAW_CREATED' })).toMatchObject({ page: 2, limit: 100 });
-    expect(auditQuerySchema.safeParse({ page: 0 }).success).toBe(false);
+  it('validates bounded cursor pagination and filters, rejecting unknown filters and invalid ranges', () => {
+    expect(auditQuerySchema.parse({})).toEqual({ limit: 20 });
+    expect(auditQuerySchema.parse({ limit: '100', action: 'DRAW_CREATED' })).toMatchObject({ limit: 100 });
+    expect(auditQuerySchema.safeParse({ page: '2' }).success).toBe(false);
     expect(auditQuerySchema.safeParse({ limit: 101 }).success).toBe(false);
     expect(auditQuerySchema.safeParse({ unknown: 'secret' }).success).toBe(false);
     expect(auditQuerySchema.safeParse({ from: '2026-10-16T00:00:00Z', to: '2026-10-15T00:00:00Z' }).success).toBe(false);
+    expect(auditQuerySchema.safeParse({ cursor: '***' }).success).toBe(false);
+  });
+
+  it('uses the supplied audit cursor and returns the next stable cursor for bounded results', async () => {
+    const preciseTimestamp = '2026-10-15T12:00:00.123456Z';
+    const cursor = Buffer.from(JSON.stringify({ createdAt: preciseTimestamp, id: auditRow.id })).toString('base64url');
+    let requestedCursor: unknown;
+    const service = new OperationsService(repository({
+      listAudit: async (filters) => { requestedCursor = filters.cursor; return [auditRow, { ...auditRow, id: '33333333-3333-4333-8333-333333333333' }]; },
+    }));
+    const page = await service.listAudit(auditQuerySchema.parse({ cursor, limit: '1' }));
+    expect(requestedCursor).toEqual({ createdAt: preciseTimestamp, id: auditRow.id });
+    expect(page.items).toHaveLength(1);
+    expect(page.hasMore).toBe(true);
+    expect(page.nextCursor).toBeTruthy();
+    expect(JSON.parse(Buffer.from(page.nextCursor!, 'base64url').toString()).createdAt).toBe('2026-10-15T12:00:00.000000Z');
+    expect(page).not.toHaveProperty('page');
+  });
+
+  it('rejects malformed cursor payloads', async () => {
+    const service = new OperationsService(repository());
+    for (const payload of ['[]', JSON.stringify({ createdAt: '2026-02-31T12:00:00.000001Z', id: auditRow.id })]) {
+      const cursor = Buffer.from(payload).toString('base64url');
+      await expect(service.listAudit(auditQuerySchema.parse({ cursor }))).rejects.toThrow('Audit cursor is invalid');
+    }
   });
 
   it('returns bounded audit page metadata and excludes network/request fields', async () => {
@@ -66,9 +91,8 @@ describe('Operations read models', () => {
     const service = new OperationsService(repository({
       listAudit: async (filters) => { requestedLimit = filters.limit; return [auditRow, { ...auditRow, id: '33333333-3333-4333-8333-333333333333' }]; },
     }));
-    const page = await service.listAudit(auditQuerySchema.parse({ page: '3', limit: '1', actorId: auditRow.actorId }));
+    const page = await service.listAudit(auditQuerySchema.parse({ limit: '1', actorId: auditRow.actorId }));
     expect(requestedLimit).toBe(1);
-    expect(page.page).toBe(3);
     expect(page.limit).toBe(1);
     expect(page.hasMore).toBe(true);
     expect(page.items).toHaveLength(1);

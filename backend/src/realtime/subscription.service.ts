@@ -3,6 +3,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from '../shared/errors
 import type { AuthenticatedPrincipal } from '../modules/auth/auth.service.ts';
 import type { EventRepository } from '../modules/events/event.repository.ts';
 import type { RoundRepository } from '../modules/rounds/round.repository.ts';
+import type { RoundStatus } from '../modules/rounds/round.types.ts';
 
 export const authenticatedSubscriptionSchema = z.object({
   eventId: z.string().uuid().optional(),
@@ -13,6 +14,8 @@ export const publicSubscriptionSchema = z.object({
   eventId: z.string().uuid(),
   roundId: z.string().uuid(),
 });
+
+const liveDisplayRoundStatuses: readonly RoundStatus[] = ['READY', 'ACTIVE', 'PAUSED', 'RECOVERY_REQUIRED', 'COMPLETED'];
 
 export interface RealtimeSubscription {
   eventId: string;
@@ -61,17 +64,17 @@ export class RealtimeSubscriptionService {
     const input = publicSubscriptionSchema.parse(query);
     const event = await this.eventRepo.findById(input.eventId);
     if (!event) throw new NotFoundError('Event not found');
-    await this.validateRoundScope(input.roundId, input.eventId);
+    await this.validateRoundScope(input.roundId, input.eventId, liveDisplayRoundStatuses);
     return input;
   }
 
-  private async validateRoundScope(roundId: string, eventId: string): Promise<void> {
+  private async validateRoundScope(roundId: string, eventId: string, allowedStatuses: readonly RoundStatus[] = ['ACTIVE', 'PAUSED']): Promise<void> {
     const round = await this.roundRepo.findById(roundId);
     if (!round || round.eventId !== eventId) {
       throw new NotFoundError('Round not found in Event');
     }
-    if (round.status !== 'ACTIVE' && round.status !== 'PAUSED') {
-      throw new ForbiddenError('Real-time subscriptions require an active Round');
+    if (!allowedStatuses.includes(round.status)) {
+      throw new ForbiddenError('Real-time subscriptions require an eligible Round');
     }
   }
 }

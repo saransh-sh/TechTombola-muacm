@@ -31,11 +31,12 @@ Event's current Round needs recovery.
 
 ## `GET /admin/audit`
 
-Accepts optional `page` (default `1`, maximum `1000000`), `limit` (default
-`20`, maximum `100`), `actorId` (UUID), `action` (exact action name), `from`,
-and `to` (ISO date-time). Dates are inclusive. Results are ordered by
-`createdAt DESC, id DESC`; numbered pages return stable ordering for ties.
-Unknown query fields and `from` later than `to` return a validation error.
+Accepts optional opaque `cursor`, `limit` (default `20`, maximum `100`),
+`actorId` (UUID), `action` (exact action name), `from`, and `to` (ISO
+date-time). Dates are inclusive. Results are ordered by `createdAt DESC, id
+DESC`. The cursor contains the last returned `(createdAt, id)` pair, so newer
+audit writes do not shift the next page. Unknown query fields, malformed
+cursors, and `from` later than `to` return a validation error.
 
 ```json
 {
@@ -49,9 +50,9 @@ Unknown query fields and `from` later than `to` return a validation error.
     "metadata": { "sequence": 12 },
     "createdAt": "2026-10-15T12:00:00.000Z"
   }],
-  "page": 1,
   "limit": 20,
-  "hasMore": false
+  "hasMore": true,
+  "nextCursor": "eyJjcmVhdGVkQXQiOiIyMDI2LTEwLTE1VDEyOjAwOjAwLjAwMDAwMFoiLCJpZCI6IjExMTExMTExLTExMTEtNDExMS04MTExLTExMTExMTExMTExMSJ9"
 }
 ```
 
@@ -74,7 +75,7 @@ Database available:
   "version": "1.0.0",
   "readiness": { "status": "ready", "dependencies": { "database": "available", "configuration": "available" } },
   "recoveryRequiredRounds": 1,
-  "latestMigration": { "version": "0013_operations_read_indexes.sql", "appliedAt": "2026-10-15T12:00:00.000Z" }
+  "latestMigration": { "version": "0014_operations_read_indexes.sql", "appliedAt": "2026-10-15T12:00:00.000Z" }
 }
 ```
 
@@ -91,7 +92,7 @@ Database unavailable:
 
 ## Errors
 
-- `400 VALIDATION_ERROR`: malformed audit filters, dates, pagination values,
+- `400 VALIDATION_ERROR`: malformed audit filters, dates, cursors, pagination values,
   or unknown query fields.
 - `401 UNAUTHORIZED`: no valid authenticated session.
 - `403 FORBIDDEN`: Participant access to Admin routes or Admin access to the

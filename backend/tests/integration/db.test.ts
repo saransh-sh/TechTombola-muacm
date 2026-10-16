@@ -7,6 +7,13 @@ import { healthCheckFixtures } from '../../src/db/schema/foundation.ts';
 import { buildApp } from '../../src/app.ts';
 import { ERROR_CODES } from '../../src/config/constants.ts';
 import { resetCachedEnv } from '../../src/config/env.ts';
+import { RecoveryService } from '../../src/modules/recovery/recovery.service.ts';
+
+class NoopRecoveryService extends RecoveryService {
+  override async markInterruptedRounds(): Promise<string[]> {
+    return [];
+  }
+}
 
 describe('Database and Migration Harness', () => {
   const testDbUrl =
@@ -76,7 +83,7 @@ describe('Database and Migration Harness', () => {
     const originalUrl = process.env.DATABASE_URL;
     process.env.DATABASE_URL = 'postgresql://postgres:postgres@127.0.0.1:54399/nonexistent';
 
-    const app = await buildApp({ enableLogging: false });
+    const app = await buildApp({ enableLogging: false, recoveryService: new NoopRecoveryService() });
 
     try {
       const res = await app.inject({

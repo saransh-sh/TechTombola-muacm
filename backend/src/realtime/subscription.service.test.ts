@@ -46,10 +46,22 @@ describe('RealtimeSubscriptionService', () => {
     await expect(service().resolvePublic({ eventId, roundId: '44444444-4444-4444-8444-444444444444' })).rejects.toThrow('Round not found in Event');
   });
 
-  it('rejects an inactive Round even when it belongs to the requested Event', async () => {
+  it('allows public Live Display subscriptions for each selected Round lifecycle state', async () => {
     const eventRepo: Pick<EventRepository, 'findById'> = { findById: async () => event };
-    const inactiveRound: RoundSummary = { ...round, status: 'COMPLETED' };
-    const roundRepo: Pick<RoundRepository, 'findById'> = { findById: async () => inactiveRound };
+    for (const status of ['READY', 'ACTIVE', 'PAUSED', 'RECOVERY_REQUIRED', 'COMPLETED'] as const) {
+      const currentRound: RoundSummary = { ...round, status };
+      const roundRepo: Pick<RoundRepository, 'findById'> = { findById: async () => currentRound };
+      const realtime = new RealtimeSubscriptionService(eventRepo, roundRepo);
+      await expect(realtime.resolvePublic({ eventId, roundId })).resolves.toEqual({ eventId, roundId });
+    }
+  });
+
+  it('keeps authenticated subscriptions limited to ACTIVE or PAUSED Rounds', async () => {
+    const eventRepo: Pick<EventRepository, 'findById'> = { findById: async () => event };
+    const completedRound: RoundSummary = { ...round, status: 'COMPLETED' };
+    const roundRepo: Pick<RoundRepository, 'findById'> = { findById: async () => completedRound };
     const realtime = new RealtimeSubscriptionService(eventRepo, roundRepo);
-    await expect(realtime.resolvePublic({ eventId, roundId })).rejects.toThrow('active Round');
+    await expect(realtime.resolveAuthenticated(
+      { id: 'user', email: 'participant@example.test', name: 'Asha', role: 'PARTICIPANT', status: 'ACTIVE', eventId }, { roundId }
+    )).rejects.toThrow('eligible Round');
   });});

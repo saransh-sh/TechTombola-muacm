@@ -15,7 +15,7 @@
 - Bun layers: Round command/read routes and schemas -> operation service -> pure readiness/transition domain <- repositories, idempotency, audit, and WebSocket boundaries.
 - API: `POST /api/v1/admin/rounds/:id/ready|start|pause|resume|complete|cancel`; `Idempotency-Key` is required only on start and resume.
 - READY requires enabled Patterns, at least 15 distinct eligible Question/Key pairs, and Tickets for every active Participant.
-- Start enforces one ACTIVE Round globally and promotes a READY Event to LIVE in the same transaction. Completion requires explicit Admin confirmation; completed/cancelled Rounds never resume.
+- Start enforces one ACTIVE Round globally and promotes a READY Event to LIVE in the same transaction. Completion requires explicit Admin confirmation; cancellation is allowed only from DRAFT or READY, and completed/cancelled Rounds never resume.
 - Emit `ROUND_STARTED|PAUSED|RESUMED|COMPLETED` only after commit; append corresponding audit record within the transaction.
 - Frontend: none; publishes Participant `GET /event` and `GET /round/current` authoritative state DTOs.
 

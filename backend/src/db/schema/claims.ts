@@ -53,6 +53,7 @@ export const winners = pgTable(
     index('winners_participant_verified_at_idx').on(table.participantId, table.verifiedAt),
     index('winners_verified_at_idx').on(table.verifiedAt),
     index('winners_round_pattern_idx').on(table.roundId, table.patternType),
+    index('winners_round_pattern_verified_idx').on(table.roundId, table.patternType, table.verifiedAt, table.id),
   ]
 );
 

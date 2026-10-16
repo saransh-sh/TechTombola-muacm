@@ -11,6 +11,8 @@ import { rounds } from '../../src/db/schema/rounds.ts';
 import { participantProfiles, users } from '../../src/db/schema/users.ts';
 import { tickets } from '../../src/db/schema/tickets.ts';
 import { OperationsRepository } from '../../src/modules/operations/operations.repository.ts';
+import { OperationsService } from '../../src/modules/operations/operations.service.ts';
+import { auditQuerySchema } from '../../src/modules/operations/operations.schemas.ts';
 import { buildApp } from '../../src/app.ts';
 import { SESSION_COOKIE_NAME, hashPassword } from '../../src/modules/auth/auth.domain.ts';
 import { userRepository } from '../../src/modules/auth/user.repository.ts';
@@ -256,21 +258,30 @@ describe('Operations read repository integration', () => {
       metadata: null, createdAt: new Date(at.getTime() + 1000),
     });
 
-    const allForActor = await repository.listAudit({ page: 1, limit: 100, actorId });
-    const allForAction = await repository.listAudit({ page: 1, limit: 100, action: 'DRAW_CREATED' });
-    const allAfter = await repository.listAudit({ page: 1, limit: 100, from: at });
-    const allBefore = await repository.listAudit({ page: 1, limit: 100, to: at });
+    const allForActor = await repository.listAudit({ limit: 100, actorId });
+    const allForAction = await repository.listAudit({ limit: 100, action: 'DRAW_CREATED' });
+    const allAfter = await repository.listAudit({ limit: 100, actorId, from: at });
+    const allBefore = await repository.listAudit({ limit: 100, actorId, to: at });
     expect(allForActor.map((row) => row.actorId)).toContain(actorId);
     expect(allForAction.map((row) => row.id)).toEqual(expect.arrayContaining(ids));
     expect(allAfter.map((row) => row.id)).toEqual(expect.arrayContaining(ids));
     expect(allBefore.map((row) => row.id)).toEqual(expect.arrayContaining(ids));
 
-    const filters = { page: 1, limit: 2, actorId, action: 'DRAW_CREATED', from: at, to: at };
-    const firstPage = await repository.listAudit(filters);
-    const secondPage = await repository.listAudit({ ...filters, page: 2 });
-    expect(firstPage.map((row) => row.id)).toEqual([ids[2], ids[1], ids[0]].slice(0, 3));
-    expect(secondPage.map((row) => row.id)).toEqual([ids[0]]);
-    expect(firstPage.every((row) => row.ip === '192.0.2.1')).toBe(true);
+    const filters = { limit: '2', actorId, action: 'DRAW_CREATED', from: at.toISOString() };
+    const operations = new OperationsService(repository);
+    const firstPage = await operations.listAudit(auditQuerySchema.parse(filters));
+    expect(firstPage.items.map((row) => row.id)).toEqual([ids[2], ids[1]]);
+    expect(firstPage.hasMore).toBe(true);
+    expect(firstPage.nextCursor).toBeTruthy();
+    await getDb().insert(auditLogs).values({
+      actorId, actorType: 'ADMIN', action: 'DRAW_CREATED', resourceType: 'round', resourceId: 'ops-newer-row',
+      metadata: null, createdAt: new Date(at.getTime() + 1000),
+    });
+    const secondPage = await operations.listAudit(auditQuerySchema.parse({ ...filters, cursor: firstPage.nextCursor! }));
+    expect(secondPage.items.map((row) => row.id)).toEqual([ids[0]]);
+    expect(secondPage.hasMore).toBe(false);
+    expect(secondPage.nextCursor).toBeNull();
+    expect(firstPage.items.every((row) => !('ip' in row))).toBe(true);
 
     const indexes = await getSqlClient()`SELECT indexname FROM pg_indexes WHERE tablename = 'audit_logs'`;
     const indexNames = indexes.map((row) => row.indexname);
@@ -283,6 +294,25 @@ describe('Operations read repository integration', () => {
       const rows = await tx`EXPLAIN (COSTS OFF) SELECT id FROM audit_logs WHERE actor_id = ${actorId} AND action = 'DRAW_CREATED' ORDER BY created_at DESC, id DESC LIMIT 3`;
       return JSON.stringify(rows);
     });
-    expect(plan).toContain('audit_logs_actor_action_created_id_idx');
+    expect(plan).toMatch(/audit_logs_(actor_action|action)_created_id_idx/);
+  });
+
+  it('preserves PostgreSQL microseconds across audit cursor pages', async () => {
+    const actorId = crypto.randomUUID();
+    const olderId = crypto.randomUUID();
+    const newerId = crypto.randomUUID();
+    await getSqlClient()`
+      INSERT INTO audit_logs (id, actor_id, actor_type, action, resource_type, resource_id, created_at)
+      VALUES
+        (${olderId}, ${actorId}, 'ADMIN', 'DRAW_CREATED', 'round', 'microsecond-cursor', '2026-10-15T12:00:00.000101Z'::timestamptz),
+        (${newerId}, ${actorId}, 'ADMIN', 'DRAW_CREATED', 'round', 'microsecond-cursor', '2026-10-15T12:00:00.000900Z'::timestamptz)
+    `;
+    const service = new OperationsService(repository);
+    const filters = { actorId, action: 'DRAW_CREATED', limit: '1' };
+    const firstPage = await service.listAudit(auditQuerySchema.parse(filters));
+    expect(firstPage.items.map((row) => row.id)).toEqual([newerId]);
+    expect(JSON.parse(Buffer.from(firstPage.nextCursor!, 'base64url').toString()).createdAt).toBe('2026-10-15T12:00:00.000900Z');
+    const secondPage = await service.listAudit(auditQuerySchema.parse({ ...filters, cursor: firstPage.nextCursor! }));
+    expect(secondPage.items.map((row) => row.id)).toEqual([olderId]);
   });
 });

@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, gte, lt, lte, or, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client.ts';
 import { auditLogs, type AuditLogRecord } from '../../db/schema/audit.ts';
 import { claims, winners } from '../../db/schema/claims.ts';
@@ -10,8 +10,8 @@ import { participantProfiles } from '../../db/schema/users.ts';
 import type { AuditQuery } from './operations.schemas.ts';
 
 export interface AuditFilters extends Pick<AuditQuery, 'actorId' | 'action' | 'from' | 'to'> {
-  page: number;
   limit: number;
+  cursor?: { createdAt: string; id: string };
 }
 export interface DashboardReadModel {
   event: { id: string; title: string; status: string } | null;
@@ -30,7 +30,7 @@ export interface SystemReadModel {
 
 export interface IOperationsRepository {
   getDashboard(): Promise<DashboardReadModel>;
-  listAudit(filters: AuditFilters): Promise<AuditLogRecord[]>;
+  listAudit(filters: AuditFilters): Promise<Array<AuditLogRecord & { cursorCreatedAt?: string }>>;
   getSystemReadModel(): Promise<SystemReadModel>;
 }
 
@@ -95,14 +95,17 @@ export class OperationsRepository implements IOperationsRepository {
     if (filters.action) conditions.push(eq(auditLogs.action, filters.action));
     if (filters.from) conditions.push(gte(auditLogs.createdAt, filters.from));
     if (filters.to) conditions.push(lte(auditLogs.createdAt, filters.to));
+    if (filters.cursor) conditions.push(or(
+      sql`${auditLogs.createdAt} < ${filters.cursor.createdAt}::timestamptz`,
+      and(sql`${auditLogs.createdAt} = ${filters.cursor.createdAt}::timestamptz`, lt(auditLogs.id, filters.cursor.id)),
+    )!);
 
     return this.databaseProvider()
-      .select()
+      .select({ ...getTableColumns(auditLogs), cursorCreatedAt: sql<string>`to_char(${auditLogs.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')` })
       .from(auditLogs)
       .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(desc(auditLogs.createdAt), desc(auditLogs.id))
-      .limit(filters.limit + 1)
-      .offset((filters.page - 1) * filters.limit);
+      .limit(filters.limit + 1);
   }
 
   async getSystemReadModel(): Promise<SystemReadModel> {

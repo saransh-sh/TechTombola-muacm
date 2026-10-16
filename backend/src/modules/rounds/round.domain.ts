@@ -50,9 +50,9 @@ export function getDefaultPatternConfigs(): PatternConfig[] {
 export const ALLOWED_ROUND_TRANSITIONS: Record<RoundStatus, RoundStatus[]> = {
   DRAFT: ['READY', 'CANCELLED'],
   READY: ['ACTIVE', 'CANCELLED'],
-  ACTIVE: ['PAUSED', 'RECOVERY_REQUIRED', 'COMPLETED', 'CANCELLED'],
-  PAUSED: ['ACTIVE', 'CANCELLED'],
-  RECOVERY_REQUIRED: ['CANCELLED'],
+  ACTIVE: ['PAUSED', 'RECOVERY_REQUIRED', 'COMPLETED'],
+  PAUSED: ['ACTIVE'],
+  RECOVERY_REQUIRED: ['ACTIVE'],
   COMPLETED: [],
   CANCELLED: [],
 };

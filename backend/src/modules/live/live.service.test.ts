@@ -29,35 +29,49 @@ describe('LiveReadService', () => {
     const service = new LiveReadService(repository({ findCurrentEvent: async () => null }));
     expect(await service.event()).toEqual({ event: null });
     expect(await service.round()).toEqual({ round: null });
-    expect(await service.draws()).toEqual({ draws: [] });
-    expect((await service.winners()).winners.EARLY_5).toEqual([]);
+    expect(await service.draws()).toEqual({ roundId: null, data: [] });
+    expect(await service.winners()).toEqual({ roundId: null, data: [] });
   });
 
   it('returns public Event and Round DTOs', async () => {
     const service = new LiveReadService(repository());
-    expect(await service.event()).toEqual({ event: serializeLiveEvent(event) });
-    expect(await service.round()).toEqual({ round: serializeLiveRound(round) });
+    expect(await service.event()).toEqual({ event: {
+      id: 'event-public', title: 'Tech Tombola', description: 'Display description', status: 'LIVE',
+      scheduledAt: null, startedAt: '2026-01-01T00:00:00.000Z', completedAt: null,
+    } });
+    expect(await service.round()).toEqual({ round: {
+      id: 'round-public', eventId: 'event-public', sequenceNumber: 1, name: 'Round 1', status: 'ACTIVE',
+      updatedAt: '2026-01-01T00:01:00.000Z',
+    } });
   });
 
   it('returns chronological public Draw DTOs for the current Event and Round', async () => {
     const calls: string[] = [];
     const service = new LiveReadService(repository({ listDraws: async (eventId, roundId) => { calls.push(`${eventId}:${roundId}`); return draws; } }));
-    expect(await service.draws()).toEqual({ draws: draws.map(serializeLiveDraw) });
+    expect(await service.draws()).toEqual({ roundId: round.id, data: [
+      { id: 'draw-1', roundId: 'round-public', sequenceNumber: 1, drawMode: 'RANDOM', question: 'First clue', key: 'DOCKER', drawnAt: '2026-01-01T00:02:00.000Z' },
+      { id: 'draw-2', roundId: 'round-public', sequenceNumber: 2, drawMode: 'MANUAL', question: 'Second clue', key: 'BUN', drawnAt: '2026-01-01T00:03:00.000Z' },
+    ] });
     expect(calls).toEqual(['event-public:round-public']);
   });
 
   it('groups verified Winners by Pattern with empty pattern groups', async () => {
     const service = new LiveReadService(repository());
     const response = await service.winners();
-    expect(response.winners.EARLY_5).toEqual([serializeLiveWinner(winners[0])]);
-    expect(response.winners.FULL_HOUSE).toEqual([serializeLiveWinner(winners[1])]);
-    expect(response.winners.TOP_LINE).toEqual([]);
+    expect(response.roundId).toBe(round.id);
+    expect(response.data).toEqual({
+      EARLY_5: [{ id: 'winner-1', roundId: 'round-public', pattern: 'EARLY_5', participantName: 'Asha', verifiedAt: '2026-01-01T00:04:00.000Z' }],
+      TOP_LINE: [],
+      MIDDLE_LINE: [],
+      BOTTOM_LINE: [],
+      FULL_HOUSE: [{ id: 'winner-2', roundId: 'round-public', pattern: 'FULL_HOUSE', participantName: 'Dev', verifiedAt: '2026-01-01T00:05:00.000Z' }],
+    });
   });
 
   it('returns empty Draws and Winners when the current Event has no current Round', async () => {
     const service = new LiveReadService(repository({ findCurrentRound: async () => null }));
-    expect(await service.draws()).toEqual({ draws: [] });
-    expect((await service.winners()).winners.FULL_HOUSE).toEqual([]);
+    expect(await service.draws()).toEqual({ roundId: null, data: [] });
+    expect(await service.winners()).toEqual({ roundId: null, data: [] });
   });
 });
 

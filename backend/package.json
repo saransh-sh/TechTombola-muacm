@@ -12,8 +12,8 @@
     "lint": "tsc --noEmit",
     "db:migrate": "bun src/db/migrate.ts",
     "db:check": "bun src/db/check.ts",
-    "test": "bun test tests/unit src/modules/claims/*.test.ts src/modules/operations/*.test.ts src/realtime/*.test.ts src/modules/recovery",
-    "test:integration": "bun test tests/integration src/realtime/realtime.routes.test.ts"
+    "test": "bun test tests/unit src/modules/claims/*.test.ts src/modules/operations/*.test.ts src/modules/live/*.test.ts src/modules/recovery/*.test.ts src/realtime/*.test.ts",
+    "test:integration": "bun test --parallel=1 tests/integration src/realtime/realtime.routes.test.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.3",

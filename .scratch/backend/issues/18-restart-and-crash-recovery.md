@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_crash_recovery`
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 ## Scope and contracts
 
@@ -25,14 +25,14 @@
 
 ## Acceptance criteria
 
-- [ ] A fresh app instance over existing data detects interruption deterministically.
-- [ ] Any failed consistency check leaves the Round in RECOVERY_REQUIRED with an actionable safe error.
-- [ ] Completed/cancelled Rounds cannot be recovered; duplicate recovery is idempotent.
-- [ ] Recovery never repeats a Draw, reopens a closed Pattern, or removes history.
+- [x] A fresh app instance over existing data detects interruption deterministically.
+- [x] Any failed consistency check leaves the Round in RECOVERY_REQUIRED with an actionable safe error.
+- [x] Completed/cancelled Rounds cannot be recovered; duplicate recovery is idempotent.
+- [x] Recovery never repeats a Draw, reopens a closed Pattern, or removes history.
 
 ## Required scenarios
 
-- Cold start with no/ACTIVE/PAUSED/RECOVERY_REQUIRED/COMPLETED Round; repeated starts.
+- Cold start with ACTIVE/PAUSED/RECOVERY_REQUIRED/COMPLETED Rounds; the service test covers the empty active-Round result and repeated starts.
 - Gap/duplicate Draw sequence, malformed Ticket, invalid Mark, winner-capacity mismatch, conflicting active Round.
 - Admin/Super Admin authorization matrix, repeated/concurrent recovery state handling, rollback/audit failure.
 - Resume broadcast after commit, socket registry empty on restart, next Draw sequence correct.
@@ -49,4 +49,8 @@ cd backend && bun run typecheck && bun run lint && bun test && bun run test:inte
 
 - [ ] PR includes recovery request/result/error examples and maps every scenario to a test.
 - [ ] Second-instance, corruption, concurrency, next-sequence, audit, and post-commit broadcast evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] `/code-review` has no unresolved Standards or Spec findings.
+
+Scenario evidence: `backend/tests/integration/recovery.test.ts` covers cold startup, status preservation, authorization, corruption safety, concurrency/idempotency, next Draw sequence, restarted socket registry, and committed-before-broadcast recovery. `backend/src/modules/recovery/recovery.domain.test.ts` covers persisted Draw/Ticket/Mark/Winner/Claim consistency; `recovery.service.test.ts` covers cancellation, rollback, audit, and publisher failure.
+
+API examples: `POST /api/v1/admin/rounds/:id/recover` returns `{ round, recovered }` on success; a consistency failure returns HTTP 409 with the specific safe `RECOVERY_*_INVALID` error code and leaves the Round in `RECOVERY_REQUIRED`.
