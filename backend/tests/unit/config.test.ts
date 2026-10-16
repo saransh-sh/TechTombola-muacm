@@ -23,6 +23,11 @@ describe('Configuration parsing & validation', () => {
     expect(config.DATABASE_URL).toBe('postgresql://postgres:postgres@localhost:5433/techtombola_test');
   });
 
+  it('does not invent an email provider credential when none is configured', () => {
+    const { EMAIL_PROVIDER_API_KEY: _key, ...env } = baseValidEnv;
+    expect(parseEnv(env as unknown as NodeJS.ProcessEnv).EMAIL_PROVIDER_API_KEY).toBeUndefined();
+  });
+
   it('fails when DATABASE_URL is missing or invalid', () => {
     const envMissingDb = { ...baseValidEnv, DATABASE_URL: '' };
     expect(() => parseEnv(envMissingDb as unknown as NodeJS.ProcessEnv)).toThrow(/DATABASE_URL/);

@@ -1,4 +1,8 @@
 import { getEnv } from '../../config/env.ts';
+import type { Env } from '../../config/env.ts';
+
+type EmailConfig = Pick<Env, 'EMAIL_PROVIDER_API_KEY' | 'EMAIL_PROVIDER_URL' | 'EMAIL_FROM' | 'APP_URL'>;
+interface EmailServiceDependencies { getConfig(): EmailConfig; fetcher(input: RequestInfo | URL, init?: RequestInit): Promise<Response>; }
 
 export interface EmailDeliveryResult {
   success: boolean;
@@ -15,6 +19,8 @@ export interface IEmailService {
 }
 
 export class EmailService implements IEmailService {
+  constructor(private readonly dependencies: EmailServiceDependencies = { getConfig: getEnv, fetcher: fetch }) {}
+
   async sendParticipantCredentials(
     to: string,
     name: string,
@@ -22,7 +28,7 @@ export class EmailService implements IEmailService {
     eventTitle: string
   ): Promise<EmailDeliveryResult> {
     try {
-      const env = getEnv();
+      const env = this.dependencies.getConfig();
       if (!env.EMAIL_PROVIDER_API_KEY || !env.EMAIL_PROVIDER_URL) {
         return {
           success: false,
@@ -30,7 +36,7 @@ export class EmailService implements IEmailService {
         };
       }
 
-      const response = await fetch(env.EMAIL_PROVIDER_URL, {
+      const response = await this.dependencies.fetcher(env.EMAIL_PROVIDER_URL, {
         method: 'POST',
         headers: {
           authorization: `Bearer ${env.EMAIL_PROVIDER_API_KEY}`,

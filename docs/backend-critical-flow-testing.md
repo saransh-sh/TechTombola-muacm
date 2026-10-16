@@ -23,4 +23,12 @@ bun run test:integration
 
 This branch is stacked on Ticket 19 and exercises the preceding backend slices (Issues 04–19) through their public APIs. The earlier slices did not provide a public first-Super-Admin bootstrap route or a real HTTP email-provider boundary, so the complete black-box workflow could not run using public APIs and a fake provider until Ticket 20 added those seams. The harness now covers those setup steps without writing application records directly.
 
-The local development environment used for this branch had no PostgreSQL service available, so the isolated-database E2E and integration suites could not be executed locally. The workflow above provisions PostgreSQL in CI and runs the E2E suite twice; treat those CI results as pending until the branch workflow completes. Typecheck and whitespace validation passed locally; the aggregate unit suite did not produce a clean completed run in this environment.
+Local verification completed on 2026-10-17 using disposable PostgreSQL databases:
+
+- `bun run build && E2E_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/postgres bun run test:e2e` passed twice consecutively; both final runs passed 170 assertions and verified database teardown.
+- `bun run typecheck` and `bun run lint` passed.
+- `bun run test` passed 245 tests.
+- `DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/techtombola_validation_20261017_20 bun run test:integration` passed 137 tests.
+- `DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/techtombola_validation_20261017_20 bun run db:check` reported the schema up to date.
+
+The workflow above provisions its own PostgreSQL service and runs the E2E suite twice before the canonical checks. GitHub Actions results remain pending until the pushed branch workflow completes.

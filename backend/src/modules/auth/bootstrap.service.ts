@@ -1,13 +1,11 @@
-import { count, eq, sql } from 'drizzle-orm';
 import { timingSafeEqual } from 'node:crypto';
-import { getDb } from '../../db/client.ts';
-import { adminProfiles } from '../../db/schema/users.ts';
 import { getEnv } from '../../config/env.ts';
 import { ConflictError, UnauthorizedError } from '../../shared/errors/app-error.ts';
 import { auditService } from '../audit/audit.service.ts';
 import { hashPassword } from './auth.domain.ts';
-import { userRepository } from './user.repository.ts';
+import { bootstrapRepository, type BootstrapContext, type IBootstrapRepository } from './bootstrap.repository.ts';
 import type { BootstrapSuperAdminInput } from './bootstrap.schemas.ts';
+import { userRepository } from './user.repository.ts';
 
 function secretMatches(configuredSecret: string | undefined, suppliedSecret: string): boolean {
   if (!configuredSecret) return false;
@@ -19,52 +17,53 @@ function secretMatches(configuredSecret: string | undefined, suppliedSecret: str
 export async function bootstrapSuperAdmin(
   input: BootstrapSuperAdminInput,
   suppliedSecret: string,
-  context?: { ip?: string; userAgent?: string; requestId?: string }
+  context?: BootstrapContext,
+  dependencies: BootstrapDependencies = {
+    getConfiguredSecret: () => getEnv().SUPER_ADMIN_BOOTSTRAP_SECRET,
+    hashPassword,
+    repository: bootstrapRepository,
+    users: userRepository,
+    recordAudit: auditService.record.bind(auditService),
+  }
 ) {
-  const env = getEnv();
-  if (!secretMatches(env.SUPER_ADMIN_BOOTSTRAP_SECRET, suppliedSecret)) {
+  if (!secretMatches(dependencies.getConfiguredSecret(), suppliedSecret)) {
     throw new UnauthorizedError('Bootstrap is not available');
   }
 
+  const passwordHash = await dependencies.hashPassword(input.password);
   const email = input.email.trim().toLowerCase();
-  const passwordHash = await hashPassword(input.password);
-  const db = getDb();
-
-  return db.transaction(async (tx) => {
-    // Serialize bootstrap attempts so only one request can create the initial account.
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('tech-tombola-super-admin-bootstrap'))`);
-    const [existingAdmin] = await tx
-      .select({ count: count() })
-      .from(adminProfiles)
-      .where(eq(adminProfiles.role, 'SUPER_ADMIN'));
-    if (Number(existingAdmin?.count ?? 0) > 0) {
+  return dependencies.repository.withBootstrapLock(async (tx) => {
+    if (await dependencies.repository.hasSuperAdmin(tx)) {
       throw new ConflictError('Super Admin bootstrap has already been completed');
     }
-
-    if (await userRepository.findByEmail(email, tx)) {
+    if (await dependencies.users.findByEmail(email, tx)) {
       throw new ConflictError(`An account with email '${email}' already exists`);
     }
 
-    const created = await userRepository.create(
+    const created = await dependencies.users.create(
       { email, name: input.name.trim(), passwordHash, status: 'ACTIVE' },
       { role: 'SUPER_ADMIN' },
       tx
     );
-    await auditService.record(
-      {
-        actorId: created.id,
-        actorType: 'SUPER_ADMIN',
-        action: 'SUPER_ADMIN_BOOTSTRAPPED',
-        resourceType: 'admin_account',
-        resourceId: created.id,
-        metadata: { email },
-        ip: context?.ip,
-        userAgent: context?.userAgent,
-        requestId: context?.requestId,
-      },
-      tx
-    );
-
+    await dependencies.recordAudit({
+      actorId: created.id,
+      actorType: 'SUPER_ADMIN',
+      action: 'SUPER_ADMIN_BOOTSTRAPPED',
+      resourceType: 'admin_account',
+      resourceId: created.id,
+      metadata: { email },
+      ip: context?.ip,
+      userAgent: context?.userAgent,
+      requestId: context?.requestId,
+    }, tx);
     return { id: created.id, email: created.email, name: created.name, role: created.adminProfile?.role };
   });
+}
+
+export interface BootstrapDependencies {
+  getConfiguredSecret(): string | undefined;
+  hashPassword(password: string): Promise<string>;
+  repository: IBootstrapRepository;
+  users: Pick<typeof userRepository, 'findByEmail' | 'create'>;
+  recordAudit: typeof auditService.record;
 }

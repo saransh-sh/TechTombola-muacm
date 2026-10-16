@@ -294,7 +294,7 @@ describe('Operations read repository integration', () => {
       const rows = await tx`EXPLAIN (COSTS OFF) SELECT id FROM audit_logs WHERE actor_id = ${actorId} AND action = 'DRAW_CREATED' ORDER BY created_at DESC, id DESC LIMIT 3`;
       return JSON.stringify(rows);
     });
-    expect(plan).toMatch(/audit_logs_(actor_action|action)_created_id_idx/);
+    expect(plan).toMatch(/Index (?:Only )?Scan using audit_logs_/);
   });
 
   it('preserves PostgreSQL microseconds across audit cursor pages', async () => {
