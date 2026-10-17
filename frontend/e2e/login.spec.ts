@@ -95,15 +95,78 @@ test('a participant cannot enter an admin route', async ({ page }) => {
   await expect(page.getByText('Autumn Tombola')).toBeVisible();
 });
 
-test('active round status opens the truthful ticket placeholder without inventing a ticket', async ({ page }) => {
+test('active round renders the server ticket at mobile and desktop widths', async ({ page }) => {
   await mockAuthentication(page, 'PARTICIPANT', true);
-  await page.route('**/api/v1/participant/round/current', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round: { id: 'round-1', eventId: 'event-1', sequenceNumber: 1, name: 'Opening Round', status: 'ACTIVE', patterns: [], createdAt: '2026-10-17T14:00:00.000Z', updatedAt: '2026-10-17T14:00:00.000Z' } }) }));
-  await page.setViewportSize({ width: 390, height: 844 });
+  let roundId = 'round-1';
+  let roundName = 'Opening Round';
+  let ticketId = 'ticket-1';
+  const cells = Array.from({ length: 15 }, (_, index) => ({ id: `cell-${index}`, rowIndex: Math.floor(index / 5), colIndex: (index * 2) % 9, row: Math.floor(index / 5), column: (index * 2) % 9, keyId: `key-${index}`, keyValue: index === 0 ? 'A LONG TECHNOLOGY KEY' : `KEY ${index}`, marked: index === 0 }));
+  await page.route('**/api/v1/participant/round/current', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round: { id: roundId, eventId: 'event-1', sequenceNumber: roundId === 'round-1' ? 1 : 2, name: roundName, status: 'ACTIVE', patterns: [], createdAt: '2026-10-17T14:00:00.000Z', updatedAt: '2026-10-17T14:00:00.000Z' } }) }));
+  await page.route('**/api/v1/participant/ticket?roundId=*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: { id: ticketId, roundId, participantId: 'participant-1', eventId: 'event-1', createdAt: '2026-10-17T14:00:00.000Z', cells } }) }));
   await page.goto('/participant/lobby');
   await expect(page.getByRole('link', { name: /open your ticket/i })).toBeVisible();
   await page.getByRole('link', { name: /open your ticket/i }).click();
-  await expect(page.getByRole('heading', { name: /ticket is loading next/i })).toBeVisible();
-  expect(await page.locator('body').evaluate((element) => element.scrollWidth <= window.innerWidth)).toBe(true);
+  await expect(page.getByRole('table', { name: 'Your Tombola ticket' })).toBeVisible();
+  await expect(page.getByText('A LONG TECHNOLOGY KEY')).toBeVisible();
+  await expect(page.getByText('Marked', { exact: true })).toBeVisible();
+  const markedCell = page.getByRole('cell', { name: 'Row 1, column 1: A LONG TECHNOLOGY KEY, marked' });
+  await expect(markedCell).toHaveAttribute('data-cell-id', 'cell-0');
+  await expect(markedCell).not.toHaveAttribute('tabindex');
+  await page.getByRole('link', { name: /lobby/i }).focus();
+  await expect(page.getByRole('link', { name: /lobby/i })).toBeFocused();
+  await page.reload();
+  await expect(page.getByText('ticket-1')).toBeVisible();
+  await page.context().setOffline(true);
+  cells[0]!.marked = false;
+  await page.waitForTimeout(100);
+  await page.context().setOffline(false);
+  await expect(page.getByRole('cell', { name: 'Row 1, column 1: A LONG TECHNOLOGY KEY, not marked' })).toHaveAttribute('data-marked', 'false');
+  roundId = 'round-2';
+  roundName = 'Second Round';
+  ticketId = 'ticket-2';
+  await page.context().setOffline(true);
+  await page.waitForTimeout(100);
+  await page.context().setOffline(false);
+  await expect(page.getByRole('heading', { name: 'Second Round' })).toBeVisible();
+  await expect(page.getByText('ticket-2')).toBeVisible();
+  await expect(page.getByText('ticket-1')).toHaveCount(0);
+  for (const width of [320, 375, 390, 430, 640, 768, 1024]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.locator('body').evaluate((element) => element.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+});
+
+test('a delayed ticket response from the previous round cannot replace the new round ticket', async ({ page }) => {
+  await mockAuthentication(page, 'PARTICIPANT', true);
+  let roundId = 'round-1';
+  let releaseOldTicket!: () => void;
+  let markOldTicketStarted!: () => void;
+  const oldTicketGate = new Promise<void>((resolve) => { releaseOldTicket = resolve; });
+  const oldTicketStarted = new Promise<void>((resolve) => { markOldTicketStarted = resolve; });
+  const cells = Array.from({ length: 15 }, (_, index) => ({ id: `cell-${index}`, rowIndex: Math.floor(index / 5), colIndex: (index * 2) % 9, row: Math.floor(index / 5), column: (index * 2) % 9, keyId: `key-${index}`, keyValue: `KEY ${index}`, marked: false }));
+  await page.route('**/api/v1/participant/round/current', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round: { id: roundId, eventId: 'event-1', sequenceNumber: roundId === 'round-1' ? 1 : 2, name: roundId === 'round-1' ? 'Opening Round' : 'Second Round', status: 'ACTIVE', patterns: [], createdAt: '2026-10-17T14:00:00.000Z', updatedAt: '2026-10-17T14:00:00.000Z' } }) }));
+  await page.route('**/api/v1/participant/ticket?roundId=*', async (route) => {
+    const requestedRoundId = new URL(route.request().url()).searchParams.get('roundId')!;
+    if (requestedRoundId === 'round-1') {
+      markOldTicketStarted();
+      await oldTicketGate;
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: { id: requestedRoundId === 'round-1' ? 'ticket-1' : 'ticket-2', roundId: requestedRoundId, participantId: 'participant-1', eventId: 'event-1', createdAt: '2026-10-17T14:00:00.000Z', cells } }) });
+  });
+  await page.goto('/participant/lobby');
+  await page.getByRole('link', { name: /open your ticket/i }).click();
+  await oldTicketStarted;
+
+  roundId = 'round-2';
+  await page.context().setOffline(true);
+  await page.waitForTimeout(100);
+  await page.context().setOffline(false);
+  await expect(page.getByRole('heading', { name: 'Second Round' })).toBeVisible();
+  await expect(page.getByText('ticket-2')).toBeVisible();
+
+  releaseOldTicket();
+  await expect(page.getByText('ticket-1')).toHaveCount(0);
+  await expect(page.getByText('ticket-2')).toBeVisible();
 });
 
 test('login restores the complete protected path, including query and fragment', async ({ page }) => {
