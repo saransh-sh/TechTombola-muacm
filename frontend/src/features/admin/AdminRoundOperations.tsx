@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '../../lib/api/client';
+import { clearIdempotencyKey, getOrCreateIdempotencyKey, isDefinitiveClientRejection } from '../../lib/api/idempotency';
 import { cancelAdminRound, completeAdminRound, generateAdminRoundTickets, getAdminRoundTicketCount, pauseAdminRound, readyAdminRound, resumeAdminRound, startAdminRound } from '../../lib/api/adminRounds';
 import type { AdminRound } from '../../types/adminRound';
 import styles from './AdminRoundOperations.module.css';
@@ -30,14 +31,6 @@ function errorMessage(error: unknown) {
   return error instanceof ApiError ? error.message : 'The operation failed. Refresh the Round before trying again.';
 }
 
-function idempotencyStorageKey(userId: string, roundId: string, operation: string) {
-  return `tech-tombola:idempotency:${userId}:${roundId}:${operation}`;
-}
-
-function commandOutcomeIsDefinitive(error: unknown) {
-  return error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 408;
-}
-
 function confirmMessage(round: AdminRound, command: Command) {
   switch (command) {
     case 'ready': return `Ask the server to check readiness and mark “${round.name}” ready?`;
@@ -58,7 +51,7 @@ export function AdminRoundOperations({ round, userId }: { round: AdminRound; use
   const transition = useMutation({
     mutationFn: ({ round: source, command, idempotencyKey }: Operation) => runCommand(source.id, command, idempotencyKey),
     onSuccess: async (saved, variables) => {
-      if (variables.idempotencyKey) sessionStorage.removeItem(idempotencyStorageKey(userId, variables.round.id, variables.command));
+      if (variables.idempotencyKey) clearIdempotencyKey(`${userId}:${variables.round.id}:${variables.command}`);
       queryClient.setQueryData(detailKey(userId, variables.round.eventId, variables.round.id), saved);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['admin-rounds', userId, variables.round.eventId, 'list'] }),
@@ -67,7 +60,7 @@ export function AdminRoundOperations({ round, userId }: { round: AdminRound; use
       setMessage(`${commandLabels[variables.command]} confirmed by the server.`);
     },
     onError: async (error, variables) => {
-      if (variables.idempotencyKey && commandOutcomeIsDefinitive(error)) sessionStorage.removeItem(idempotencyStorageKey(userId, variables.round.id, variables.command));
+      if (variables.idempotencyKey && isDefinitiveClientRejection(error)) clearIdempotencyKey(`${userId}:${variables.round.id}:${variables.command}`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: detailKey(userId, variables.round.eventId, variables.round.id) }),
         queryClient.invalidateQueries({ queryKey: ['admin-rounds', userId, variables.round.eventId, 'list'] }),
@@ -80,7 +73,7 @@ export function AdminRoundOperations({ round, userId }: { round: AdminRound; use
   const generate = useMutation({
     mutationFn: ({ source, idempotencyKey }: { source: AdminRound; idempotencyKey: string }) => generateAdminRoundTickets(source.id, idempotencyKey),
     onSuccess: async (saved, variables) => {
-      sessionStorage.removeItem(idempotencyStorageKey(userId, variables.source.id, 'generate'));
+      clearIdempotencyKey(`${userId}:${variables.source.id}:generate`);
       setReport(saved);
       setMessage('Ticket allocation report received from the server.');
       await Promise.all([
@@ -89,7 +82,7 @@ export function AdminRoundOperations({ round, userId }: { round: AdminRound; use
       ]);
     },
     onError: async (error, variables) => {
-      if (commandOutcomeIsDefinitive(error)) sessionStorage.removeItem(idempotencyStorageKey(userId, variables.source.id, 'generate'));
+      if (isDefinitiveClientRejection(error)) clearIdempotencyKey(`${userId}:${variables.source.id}:generate`);
       await queryClient.invalidateQueries({ queryKey: ticketCountKey(userId, variables.source.id) });
       setMessage(errorMessage(error));
     },
@@ -97,10 +90,7 @@ export function AdminRoundOperations({ round, userId }: { round: AdminRound; use
 
   const pending = transition.isPending || generate.isPending;
   function keyFor(operation: string) {
-    const storageKey = idempotencyStorageKey(userId, round.id, operation);
-    const current = sessionStorage.getItem(storageKey) ?? crypto.randomUUID();
-    sessionStorage.setItem(storageKey, current);
-    return current;
+    return getOrCreateIdempotencyKey(`${userId}:${round.id}:${operation}`);
   }
   function request(command: Command) {
     if (pending || !window.confirm(confirmMessage(round, command))) return;

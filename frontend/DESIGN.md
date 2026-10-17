@@ -15,8 +15,10 @@ Reference inspected on 2026-10-17: [Hacktoberfest](https://hacktoberfest.com/), 
 - Round operations, desktop 1440×1000: [admin-round-operations-desktop.png](design/screenshots/admin-round-operations-desktop.png)
 - Round operations, mobile 390×844: [admin-round-operations-mobile.png](design/screenshots/admin-round-operations-mobile.png)
 - Question and Key management, desktop 1440×1000: [admin-question-key-management-desktop.png](design/screenshots/admin-question-key-management-desktop.png)
+- Draw control, desktop 1440×1213: [admin-draw-control-desktop.png](design/screenshots/admin-draw-control-desktop.png)
+- Draw control, mobile 390px wide: [admin-draw-control-mobile.png](design/screenshots/admin-draw-control-mobile.png)
 
-The rendered login, dashboard, Event, Round configuration/operations, Question/Key, Participant and CSV import captures use mocked API responses; they document browser rendering, not real backend integration. Round operations display backend-reported Ticket counts and readiness errors. Recovery remains unavailable until the backend publishes a confirmed recovery command. The CSV import response currently omits per-Participant credential-delivery status; the UI points admins to the refreshed Participant list for that status.
+The rendered login, dashboard, Event, Round configuration/operations, Draw control, Question/Key, Participant and CSV import captures use mocked API responses; they document browser rendering, not real backend integration. Round operations display backend-reported Ticket counts and readiness errors. Recovery remains unavailable until the backend publishes a confirmed recovery command. The CSV import response currently omits per-Participant credential-delivery status; the UI points admins to the refreshed Participant list for that status.
 
 ## Tokens
 

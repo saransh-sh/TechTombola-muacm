@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-async function mockAuthentication(page: Page, role?: 'PARTICIPANT' | 'ADMIN' | 'SUPER_ADMIN', authenticated = false) {
+async function mockAuthentication(page: Page, role?: 'PARTICIPANT' | 'ADMIN' | 'SUPER_ADMIN', authenticated = false, initialRoundStatus: 'DRAFT' | 'ACTIVE' = 'DRAFT') {
   let user: null | { id: string; email: string; name: string; role: string; status: string } = role && authenticated
     ? { id: 'user-1', email: 'attendee@example.test', name: 'Ari Patel', role, status: 'ACTIVE' }
     : null;
@@ -68,7 +68,7 @@ async function mockAuthentication(page: Page, role?: 'PARTICIPANT' | 'ADMIN' | '
       enabled: true, maxWinners: 1, status: 'OPEN', createdAt: event.createdAt, updatedAt: event.updatedAt,
     })), createdAt: event.createdAt, updatedAt: event.updatedAt,
   };
-  let currentRound = round;
+  let currentRound = { ...round, status: initialRoundStatus };
   await page.route('**/api/v1/admin/rounds?*', (route) => route.fulfill({
     status: route.request().method() === 'POST' ? 201 : 200,
     contentType: 'application/json',
@@ -210,6 +210,53 @@ test('Round operations show server allocation and confirm the authoritative read
   await page.getByRole('button', { name: 'Start Round' }).click();
   await expect(page.getByText('Start Round confirmed by the server.')).toBeVisible();
   await expect(page.getByText('Status: ACTIVE')).toBeVisible();
+});
+
+test('Draw control confirms random and manual draws and reconciles persisted history on desktop and mobile', async ({ page }) => {
+  await mockAuthentication(page, 'ADMIN', true, 'ACTIVE');
+  const eventId = '0d3aa3e6-4c58-4c36-b363-d5f11640ba52';
+  const roundId = '5c15e548-2bf0-4b12-8e8b-7d2c7cd91872';
+  const questionId = 'a4a85404-a3d6-4da6-9b21-ccfc6a11e713';
+  const keyId = '7c5e95cf-9a31-4a3c-83cc-a353ccde9fd1';
+  const savedDraws = [{
+    id: '229f4f40-cff3-48a5-b177-8fbd55c1ed3b', roundId, sequenceNumber: 1, drawMode: 'RANDOM', questionId, keyId,
+    questionText: 'What runs containers?', keyValue: 'DOCKER', drawnAt: '2026-10-17T10:00:00.000Z',
+  }];
+  page.on('dialog', (dialog) => dialog.accept());
+  await page.routeWebSocket('**/api/v1/ws?*', (socket) => {
+    socket.send(JSON.stringify({ type: 'DRAW_CREATED', eventId, roundId, occurredAt: '2026-10-17T10:00:00.000Z', payload: { sequence: 1, key: 'DOCKER', question: 'What runs containers?', drawnAt: '2026-10-17T10:00:00.000Z' } }));
+  });
+  await page.route(/\/api\/v1\/admin\/rounds\/[^/]+\/draws(?:\/manual)?(?:\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    if (route.request().method() === 'GET') {
+      const pageNumber = Number(url.searchParams.get('page') ?? 1);
+      const limit = Number(url.searchParams.get('limit') ?? 20);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: savedDraws, total: savedDraws.length, page: pageNumber, limit }) });
+    }
+    const manual = url.pathname.endsWith('/manual');
+    const selectedQuestionId = manual ? route.request().postDataJSON().questionId : questionId;
+    const next = { ...savedDraws[0]!, id: crypto.randomUUID(), sequenceNumber: savedDraws.length + 1, drawMode: manual ? 'MANUAL' : 'RANDOM', questionId: selectedQuestionId };
+    savedDraws.push(next);
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ draw: next }) });
+  });
+  await page.goto(`/admin/draw-control?eventId=${eventId}&roundId=${roundId}`);
+  await expect(page.getByRole('heading', { name: 'Draw control' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Current Draw' })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'WebSocket connected' })).toBeVisible();
+  await expect(page.getByText('DOCKER').first()).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: 'design/screenshots/admin-draw-control-desktop.png', fullPage: true });
+  await page.getByRole('button', { name: 'Draw random Question' }).click();
+  await expect(page.getByText('RANDOM Draw 2 confirmed by the server.')).toBeVisible();
+  await expect(page.getByText('DRAW 2').first()).toBeVisible();
+  await page.getByLabel('Manual Question').selectOption(questionId);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: 'design/screenshots/admin-draw-control-mobile.png', fullPage: true });
+  await page.getByRole('button', { name: 'Create manual Draw' }).click();
+  await expect(page.getByText('MANUAL Draw 3 confirmed by the server.')).toBeVisible();
+  await expect(page.getByText('DRAW 3').first()).toBeVisible();
+  expect(savedDraws).toHaveLength(3);
 });
 
 test('participant management scopes and searches safely on mobile', async ({ page }) => {
