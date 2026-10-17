@@ -9,6 +9,7 @@ import { useParticipantRealtime, type ConnectionStatus } from '../../lib/realtim
 import type { AuthenticatedUser } from '../../types/auth';
 import type { ParticipantDraw } from '../../types/draw';
 import { ParticipantTicket } from './ParticipantTicket';
+import { ClaimPanel } from './ClaimPanel';
 import styles from './ParticipantGame.module.css';
 
 export type DisplayDraw = Pick<ParticipantDraw, 'roundId' | 'sequenceNumber' | 'questionText' | 'keyValue' | 'drawnAt'> & { id?: string };
@@ -50,6 +51,7 @@ export function ParticipantGame() {
       {history.length > 0 && <DrawHistory draws={history} />}
     </section>
     <ParticipantTicket revealedKey={latest?.keyValue} animateReveal={animateSequence === latest?.sequenceNumber} drawnKeys={drawnKeys} canMark={round.data?.status === 'ACTIVE' && !round.error && !event.error && realtime.status === 'CONNECTED' && !draws.isFetching && !draws.error} />
+    {event.data && round.data && <ClaimPanel round={round.data} />}
   </div>;
 }
 

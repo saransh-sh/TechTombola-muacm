@@ -8,6 +8,7 @@ import * as authApi from './lib/api/auth';
 import * as participantApi from './lib/api/participant';
 import * as ticketApi from './lib/api/ticket';
 import * as drawApi from './lib/api/draws';
+import * as claimsApi from './lib/api/claims';
 
 const realtimeState = vi.hoisted(() => ({ status: 'CONNECTED' as string, warning: '', liveDraws: [] as unknown[], retry: vi.fn() }));
 
@@ -15,6 +16,7 @@ vi.mock('./lib/api/auth', () => ({ getMe: vi.fn(), login: vi.fn(), logout: vi.fn
 vi.mock('./lib/api/participant', () => ({ getParticipantEvent: vi.fn(), getCurrentRound: vi.fn() }));
 vi.mock('./lib/api/ticket', () => ({ getParticipantTicket: vi.fn() }));
 vi.mock('./lib/api/draws', () => ({ getParticipantDraws: vi.fn() }));
+vi.mock('./lib/api/claims', () => ({ getParticipantClaims: vi.fn(), submitParticipantClaim: vi.fn() }));
 vi.mock('./lib/realtime', () => ({ useParticipantRealtime: () => realtimeState }));
 
 describe('application role routes', () => {
@@ -24,6 +26,7 @@ describe('application role routes', () => {
     realtimeState.status = 'CONNECTED';
     realtimeState.warning = '';
     realtimeState.liveDraws = [];
+    vi.mocked(claimsApi.getParticipantClaims).mockResolvedValue({ data: [], total: 0, page: 1, limit: 50 });
     window.history.replaceState({}, '', '/login');
     vi.clearAllMocks();
   });
@@ -166,7 +169,7 @@ describe('application role routes', () => {
     window.history.replaceState({}, '', '/participant/game');
     render(<App />);
     expect(await screen.findByText('No questions have been drawn in this round yet.')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('Live updates begin when the round starts.');
+    expect(screen.getByText('Live updates begin when the round starts.')).toHaveAttribute('role', 'status');
   });
 
   it('shows event-load failure and retries the server request', async () => {

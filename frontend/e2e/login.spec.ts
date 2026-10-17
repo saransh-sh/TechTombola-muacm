@@ -266,6 +266,38 @@ test('marking waits for the server and the confirmed state survives a page refre
   }
 });
 
+test('participant confirms a configured claim and sees its server status in history', async ({ page }) => {
+  await mockAuthentication(page, 'PARTICIPANT', true);
+  const roundId = 'round-1';
+  const now = '2026-10-17T14:00:00.000Z';
+  let savedClaim: null | { id: string; roundId: string; participantId: string; ticketId: string; patternType: string; status: string; createdAt: string } = null;
+  await page.route('**/api/v1/participant/round/current', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round: { id: roundId, eventId: 'event-1', sequenceNumber: 1, name: 'Opening Round', status: 'ACTIVE', patterns: [{ id: 'pattern-1', roundId, patternType: 'EARLY_5', enabled: true, maxWinners: 3, status: 'OPEN', createdAt: now, updatedAt: now }], createdAt: now, updatedAt: now } }) }));
+  await page.route('**/api/v1/participant/draws?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], total: 0, page: 1, limit: 100 }) }));
+  await page.route('**/api/v1/participant/ticket?roundId=*', (route) => route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: { code: 'NOT_FOUND', message: 'Ticket not found' } }) }));
+  await page.route('**/api/v1/participant/claims*', async (route) => {
+    if (route.request().method() === 'POST') {
+      expect(route.request().postDataJSON()).toEqual({ roundId, pattern: 'EARLY_5' });
+      savedClaim = { id: 'claim-1', roundId, participantId: 'participant-1', ticketId: 'ticket-1', patternType: 'EARLY_5', status: 'PENDING_VERIFICATION', createdAt: now };
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ claim: savedClaim }) });
+    } else {
+      const data = savedClaim ? [savedClaim] : [];
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data, total: data.length, page: 1, limit: 50 }) });
+    }
+  });
+  await page.routeWebSocket('**/api/v1/ws?roundId=*', () => {});
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/participant/game');
+  await page.getByRole('button', { name: 'Choose pattern' }).click();
+  await expect(page.getByText('Submit Early 5 for Opening Round?')).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm claim' }).click();
+  await expect(page.getByText('Early 5 submitted. Waiting for verification.')).toBeVisible();
+  await page.getByRole('link', { name: /view all claims/i }).click();
+  await expect(page.getByText('Waiting for verification', { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Waiting for verification', { exact: true })).toBeVisible();
+  expect(await page.locator('body').evaluate((element) => element.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
 test('a Draw created during the initial snapshot and subscription gap is recovered from REST', async ({ page }) => {
   await mockAuthentication(page, 'PARTICIPANT', true);
   const eventId = '22222222-2222-4222-8222-222222222222';
