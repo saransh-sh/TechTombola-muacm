@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_crash_recovery`
 
-**Status:** in-progress
+**Status:** done
 
 ## Scope and contracts
 
@@ -47,8 +47,8 @@ cd backend && bun run typecheck && bun run lint && bun test && bun run test:inte
 
 ## Completion evidence
 
-- [ ] PR includes recovery request/result/error examples and maps every scenario to a test.
-- [ ] Second-instance, corruption, concurrency, next-sequence, audit, and post-commit broadcast evidence are attached.
+- [x] PR includes recovery request/result/error examples and maps every scenario to a test.
+- [x] Second-instance, corruption, concurrency, next-sequence, audit, and post-commit broadcast evidence are attached.
 - [x] `/code-review` has no unresolved Standards or Spec findings.
 
 Scenario evidence: `backend/tests/integration/recovery.test.ts` covers cold startup, status preservation, authorization, corruption safety, concurrency/idempotency, next Draw sequence, restarted socket registry, and committed-before-broadcast recovery. `backend/src/modules/recovery/recovery.domain.test.ts` covers persisted Draw/Ticket/Mark/Winner/Claim consistency; `recovery.service.test.ts` covers cancellation, rollback, audit, and publisher failure.
