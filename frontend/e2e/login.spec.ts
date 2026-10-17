@@ -19,6 +19,16 @@ async function mockAuthentication(page: Page, role?: 'PARTICIPANT' | 'ADMIN' | '
     user = null;
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ message: 'Successfully logged out' }) });
   });
+  await page.route('**/api/v1/participant/event', (route) => route.fulfill({
+    status: user?.role === 'PARTICIPANT' ? 200 : 403,
+    contentType: 'application/json',
+    body: JSON.stringify(user?.role === 'PARTICIPANT'
+      ? { event: { id: 'event-1', title: 'Autumn Tombola', description: null, status: 'READY', scheduledAt: null, startedAt: null, completedAt: null, createdAt: '2026-10-16T14:00:00.000Z', updatedAt: '2026-10-17T14:00:00.000Z' } }
+      : { error: { code: 'FORBIDDEN', message: 'Participant access required' } }),
+  }));
+  await page.route('**/api/v1/participant/round/current', (route) => route.fulfill({
+    status: 404, contentType: 'application/json', body: JSON.stringify({ error: { code: 'NOT_FOUND', message: 'No current round' } }),
+  }));
 }
 
 test('login screen exposes labelled credentials and accessible validation', async ({ page }) => {
@@ -38,14 +48,16 @@ test('login screen fits a narrow mobile viewport without horizontal overflow', a
   expect(await page.locator('body').evaluate((element) => element.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test('successful participant login opens the participant route', async ({ page }) => {
+test('successful participant login opens the participant lobby', async ({ page }) => {
   await mockAuthentication(page);
   await page.goto('/login');
   await page.getByLabel('Email address').fill('attendee@example.test');
   await page.getByLabel('Password').fill('password');
   await page.getByRole('button', { name: /sign in/i }).click();
-  await expect(page).toHaveURL(/\/participant$/);
-  await expect(page.getByText('Your event ticket is ready.')).toBeVisible();
+  await expect(page).toHaveURL(/\/participant\/lobby$/);
+  await expect(page.getByRole('heading', { name: /welcome, ari/i })).toBeVisible();
+  await expect(page.getByText('Autumn Tombola')).toBeVisible();
+  await expect(page.getByText('No current round available')).toBeVisible();
 });
 
 test('admin and super admin accounts share the role-gated admin application', async ({ page }) => {
@@ -79,8 +91,19 @@ test('an expired session returns to login without showing protected content', as
 test('a participant cannot enter an admin route', async ({ page }) => {
   await mockAuthentication(page, 'PARTICIPANT', true);
   await page.goto('/admin');
-  await expect(page).toHaveURL(/\/participant$/);
-  await expect(page.getByText('Your event ticket is ready.')).toBeVisible();
+  await expect(page).toHaveURL(/\/participant\/lobby$/);
+  await expect(page.getByText('Autumn Tombola')).toBeVisible();
+});
+
+test('active round status opens the truthful ticket placeholder without inventing a ticket', async ({ page }) => {
+  await mockAuthentication(page, 'PARTICIPANT', true);
+  await page.route('**/api/v1/participant/round/current', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round: { id: 'round-1', eventId: 'event-1', sequenceNumber: 1, name: 'Opening Round', status: 'ACTIVE', patterns: [], createdAt: '2026-10-17T14:00:00.000Z', updatedAt: '2026-10-17T14:00:00.000Z' } }) }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/participant/lobby');
+  await expect(page.getByRole('link', { name: /open your ticket/i })).toBeVisible();
+  await page.getByRole('link', { name: /open your ticket/i }).click();
+  await expect(page.getByRole('heading', { name: /ticket is loading next/i })).toBeVisible();
+  expect(await page.locator('body').evaluate((element) => element.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 test('login restores the complete protected path, including query and fragment', async ({ page }) => {

@@ -8,6 +8,7 @@ import { useAuthUiStore } from './features/auth/authStore';
 import { roleHomePath } from './features/auth/routing';
 import { queryClient } from './lib/queryClient';
 import { ErrorMessage, LoadingMessage } from './components/Feedback';
+import { ParticipantLobby } from './features/participant/ParticipantLobby';
 import type { AuthenticatedUser } from './types/auth';
 import './styles/global.css';
 
@@ -25,7 +26,7 @@ function ProtectedLayout({ allowed }: { allowed: AuthenticatedUser['role'][] }) 
   const user = session.data;
   if (!user || !user.role) return <ErrorMessage>We could not identify this account's role. Contact your event administrator.</ErrorMessage>;
   if (!allowed.includes(user.role)) return <Navigate to={roleHomePath(user.role)} replace />;
-  return <div className="role-page"><header><strong>TECH TOMBOLA</strong><span>{user.name}</span><LogoutButton /></header><main><p>{user.role === 'PARTICIPANT' ? 'Your event ticket is ready.' : user.role === 'SUPER_ADMIN' ? 'Super Admin access.' : 'Admin access.'}</p></main><Outlet /></div>;
+  return <div className="role-page"><header><strong>TECH TOMBOLA</strong><span>{user.name}</span><LogoutButton /></header>{user.role === 'PARTICIPANT' ? <Outlet context={user} /> : <><main><p>{user.role === 'SUPER_ADMIN' ? 'Super Admin access.' : 'Admin access.'}</p></main><Outlet /></>}</div>;
 }
 
 function LoginRoute() {
@@ -65,7 +66,11 @@ function LogoutButton() {
 function AppRoutes() {
   return <Routes>
     <Route path="/login" element={<LoginRoute />} />
-    <Route element={<ProtectedLayout allowed={['PARTICIPANT']} />}><Route path="/participant/*" element={<div />} /></Route>
+    <Route element={<ProtectedLayout allowed={['PARTICIPANT']} />}>
+      <Route path="/participant" element={<Navigate to="/participant/lobby" replace />} />
+      <Route path="/participant/lobby" element={<ParticipantLobby />} />
+      <Route path="/participant/ticket" element={<main className="feedback"><h1>Your ticket is loading next.</h1><p>Ticket details will appear here when they are available.</p><a href="/participant/lobby">Back to lobby</a></main>} />
+    </Route>
     <Route element={<ProtectedLayout allowed={['ADMIN', 'SUPER_ADMIN']} />}><Route path="/admin/*" element={<div />} /></Route>
     <Route path="/" element={<Navigate to="/login" replace />} />
     <Route path="*" element={<Navigate to="/login" replace />} />
