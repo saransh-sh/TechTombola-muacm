@@ -320,3 +320,39 @@ test('logout failure is visible and keeps the current authenticated screen', asy
   await expect(page.getByRole('alert')).toContainText('could not end your session');
   await expect(page).toHaveURL(/\/admin$/);
 });
+
+test('Claim review confirms server adjudication and shows persisted status on desktop and mobile', async ({ page }) => {
+  await mockAuthentication(page, 'ADMIN', true);
+  const claimId = '76ab2634-5973-4bbb-b28d-6c19bcf953a1';
+  const claim = {
+    id: claimId, roundId: '5c15e548-2bf0-4b12-8e8b-7d2c7cd91872', participantId: '4d9ec244-a97a-4c8c-a657-1e7fd5b9be69',
+    participantName: 'Sam Rivera', ticketId: 'd89d76f6-86a3-4ef6-8c4a-fdbbf1319480', eventId: '0d3aa3e6-4c58-4c36-b363-d5f11640ba52', eventTitle: 'Tech Tombola 2026',
+    patternType: 'EARLY_5', status: 'PENDING_VERIFICATION', rejectionReason: null, createdAt: '2026-10-17T10:00:00.000Z', verifiedAt: null,
+  };
+  let currentClaim = { ...claim };
+  await page.route('**/api/v1/admin/claims?*', async (route) => {
+    const url = new URL(route.request().url());
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [currentClaim], total: 1, page: Number(url.searchParams.get('page') ?? 1), limit: Number(url.searchParams.get('limit') ?? 20) }) });
+  });
+  await page.route('**/api/v1/admin/claims/*/verify', async (route) => {
+    expect(route.request().headers()['idempotency-key']).toBeTruthy();
+    currentClaim = { ...currentClaim, status: 'VERIFIED', verifiedAt: '2026-10-17T10:05:00.000Z' };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ winner: {
+      id: '229f4f40-cff3-48a5-b177-8fbd55c1ed3b', claimId, participantId: claim.participantId, roundId: claim.roundId, eventId: claim.eventId,
+      patternType: 'EARLY_5', participantName: 'Sam Rivera', eventTitle: 'Tech Tombola 2026', verifiedAt: currentClaim.verifiedAt,
+    } }) });
+  });
+  page.on('dialog', (dialog) => dialog.accept());
+  await page.goto(`/admin/claims?claimId=${claimId}`);
+  await expect(page.getByRole('heading', { name: 'Claim review' })).toBeVisible();
+  await expect(page.getByText('Sam Rivera · EARLY 5')).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: 'design/screenshots/admin-claim-review-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: 'design/screenshots/admin-claim-review-mobile.png', fullPage: true });
+  await page.getByRole('button', { name: 'Verify Claim' }).click();
+  await expect(page.getByText('The server verified this Claim and created the Winner.')).toBeVisible();
+  await expect(page.getByText('VERIFIED').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Verify Claim' })).toHaveCount(0);
+});

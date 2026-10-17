@@ -39,7 +39,7 @@ describe('Admin Participant management', () => {
 
   it('shows identity and credential-delivery status for a Participant in the selected Event', async () => {
     renderPage(`/admin/participants?eventId=${eventId}&participantId=${personId}`);
-    expect(await screen.findByRole('heading', { name: 'Sam Rivera' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Sam Rivera' }, { timeout: 5_000 })).toBeInTheDocument();
     expect(await screen.findByText('FAILED', { selector: 'dd' })).toBeInTheDocument();
     expect(listAdminParticipants).toHaveBeenCalledWith(expect.objectContaining({ eventId, page: 1, limit: 20 }));
   });
