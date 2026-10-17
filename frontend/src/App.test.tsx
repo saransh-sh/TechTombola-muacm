@@ -19,10 +19,10 @@ vi.mock('./lib/api/ticket', () => ({ getParticipantTicket: vi.fn() }));
 vi.mock('./lib/api/draws', () => ({ getParticipantDraws: vi.fn() }));
 vi.mock('./lib/api/claims', () => ({ getParticipantClaims: vi.fn(), submitParticipantClaim: vi.fn() }));
 vi.mock('./lib/api/winners', () => ({ getParticipantWins: vi.fn(), getLiveWinners: vi.fn() }));
-vi.mock('./lib/realtime', () => ({ useParticipantRealtime: () => realtimeState }));
+vi.mock('./lib/realtime', () => ({ useParticipantRealtime: () => realtimeState, mergeParticipantDraws: (serverDraws: unknown[]) => serverDraws }));
 
 describe('application role routes', () => {
-  afterEach(cleanup);
+  afterEach(() => { cleanup(); vi.useRealTimers(); });
   beforeEach(() => {
     queryClient.clear();
     realtimeState.status = 'CONNECTED';

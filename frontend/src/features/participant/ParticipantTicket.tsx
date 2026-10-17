@@ -47,10 +47,11 @@ export function ParticipantTicket({ revealedKey, animateReveal = false, drawnKey
   const [uncertainCellIds, setUncertainCellIds] = useState<Set<string>>(() => new Set());
   const [markFeedback, setMarkFeedback] = useState<{ cellId?: string; kind: 'success' | 'error' | 'uncertain'; message: string }>();
   const pendingRef = useRef(new Set<string>());
-  const event = useQuery({ queryKey: ['participant', user.id, 'event'], queryFn: ({ signal }) => getParticipantEvent(signal), refetchOnReconnect: 'always' });
+  const event = useQuery({ queryKey: ['participant', user.id, 'event'], queryFn: ({ signal }) => getParticipantEvent(signal), refetchOnReconnect: 'always', refetchOnWindowFocus: 'always' });
   const round = useQuery({
     queryKey: ['participant', user.id, 'round', event.data?.id], queryFn: ({ signal }) => getCurrentRound(signal), enabled: !!event.data,
     refetchOnReconnect: 'always',
+    refetchOnWindowFocus: 'always',
     refetchInterval: (query) => {
       if (query.state.error) return query.state.error instanceof ApiError && query.state.error.status === 404 ? 5000 : false;
       return query.state.data && refreshableRound.has(query.state.data.status) ? 5000 : false;
@@ -60,6 +61,7 @@ export function ParticipantTicket({ revealedKey, animateReveal = false, drawnKey
     queryKey: ['participant', user.id, 'ticket', event.data?.id, round.data?.id],
     queryFn: ({ signal }) => getParticipantTicket(round.data!.id, event.data!.id, signal), enabled: !!event.data && !!round.data,
     refetchOnReconnect: 'always',
+    refetchOnWindowFocus: 'always',
     refetchInterval: (query) => query.state.error instanceof ApiError && query.state.error.status === 404 ? 5000 : false,
   });
   useEffect(() => {

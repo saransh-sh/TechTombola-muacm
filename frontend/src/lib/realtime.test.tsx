@@ -1,7 +1,7 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { QueryClient } from '@tanstack/react-query';
-import { participantSocketUrl, useParticipantRealtime } from './realtime';
+import { mergeParticipantDraws, participantSocketUrl, useParticipantRealtime } from './realtime';
 
 const ids = { event: '22222222-2222-4222-8222-222222222222', round: '33333333-3333-4333-8333-333333333333', other: '44444444-4444-4444-8444-444444444444' };
 const drawnAt = '2026-10-17T14:00:00.000Z';
@@ -11,13 +11,13 @@ class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
   readyState = 0;
   onopen: (() => void) | null = null;
-  onclose: (() => void) | null = null;
+  onclose: ((event: Pick<CloseEvent, 'code'>) => void) | null = null;
   onerror: (() => void) | null = null;
   onmessage: ((event: { data: string }) => void) | null = null;
   constructor(readonly url: string) { FakeWebSocket.instances.push(this); }
   open() { this.readyState = FakeWebSocket.OPEN; this.onopen?.(); }
   message(data: unknown) { this.onmessage?.({ data: typeof data === 'string' ? data : JSON.stringify(data) }); }
-  close() { this.readyState = 3; this.onclose?.(); }
+  close(code = 1000) { this.readyState = 3; this.onclose?.({ code }); }
 }
 
 function drawEvent(sequence: number, scope = ids.round) {
@@ -34,7 +34,16 @@ describe('participant realtime connection', () => {
     queryClient.refetchQueries = vi.fn().mockResolvedValue(undefined);
     queryClient.getQueryState = vi.fn().mockReturnValue(undefined);
   });
-  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+  it('keeps an in-flight live Draw ahead of an older REST snapshot', () => {
+    const merged = mergeParticipantDraws(
+      [{ id: 'draw-1', roundId: ids.round, sequenceNumber: 1, questionText: 'Old clue', keyValue: 'OLD', drawnAt }],
+      [{ roundId: ids.round, sequenceNumber: 1, questionText: 'Current clue', keyValue: 'CURRENT', drawnAt }, { roundId: ids.round, sequenceNumber: 2, questionText: 'Next clue', keyValue: 'NEXT', drawnAt }],
+    );
+    expect(merged.map(({ sequenceNumber, keyValue }) => [sequenceNumber, keyValue])).toEqual([[1, 'CURRENT'], [2, 'NEXT']]);
+    expect(merged[0]?.id).toBe('draw-1');
+  });
 
   it('uses the same-origin authenticated subscription URL', () => {
     const url = new URL(participantSocketUrl(ids.round));
@@ -59,6 +68,65 @@ describe('participant realtime connection', () => {
     await act(async () => { FakeWebSocket.instances[0]!.open(); await Promise.resolve(); });
     await waitFor(() => expect(result.current.status).toBe('DISCONNECTED'));
     expect(result.current.warning).toMatch(/reconnect to check again/i);
+  });
+
+  it.each([1008, 4401, 4403])('does not retry policy or authorization close code %s and restores current REST state', async (code) => {
+    const { result } = renderHook(() => useParticipantRealtime(true, 'user-1', ids.event, ids.round, queryClient));
+    act(() => FakeWebSocket.instances[0]!.close(code));
+    expect(result.current.status).toBe('DISCONNECTED');
+    expect(result.current.warning).toMatch(/saved game details/i);
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['participant', 'user-1', 'round', ids.event] });
+  });
+
+  it('keeps a Draw received during REST resync in the live snapshot', async () => {
+    const completions: (() => void)[] = [];
+    queryClient.refetchQueries = vi.fn(() => new Promise<void>((resolve) => completions.push(resolve)));
+    const { result } = renderHook(() => useParticipantRealtime(true, 'user-1', ids.event, ids.round, queryClient));
+    const socket = FakeWebSocket.instances[0]!;
+    await act(async () => { socket.open(); await Promise.resolve(); });
+    act(() => socket.message(drawEvent(4)));
+    expect(result.current.liveDraws.map((draw) => draw.sequenceNumber)).toEqual([4]);
+    expect(result.current.status).toBe('SYNCING');
+    await act(async () => { completions.forEach((finish) => finish()); await Promise.resolve(); });
+    expect(result.current.liveDraws.map((draw) => draw.sequenceNumber)).toEqual([4]);
+  });
+
+  it('ignores an old snapshot that finishes after the Round scope changes', async () => {
+    let finishOldSnapshot!: () => void;
+    queryClient.refetchQueries = vi.fn()
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { finishOldSnapshot = resolve; }))
+      .mockResolvedValue(undefined);
+    const { result, rerender } = renderHook(({ roundId }) => useParticipantRealtime(true, 'user-1', ids.event, roundId, queryClient), { initialProps: { roundId: ids.round } });
+    const oldSocket = FakeWebSocket.instances[0]!;
+    await act(async () => { oldSocket.open(); await Promise.resolve(); });
+    rerender({ roundId: ids.other });
+    const newSocket = FakeWebSocket.instances[1]!;
+    await act(async () => { finishOldSnapshot(); await Promise.resolve(); });
+    expect(oldSocket.readyState).toBe(3);
+    expect(newSocket.readyState).toBe(0);
+    expect(result.current.status).toBe('CONNECTING');
+    expect(result.current.liveDraws).toEqual([]);
+  });
+
+  it('marks cached state stale offline and opens a fresh socket when connectivity returns', () => {
+    const { result } = renderHook(() => useParticipantRealtime(true, 'user-1', ids.event, ids.round, queryClient));
+    act(() => window.dispatchEvent(new Event('offline')));
+    expect(result.current.status).toBe('DISCONNECTED');
+    expect(result.current.warning).toMatch(/offline/i);
+    expect(FakeWebSocket.instances[0]?.readyState).toBe(3);
+    act(() => window.dispatchEvent(new Event('online')));
+    expect(FakeWebSocket.instances).toHaveLength(2);
+  });
+
+  it('reconciles snapshots after a suspended tab becomes visible', async () => {
+    const { result } = renderHook(() => useParticipantRealtime(true, 'user-1', ids.event, ids.round, queryClient));
+    const socket = FakeWebSocket.instances[0]!;
+    await act(async () => { socket.open(); await Promise.resolve(); });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    act(() => document.dispatchEvent(new Event('visibilitychange')));
+    await waitFor(() => expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['participant', 'user-1', 'ticket', ids.event, ids.round] }));
+    await waitFor(() => expect(result.current.status).toBe('CONNECTED'));
   });
 
   it('reconciles after subscription and keeps unique in-scope Draws in sequence order', async () => {
@@ -130,6 +198,21 @@ describe('participant realtime connection', () => {
     expect(FakeWebSocket.instances).toHaveLength(7);
   });
 
+  it('does not reset the retry budget after a brief socket open', async () => {
+    vi.useFakeTimers();
+    renderHook(() => useParticipantRealtime(true, 'user-1', ids.event, ids.round, queryClient));
+    for (const delay of [500, 1000, 2000, 4000, 8000]) {
+      const socket = FakeWebSocket.instances.at(-1)!;
+      act(() => socket.open());
+      act(() => socket.close());
+      await act(async () => { await vi.advanceTimersByTimeAsync(delay); });
+    }
+    act(() => FakeWebSocket.instances.at(-1)!.open());
+    act(() => FakeWebSocket.instances.at(-1)!.close());
+    expect(FakeWebSocket.instances).toHaveLength(6);
+    expect(FakeWebSocket.instances.at(-1)?.readyState).toBe(3);
+  });
+
   it('closes the old scope and ignores its late event after a round switch', async () => {
     const { result, rerender } = renderHook(({ roundId }) => useParticipantRealtime(true, 'user-1', ids.event, roundId, queryClient), { initialProps: { roundId: ids.round } });
     const oldSocket = FakeWebSocket.instances[0]!;
@@ -138,5 +221,44 @@ describe('participant realtime connection', () => {
     act(() => oldSocket.message(drawEvent(8)));
     expect(result.current.liveDraws).toEqual([]);
     expect(FakeWebSocket.instances).toHaveLength(2);
+  });
+
+  it('waits to connect to a new Round until the browser is online', () => {
+    const { rerender } = renderHook(({ roundId }) => useParticipantRealtime(true, 'user-1', ids.event, roundId, queryClient), { initialProps: { roundId: ids.round } });
+    const oldSocket = FakeWebSocket.instances[0]!;
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+    act(() => window.dispatchEvent(new Event('offline')));
+    rerender({ roundId: ids.other });
+    expect(oldSocket.readyState).toBe(3);
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+    act(() => window.dispatchEvent(new Event('online')));
+    expect(FakeWebSocket.instances).toHaveLength(2);
+  });
+
+  it('cleans up the socket, listeners, and retry timer on unmount', () => {
+    vi.useFakeTimers();
+    const removeWindowListener = vi.spyOn(window, 'removeEventListener');
+    const removeDocumentListener = vi.spyOn(document, 'removeEventListener');
+    const { unmount } = renderHook(() => useParticipantRealtime(true, 'user-1', ids.event, ids.round, queryClient));
+    act(() => FakeWebSocket.instances[0]!.close());
+    unmount();
+    expect(FakeWebSocket.instances[0]!.readyState).toBe(3);
+    expect(removeWindowListener).toHaveBeenCalledWith('online', expect.any(Function));
+    expect(removeWindowListener).toHaveBeenCalledWith('offline', expect.any(Function));
+    expect(removeDocumentListener).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    removeWindowListener.mockRestore();
+    removeDocumentListener.mockRestore();
+  });
+
+  it('clears the stable-connection timer on unmount', () => {
+    vi.useFakeTimers();
+    const { unmount } = renderHook(() => useParticipantRealtime(true, 'user-1', ids.event, ids.round, queryClient));
+    act(() => FakeWebSocket.instances[0]!.open());
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

@@ -21,13 +21,13 @@ function useExpireOn401(error: unknown) {
 }
 
 export function useParticipantWins(userId: string, page = 1) {
-  const wins = useQuery({ queryKey: participantWinsKey(userId, page), queryFn: ({ signal }) => getParticipantWins(page, 50, signal), refetchOnReconnect: 'always' });
+  const wins = useQuery({ queryKey: participantWinsKey(userId, page), queryFn: ({ signal }) => getParticipantWins(page, 50, signal), refetchOnReconnect: 'always', refetchOnWindowFocus: 'always' });
   useExpireOn401(wins.error);
   return wins;
 }
 
 export function useLiveWinners() {
-  const winners = useQuery({ queryKey: liveWinnersKey, queryFn: ({ signal }) => getLiveWinners(signal), refetchOnReconnect: 'always' });
+  const winners = useQuery({ queryKey: liveWinnersKey, queryFn: ({ signal }) => getLiveWinners(signal), refetchOnReconnect: 'always', refetchOnWindowFocus: 'always' });
   useExpireOn401(winners.error);
   return winners;
 }

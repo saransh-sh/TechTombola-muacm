@@ -35,20 +35,31 @@ export function ParticipantLobby() {
   const identityChanged = useAuthUiStore((state) => state.identityChanged);
   const event = useQuery({
     queryKey: ['participant', user.id, 'event'], queryFn: ({ signal }) => getParticipantEvent(signal),
-    refetchInterval: (query) => {
-      if (query.state.error) return query.state.error instanceof ApiError && query.state.error.status === 404 ? 5000 : false;
-      return query.state.data && refreshableEvent.has(query.state.data.status) ? 5000 : false;
-    },
+    refetchOnReconnect: 'always', refetchOnWindowFocus: 'always',
   });
   const currentRound = useQuery({
     queryKey: ['participant', user.id, 'round', event.data?.id], queryFn: ({ signal }) => getCurrentRound(signal), enabled: !!event.data,
-    refetchInterval: (query) => {
-      if (query.state.error) return query.state.error instanceof ApiError && query.state.error.status === 404 ? 5000 : false;
-      return !query.state.data || refreshableRound.has(query.state.data.status) ? 5000 : false;
-    },
+    refetchOnReconnect: 'always', refetchOnWindowFocus: 'always',
   });
   const noAssignment = event.error instanceof ApiError && event.error.status === 404;
   const noRound = currentRound.error instanceof ApiError && currentRound.error.status === 404;
+  const observeEvent = event.error ? noAssignment : !!event.data && refreshableEvent.has(event.data.status);
+  const observeRound = currentRound.error ? noRound : !!currentRound.data && refreshableRound.has(currentRound.data.status);
+  const refetchEvent = event.refetch;
+  const refetchRound = currentRound.refetch;
+  useEffect(() => {
+    if (!observeEvent && !observeRound) return;
+    let stopped = false;
+    let remaining = 5;
+    let timer: number | undefined;
+    const observe = async () => {
+      remaining -= 1;
+      await Promise.all([observeEvent ? refetchEvent() : undefined, observeRound ? refetchRound() : undefined]);
+      if (!stopped && remaining > 0) timer = window.setTimeout(observe, 5_000);
+    };
+    timer = window.setTimeout(observe, 5_000);
+    return () => { stopped = true; if (timer !== undefined) window.clearTimeout(timer); };
+  }, [observeEvent, observeRound, refetchEvent, refetchRound]);
   useEffect(() => {
     if ([event.error, currentRound.error].some((error) => error instanceof ApiError && error.status === 401)) {
       queryClient.clear();

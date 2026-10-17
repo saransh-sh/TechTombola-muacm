@@ -5,36 +5,55 @@ import { useOutletContext } from 'react-router-dom';
 import { ApiError } from '../../lib/api/client';
 import { getParticipantDraws } from '../../lib/api/draws';
 import { getCurrentRound, getParticipantEvent } from '../../lib/api/participant';
-import { useParticipantRealtime, type ConnectionStatus } from '../../lib/realtime';
+import { mergeParticipantDraws, useParticipantRealtime, type ConnectionStatus, type DisplayDraw } from '../../lib/realtime';
 import type { AuthenticatedUser } from '../../types/auth';
-import type { ParticipantDraw } from '../../types/draw';
 import { ParticipantTicket } from './ParticipantTicket';
 import { ClaimPanel } from './ClaimPanel';
 import { WinnerBanner } from './WinnerBanner';
 import styles from './ParticipantGame.module.css';
 
-export type DisplayDraw = Pick<ParticipantDraw, 'roundId' | 'sequenceNumber' | 'questionText' | 'keyValue' | 'drawnAt'> & { id?: string };
-
 export function ParticipantGame() {
   const user = useOutletContext<AuthenticatedUser>();
   const queryClient = useQueryClient();
-  const event = useQuery({ queryKey: ['participant', user.id, 'event'], queryFn: ({ signal }) => getParticipantEvent(signal), refetchOnReconnect: 'always' });
-  const round = useQuery({ queryKey: ['participant', user.id, 'round', event.data?.id], queryFn: ({ signal }) => getCurrentRound(signal), enabled: !!event.data, refetchOnReconnect: 'always', refetchInterval: (query) => query.state.data?.status === 'READY' ? 3000 : false });
+  const event = useQuery({
+    queryKey: ['participant', user.id, 'event'], queryFn: ({ signal }) => getParticipantEvent(signal), refetchOnReconnect: 'always', refetchOnWindowFocus: 'always',
+  });
+  const round = useQuery({
+    queryKey: ['participant', user.id, 'round', event.data?.id], queryFn: ({ signal }) => getCurrentRound(signal), enabled: !!event.data, refetchOnReconnect: 'always', refetchOnWindowFocus: 'always',
+  });
   const noRound = round.error instanceof ApiError && round.error.status === 404;
   const noEvent = event.error instanceof ApiError && event.error.status === 404;
   const canRead = !!event.data && !!round.data && !noRound && !noEvent;
+  const staleGameState = (!!event.data && !!event.error) || (!!round.data && !!round.error);
+  const roundStatus = round.data?.status;
   const canConnect = canRead && (round.data?.status === 'ACTIVE' || round.data?.status === 'PAUSED');
+  const refetchEvent = event.refetch;
+  const refetchRound = round.refetch;
   const realtime = useParticipantRealtime(canConnect, user.id, event.data?.id ?? '', round.data?.id ?? '', queryClient);
+  useEffect(() => {
+    const policyRejected = realtime.warning.startsWith('Live updates are unavailable for this round state.');
+    const observation = noEvent ? 'event' : noRound ? 'round' : roundStatus && !['ACTIVE', 'PAUSED'].includes(roundStatus) ? roundStatus : policyRejected ? 'policy-rejected' : null;
+    if (!observation) return;
+    let stopped = false;
+    let remaining = 5;
+    let timer: number | undefined;
+    const delay = observation === 'READY' ? 3_000 : observation === 'event' || observation === 'round' || observation === 'policy-rejected' ? 5_000 : 10_000;
+    const observe = async () => {
+      remaining -= 1;
+      await (observation === 'event' ? refetchEvent() : refetchRound());
+      if (!stopped && remaining > 0) timer = window.setTimeout(observe, delay);
+    };
+    timer = window.setTimeout(observe, delay);
+    return () => { stopped = true; if (timer !== undefined) window.clearTimeout(timer); };
+  }, [noEvent, noRound, refetchEvent, refetchRound, realtime.warning, roundStatus]);
   const draws = useQuery({
     queryKey: ['participant', user.id, 'draws', event.data?.id, round.data?.id],
     queryFn: ({ signal }) => getParticipantDraws(round.data!.id, signal),
     enabled: canRead,
     refetchOnReconnect: 'always',
+    refetchOnWindowFocus: 'always',
   });
-  const bySequence = new Map<number, DisplayDraw>();
-  for (const draw of draws.data?.data ?? []) bySequence.set(draw.sequenceNumber, draw);
-  for (const draw of realtime.liveDraws) if (!bySequence.has(draw.sequenceNumber)) bySequence.set(draw.sequenceNumber, draw);
-  const history = [...bySequence.values()].sort((a, b) => a.sequenceNumber - b.sequenceNumber);
+  const history = mergeParticipantDraws(draws.data?.data ?? [], realtime.liveDraws);
   const latest = history.at(-1);
   const animateSequence = realtime.liveDraws.at(-1)?.sequenceNumber;
   const drawnKeys = new Set(history.map((draw) => draw.keyValue));
@@ -43,8 +62,9 @@ export function ParticipantGame() {
   return <div className={styles.game}>
     <section className={styles.live} aria-label="Live round updates">
       <div className={styles.liveHeader}><div><p className={styles.kicker}>LIVE ROUND</p><h1>{round.data?.name ?? 'Round updates'}</h1></div>{round.data && <RoundStatus status={round.data.status} />}</div>
-      {event.isLoading || (event.data && round.isLoading) ? <p role="status">Checking your current round…</p> : noEvent || noRound ? <p role="status">Your host has not made a round available yet.</p> : event.error && !event.data ? <div className={styles.error}><p role="alert">{event.error instanceof ApiError && event.error.status === 403 ? 'You do not have permission to view this event.' : 'We could not load your event.'}</p><button onClick={() => void event.refetch()}>Retry</button></div> : round.error && !round.data ? <div className={styles.error}><p role="alert">{round.error instanceof ApiError && round.error.status === 403 ? 'You do not have permission to view the current round.' : 'We could not load the current round.'}</p><button onClick={() => void round.refetch()}>Retry</button></div> : null}
+      {event.isLoading || (event.data && round.isLoading) ? <p role="status">Checking your current round…</p> : noEvent || noRound ? <div><p role="status">Your host has not made a round available yet.</p><button onClick={() => void (noEvent ? event.refetch() : round.refetch())}>Check again</button></div> : event.error && !event.data ? <div className={styles.error}><p role="alert">{event.error instanceof ApiError && event.error.status === 403 ? 'You do not have permission to view this event.' : 'We could not load your event.'}</p><button onClick={() => void event.refetch()}>Retry</button></div> : round.error && !round.data ? <div className={styles.error}><p role="alert">{round.error instanceof ApiError && round.error.status === 403 ? 'You do not have permission to view the current round.' : 'We could not load the current round.'}</p><button onClick={() => void round.refetch()}>Retry</button></div> : null}
       {canConnect ? <ConnectionIndicator status={realtime.status} warning={realtime.warning} retry={realtime.retry} /> : canRead && <p className={styles.connectionNote} role="status">{roundStatusNote(round.data.status)}</p>}
+      {staleGameState && <p className={styles.stale} role="status">Game details could not be refreshed. Showing the last details received from the server.</p>}
       {canRead && draws.isPending ? <p role="status">Loading revealed questions and keys…</p> : null}
       {canRead && draws.error && !draws.data ? <div className={styles.error}><p role="alert">We could not load the draw history.</p><button onClick={retryDraws}>Retry</button></div> : null}
       {draws.data && draws.error && <p className={styles.stale} role="status">Showing the last draw history received from the server.</p>}
@@ -53,7 +73,7 @@ export function ParticipantGame() {
     </section>
     {canRead && <WinnerBanner userId={user.id} roundId={round.data.id} roundStatus={round.data.status} />}
     <ParticipantTicket revealedKey={latest?.keyValue} animateReveal={animateSequence === latest?.sequenceNumber} drawnKeys={drawnKeys} canMark={round.data?.status === 'ACTIVE' && !round.error && !event.error && realtime.status === 'CONNECTED' && !draws.isFetching && !draws.error} />
-    {event.data && round.data && <ClaimPanel round={round.data} />}
+    {event.data && round.data && <ClaimPanel round={round.data} canSubmit={realtime.status === 'CONNECTED' && !event.error && !round.error} />}
   </div>;
 }
 

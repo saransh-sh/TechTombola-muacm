@@ -6,9 +6,17 @@ import { realtimeEventSchema, type ParticipantDraw, type RealtimeEvent } from '.
 const MAX_RETRIES = 5;
 const RETRY_BASE_MS = 500;
 const RETRY_MAX_MS = 8000;
+const STABLE_CONNECTION_MS = 30_000;
 
 export type ConnectionStatus = 'CONNECTING' | 'SYNCING' | 'CONNECTED' | 'RECONNECTING' | 'DISCONNECTED';
 type LiveDraw = Pick<ParticipantDraw, 'roundId' | 'sequenceNumber' | 'questionText' | 'keyValue' | 'drawnAt'>;
+export type DisplayDraw = LiveDraw & { id?: string };
+
+export function mergeParticipantDraws(serverDraws: DisplayDraw[], liveDraws: LiveDraw[]): DisplayDraw[] {
+  const bySequence = new Map(serverDraws.map((draw) => [draw.sequenceNumber, draw]));
+  for (const draw of liveDraws) bySequence.set(draw.sequenceNumber, { ...bySequence.get(draw.sequenceNumber), ...draw });
+  return [...bySequence.values()].sort((a, b) => a.sequenceNumber - b.sequenceNumber);
+}
 
 export function participantSocketUrl(roundId: string) {
   const base = import.meta.env.VITE_API_BASE_URL || window.location.origin;
@@ -30,6 +38,7 @@ export function useParticipantRealtime(enabled: boolean, userId: string, eventId
     let syncVersion = 0;
     let socket: WebSocket | undefined;
     let timer: number | undefined;
+    let stableTimer: number | undefined;
     if (!enabled) {
       setConnection({ scope, status: 'DISCONNECTED', warning: '' });
       setLive({ scope, draws: [] });
@@ -58,6 +67,7 @@ export function useParticipantRealtime(enabled: boolean, userId: string, eventId
     };
     const reconcile = async () => {
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['auth', 'me'] }),
         queryClient.invalidateQueries({ queryKey: ['participant', userId, 'event'] }),
         queryClient.invalidateQueries({ queryKey: ['participant', userId, 'round', eventId] }),
         queryClient.invalidateQueries({ queryKey: ['participant', userId, 'ticket', eventId, roundId] }),
@@ -85,12 +95,19 @@ export function useParticipantRealtime(enabled: boolean, userId: string, eventId
 
     const connect = () => {
       if (stopped) return;
+      if (!navigator.onLine) {
+        setConnection({ scope, status: 'DISCONNECTED', warning: 'You are offline. Saved game details are shown until the connection returns.' });
+        return;
+      }
       setConnection((current) => ({ scope, status: retries ? 'RECONNECTING' : 'CONNECTING', warning: current.scope === scope ? current.warning : '' }));
       const next = new WebSocket(participantSocketUrl(roundId));
       socket = next;
       next.onopen = () => {
         if (stopped || socket !== next) return;
-        retries = 0;
+        stableTimer = window.setTimeout(() => {
+          if (!stopped && socket === next && next.readyState === WebSocket.OPEN) retries = 0;
+          stableTimer = undefined;
+        }, STABLE_CONNECTION_MS);
         synchronize(reconcile());
       };
       next.onmessage = (message) => {
@@ -127,10 +144,22 @@ export function useParticipantRealtime(enabled: boolean, userId: string, eventId
         }
       };
       next.onerror = () => next.close();
-      next.onclose = () => {
+      next.onclose = (event) => {
         if (stopped || socket !== next) return;
+        if (stableTimer !== undefined) window.clearTimeout(stableTimer);
         syncVersion += 1;
+        if ([1008, 4401, 4403].includes(event.code)) {
+          setConnection({ scope, status: 'DISCONNECTED', warning: 'Live updates are unavailable for this round state. Checking saved game details.' });
+          void reconcile().catch(() => {
+            if (!stopped) setConnection({ scope, status: 'DISCONNECTED', warning: 'Live updates are unavailable for this round state. Current game details could not be refreshed.' });
+          });
+          return;
+        }
         retries += 1;
+        if (!navigator.onLine) {
+          setConnection({ scope, status: 'DISCONNECTED', warning: 'You are offline. Saved game details are shown until the connection returns.' });
+          return;
+        }
         if (retries > MAX_RETRIES) {
           setConnection({ scope, status: 'DISCONNECTED', warning: '' });
           return;
@@ -141,20 +170,43 @@ export function useParticipantRealtime(enabled: boolean, userId: string, eventId
     };
 
     const reconnectOnline = () => {
-      if (socket?.readyState === WebSocket.OPEN || stopped) return;
+      if (stopped) return;
+      if (socket?.readyState === WebSocket.OPEN) {
+        synchronize(reconcile());
+        return;
+      }
       if (timer !== undefined) window.clearTimeout(timer);
       retries = 0;
       const previous = socket;
       socket = undefined;
+      if (stableTimer !== undefined) window.clearTimeout(stableTimer);
       previous?.close();
       connect();
     };
+    const handleOffline = () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+      setConnection({ scope, status: 'DISCONNECTED', warning: 'You are offline. Saved game details are shown until the connection returns.' });
+      const previous = socket;
+      socket = undefined;
+      if (stableTimer !== undefined) window.clearTimeout(stableTimer);
+      previous?.close();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'visible' || stopped) return;
+      if (socket?.readyState === WebSocket.OPEN) synchronize(reconcile());
+      else reconnectOnline();
+    };
     window.addEventListener('online', reconnectOnline);
+    window.addEventListener('offline', handleOffline);
+    document.addEventListener('visibilitychange', handleVisibility);
     connect();
     return () => {
       stopped = true;
       window.removeEventListener('online', reconnectOnline);
+      window.removeEventListener('offline', handleOffline);
+      document.removeEventListener('visibilitychange', handleVisibility);
       if (timer !== undefined) window.clearTimeout(timer);
+      if (stableTimer !== undefined) window.clearTimeout(stableTimer);
       socket?.close();
     };
   }, [enabled, eventId, queryClient, retryVersion, roundId, scope, userId]);

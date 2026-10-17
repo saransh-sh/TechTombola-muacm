@@ -19,6 +19,7 @@ export function useParticipantClaims(userId: string, page = 1) {
     queryKey: participantClaimsKey(userId, page),
     queryFn: ({ signal }) => getParticipantClaims(page, 50, signal),
     refetchOnReconnect: 'always',
+    refetchOnWindowFocus: 'always',
     refetchInterval: (query) => query.state.data?.data.some((claim) => claim.status === 'PENDING_VERIFICATION') ? 3000 : false,
   });
   useEffect(() => {

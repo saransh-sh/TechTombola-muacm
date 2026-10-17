@@ -71,6 +71,14 @@ describe('participant claims', () => {
     expect(screen.getAllByRole('button', { name: 'Unavailable' })).toHaveLength(2);
   });
 
+  it('blocks new claims until the participant game has resynchronized', async () => {
+    renderAt(<ClaimPanel round={round} canSubmit={false} />);
+    await waitForClaimsLoaded();
+    expect(screen.getByRole('status')).toHaveTextContent(/reconnect and sync/i);
+    expect(screen.getAllByRole('button', { name: 'Choose pattern' }).every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+    expect(submitParticipantClaim).not.toHaveBeenCalled();
+  });
+
   it('uses generic server rejection text without evaluating ticket eligibility', async () => {
     vi.mocked(submitParticipantClaim).mockRejectedValue(new ApiError(422, 'ineligible'));
     renderAt(<ClaimPanel round={round} />);

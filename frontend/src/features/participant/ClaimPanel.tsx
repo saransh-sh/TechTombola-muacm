@@ -7,7 +7,7 @@ import type { ParticipantRound } from '../../types/participant';
 import { claimStatusText, patternNames, useParticipantClaimSubmission } from './useParticipantClaims';
 import styles from './ClaimPanel.module.css';
 
-export function ClaimPanel({ round }: { round: ParticipantRound }) {
+export function ClaimPanel({ round, canSubmit = true }: { round: ParticipantRound; canSubmit?: boolean }) {
   const user = useOutletContext<AuthenticatedUser>();
   const submission = useParticipantClaimSubmission(user.id, round);
   const { claims, currentRoundClaims, pendingPatterns, pending, uncertainPattern, feedback } = submission;
@@ -23,14 +23,15 @@ export function ClaimPanel({ round }: { round: ParticipantRound }) {
         const open = pattern.enabled && pattern.status === 'OPEN';
         return <li key={pattern.id}>
           <div><strong>{patternNames[pattern.patternType]}</strong><span>{pattern.status === 'CLOSED' ? 'Closed' : pattern.enabled ? 'Open' : 'Disabled'}</span></div>
-          <button type="button" disabled={!open || round.status !== 'ACTIVE' || pending || !!uncertainPattern || pendingPatterns.has(pattern.patternType)} aria-pressed={selectedPattern === pattern.patternType} onClick={() => { setSelectedPattern(pattern.patternType); submission.clearFeedback(); }}>{pendingPatterns.has(pattern.patternType) ? 'Claim pending' : selectedPattern === pattern.patternType ? 'Selected' : open ? 'Choose pattern' : 'Unavailable'}</button>
+          <button type="button" disabled={!open || round.status !== 'ACTIVE' || !canSubmit || pending || !!uncertainPattern || pendingPatterns.has(pattern.patternType)} aria-pressed={selectedPattern === pattern.patternType} onClick={() => { setSelectedPattern(pattern.patternType); submission.clearFeedback(); }}>{pendingPatterns.has(pattern.patternType) ? 'Claim pending' : selectedPattern === pattern.patternType ? 'Selected' : open ? 'Choose pattern' : 'Unavailable'}</button>
         </li>;
       })}
     </ul>
     {round.status !== 'ACTIVE' && <p className={styles.note} role="status">Claims are available while the round is active.</p>}
+    {round.status === 'ACTIVE' && !canSubmit && <p className={styles.note} role="status">Reconnect and sync the current game details before submitting a claim.</p>}
     {selectedPattern && !uncertainPattern && <div className={styles.confirmation} aria-labelledby="claim-confirm-title">
       <h3 id="claim-confirm-title">Confirm your claim</h3><p>Submit <strong>{patternNames[selectedPattern]}</strong> for <strong>{round.name}</strong>?</p>
-      <div><button type="button" onClick={() => void submission.submit(selectedPattern).then((recorded) => { if (recorded) setSelectedPattern(undefined); })} disabled={pending || round.status !== 'ACTIVE' || !!uncertainPattern || pendingPatterns.has(selectedPattern)}>{pending ? 'Submitting claim…' : 'Confirm claim'}</button><button type="button" onClick={() => setSelectedPattern(undefined)} disabled={pending}>Cancel</button></div>
+      <div><button type="button" onClick={() => void submission.submit(selectedPattern).then((recorded) => { if (recorded) setSelectedPattern(undefined); })} disabled={pending || round.status !== 'ACTIVE' || !canSubmit || !!uncertainPattern || pendingPatterns.has(selectedPattern)}>{pending ? 'Submitting claim…' : 'Confirm claim'}</button><button type="button" onClick={() => setSelectedPattern(undefined)} disabled={pending}>Cancel</button></div>
     </div>}
     {uncertainPattern && <button type="button" className={styles.checkButton} onClick={() => void submission.checkStatus()}>Check claim status</button>}
     {feedback && <p className={feedback.kind === 'status' ? styles.success : feedback.kind === 'uncertain' ? styles.uncertain : styles.errorText} role={feedback.kind === 'status' ? 'status' : 'alert'}>{feedback.text}</p>}

@@ -105,6 +105,18 @@ describe('ParticipantLobby', () => {
     expect(participantApi.getParticipantEvent).toHaveBeenCalledTimes(2);
   });
 
+  it('stops waiting for an Event after five bounded observations', async () => {
+    vi.useFakeTimers();
+    vi.mocked(participantApi.getParticipantEvent).mockRejectedValue(new ApiError(404, 'No event'));
+    mount();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await vi.advanceTimersByTimeAsync(1); });
+    expect(participantApi.getParticipantEvent).toHaveBeenCalledOnce();
+    await act(async () => { await vi.advanceTimersByTimeAsync(25_000); });
+    expect(participantApi.getParticipantEvent).toHaveBeenCalledTimes(6);
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    expect(participantApi.getParticipantEvent).toHaveBeenCalledTimes(6);
+  });
+
   it('polls for a current round while waiting and stops when the lobby unmounts', async () => {
     vi.useFakeTimers();
     vi.mocked(participantApi.getParticipantEvent).mockResolvedValue(event);
@@ -136,7 +148,7 @@ describe('ParticipantLobby', () => {
     const view = mount();
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await vi.advanceTimersByTimeAsync(1); });
     expect(participantApi.getCurrentRound).toHaveBeenCalledOnce();
-    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(5001); for (let index = 0; index < 10; index += 1) await Promise.resolve(); });
     expect(screen.getByText('Second event')).toBeInTheDocument();
     expect(participantApi.getCurrentRound).toHaveBeenCalledTimes(3);
     view.unmount();
@@ -149,7 +161,7 @@ describe('ParticipantLobby', () => {
     mount();
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
     expect(participantApi.getParticipantEvent).toHaveBeenCalledOnce();
-    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(5001); for (let index = 0; index < 50; index += 1) await Promise.resolve(); });
     expect(participantApi.getParticipantEvent).toHaveBeenCalledTimes(2);
     await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
     expect(participantApi.getParticipantEvent).toHaveBeenCalledTimes(2);
