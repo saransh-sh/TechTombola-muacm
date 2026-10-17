@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_admin_operations`
 
-**Status:** in-progress
+**Status:** done
 
 ## Scope and contracts
 
@@ -25,10 +25,10 @@
 
 ## Acceptance criteria
 
-- [ ] Admin sees operational scope; only Super Admin sees system-wide endpoint and recovery diagnostics.
-- [ ] Pagination/filter queries use required indexes and stable cursors/order.
-- [ ] Dashboard data is transactionally consistent enough to avoid impossible mixed statuses.
-- [ ] Sensitive audit/system fields are serializer-denied.
+- [x] Admin sees operational scope; only Super Admin sees system-wide endpoint and recovery diagnostics.
+- [x] Pagination/filter queries use required indexes and stable cursors/order.
+- [x] Dashboard data is transactionally consistent enough to avoid impossible mixed statuses.
+- [x] Sensitive audit/system fields are serializer-denied.
 
 ## Required scenarios
 
@@ -47,6 +47,6 @@ cd backend && bun run typecheck && bun run lint && bun test && bun run test:inte
 
 ## Completion evidence
 
-- [ ] PR includes dashboard/audit/system DTO and error examples and maps every scenario to a test.
-- [ ] Pagination/index, consistency, role matrix, and redaction evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR includes dashboard/audit/system DTO and error examples and maps every scenario to a test.
+- [x] Pagination/index, consistency, role matrix, and redaction evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.
