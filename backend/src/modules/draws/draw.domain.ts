@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import { ConflictError, NotFoundError } from '../../shared/errors/index.ts';
 
 export interface CandidateQuestion {
@@ -39,7 +40,7 @@ export function selectRandomQuestion(
 
   const index = rng
     ? rng(eligibleCandidates.length)
-    : Math.floor(Math.random() * eligibleCandidates.length);
+    : randomInt(0, eligibleCandidates.length);
 
   return eligibleCandidates[index];
 }

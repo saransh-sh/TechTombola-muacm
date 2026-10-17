@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
+import Fastify, { LogController, type FastifyInstance, type FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import websocket from '@fastify/websocket';
@@ -52,7 +52,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       : false,
     genReqId: (req) => normalizeRequestId(req.headers[REQUEST_ID_HEADER]),
     requestIdHeader: false,
-    disableRequestLogging: true,
+    logController: new LogController({ disableRequestLogging: true }),
   });
 
   if (process.env.LOAD_DIAGNOSTICS === '1') {

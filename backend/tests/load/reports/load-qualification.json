@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-17T08:38:24.098Z",
+  "generatedAt": "2026-10-17T12:46:19.256Z",
   "result": "passed",
   "assumptions": {
     "participants": 500,
@@ -26,7 +26,7 @@
     "platform": "linux 7.2.10-100.fc43.x86_64",
     "cpu": "12th Gen Intel(R) Core(TM) i5-12450H",
     "logicalCpus": 12,
-    "totalMemoryBytes": 16443473920,
+    "totalMemoryBytes": 16443478016,
     "bunVersion": "1.4.2",
     "postgresVersion": "PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit"
   },
@@ -36,109 +36,109 @@
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 646.581054000002,
-        "p95Ms": 875.8292040000015,
-        "p99Ms": 899.3753270000007,
-        "maxMs": 912.8399539999998
+        "p50Ms": 647.6198529999965,
+        "p95Ms": 884.1044739999998,
+        "p99Ms": 900.0129789999992,
+        "maxMs": 933.390558
       },
       "ticket_read": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 138.04757799999788,
-        "p95Ms": 235.82564199999615,
-        "p99Ms": 240.8505770000047,
-        "maxMs": 242.70687200000248
+        "p50Ms": 96.14147999999841,
+        "p95Ms": 113.5876519999947,
+        "p99Ms": 115.08585300000414,
+        "maxMs": 115.57348400000046
       },
       "participant_state_read": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 99.99927899999602,
-        "p95Ms": 167.07048100000247,
-        "p99Ms": 170.8063209999964,
-        "maxMs": 171.82101999999577
+        "p50Ms": 87.7370710000032,
+        "p95Ms": 97.63909299999796,
+        "p99Ms": 98.59992699999566,
+        "maxMs": 98.91805500000191
       },
       "live_state_read": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 85.78525000000081,
-        "p95Ms": 114.78990999999951,
-        "p99Ms": 116.49117000000115,
-        "maxMs": 116.79025499999989
+        "p50Ms": 69.04390299999795,
+        "p95Ms": 76.90859500000079,
+        "p99Ms": 78.67891899999813,
+        "maxMs": 80.67612099999678
       },
       "reconnect_rest_recovery": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 158.57852899999853,
-        "p95Ms": 249.06634499999927,
-        "p99Ms": 251.96390699999756,
-        "maxMs": 253.18827800000145
+        "p50Ms": 118.96748499999376,
+        "p95Ms": 147.38990600000398,
+        "p99Ms": 149.00497200000245,
+        "maxMs": 149.98183399999834
       },
       "mark_burst": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 805.5278259999977,
-        "p95Ms": 853.0143769999995,
-        "p99Ms": 856.8726409999945,
-        "maxMs": 857.161957999997
+        "p50Ms": 723.4381379999977,
+        "p95Ms": 781.7178089999943,
+        "p99Ms": 784.8966379999983,
+        "maxMs": 785.7944739999948
       },
       "claim_burst": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 1013.8895130000019,
-        "p95Ms": 1173.4521179999938,
-        "p99Ms": 1187.0612630000032,
-        "maxMs": 1187.8469960000002
+        "p50Ms": 953.1256749999957,
+        "p95Ms": 1134.8379770000029,
+        "p99Ms": 1149.576982999999,
+        "maxMs": 1152.613050999993
       },
       "claim_verify": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 2195.940266000005,
-        "p95Ms": 3821.2603020000024,
-        "p99Ms": 4031.423674999998,
-        "maxMs": 4067.700445000002
+        "p50Ms": 3661.0091059999977,
+        "p95Ms": 6539.061730999994,
+        "p99Ms": 6794.404991000003,
+        "maxMs": 6839.456384999998
       },
       "live_under_participant_load": {
-        "requests": 125,
+        "requests": 254,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 57.653956000001926,
-        "p95Ms": 92.15570400000433,
-        "p99Ms": 315.5771039999963,
-        "maxMs": 319.3755300000048
+        "p50Ms": 27.162261000004946,
+        "p95Ms": 117.023325999995,
+        "p99Ms": 144.9670929999993,
+        "maxMs": 164.24343499999668
       },
       "sustained_read": {
-        "requests": 62500,
+        "requests": 127000,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 136.50047299999278,
-        "p95Ms": 233.86609300000418,
-        "p99Ms": 284.3818339999998,
-        "maxMs": 493.41379200000665
+        "p50Ms": 98.40211699999054,
+        "p95Ms": 127.81810699999915,
+        "p99Ms": 146.0701570000092,
+        "maxMs": 176.58418200000597
       },
       "participant_import": {
         "requests": 1,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 1190.396569000004,
-        "p95Ms": 1190.396569000004,
-        "p99Ms": 1190.396569000004,
-        "maxMs": 1190.396569000004
+        "p50Ms": 1244.698298000003,
+        "p95Ms": 1244.698298000003,
+        "p99Ms": 1244.698298000003,
+        "maxMs": 1244.698298000003
       },
       "post_load_recovery": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 105.64658600000257,
-        "p95Ms": 177.31674300000304,
-        "p99Ms": 181.4311549999984,
-        "maxMs": 182.56139299999631
+        "p50Ms": 95.58625000000757,
+        "p95Ms": 106.1819850000029,
+        "p99Ms": 107.86648099999002,
+        "maxMs": 108.29821899998933
       }
     },
     "serverPhases": {
@@ -146,100 +146,100 @@
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 643.83,
-        "p95Ms": 873.2,
-        "p99Ms": 895.44,
-        "maxMs": 899.09
+        "p50Ms": 644.87,
+        "p95Ms": 879.12,
+        "p99Ms": 896.13,
+        "maxMs": 916.67
       },
       "ticket_read": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 104.98,
-        "p95Ms": 184.54,
-        "p99Ms": 190.37,
-        "maxMs": 191.85
+        "p50Ms": 45.46,
+        "p95Ms": 80.88,
+        "p99Ms": 87.72,
+        "maxMs": 90.87
       },
       "participant_state_read": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 75.88,
-        "p95Ms": 125.05,
-        "p99Ms": 128.75,
-        "maxMs": 129.85
+        "p50Ms": 41.8,
+        "p95Ms": 71.85,
+        "p99Ms": 77.01,
+        "maxMs": 79.64
       },
       "live_state_read": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 64.14,
-        "p95Ms": 85.3,
-        "p99Ms": 86.97,
-        "maxMs": 87.29
+        "p50Ms": 40.66,
+        "p95Ms": 55.4,
+        "p99Ms": 57.83,
+        "maxMs": 59.32
       },
       "reconnect_rest_recovery": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 108.08,
-        "p95Ms": 187.44,
-        "p99Ms": 192.57,
-        "maxMs": 194.67
+        "p50Ms": 60.79,
+        "p95Ms": 99.55,
+        "p99Ms": 112.8,
+        "maxMs": 117
       },
       "mark_burst": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 774.27,
-        "p95Ms": 795.68,
-        "p99Ms": 798.72,
-        "maxMs": 799.45
+        "p50Ms": 680.61,
+        "p95Ms": 747.64,
+        "p99Ms": 753.36,
+        "maxMs": 765.55
       },
       "claim_burst": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 983.95,
-        "p95Ms": 1133.27,
-        "p99Ms": 1143.88,
-        "maxMs": 1146.27
+        "p50Ms": 907.08,
+        "p95Ms": 1088.87,
+        "p99Ms": 1101.25,
+        "maxMs": 1104.28
       },
       "live_under_participant_load": {
-        "requests": 125,
+        "requests": 254,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 55.87,
-        "p95Ms": 84.8,
-        "p99Ms": 265.85,
-        "maxMs": 313.21
+        "p50Ms": 14.19,
+        "p95Ms": 94.5,
+        "p99Ms": 131.86,
+        "maxMs": 161.56
       },
       "sustained_read": {
-        "requests": 62500,
+        "requests": 127000,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 102.95,
-        "p95Ms": 187.18,
-        "p99Ms": 238.7,
-        "maxMs": 443.76
+        "p50Ms": 45.54,
+        "p95Ms": 87.14,
+        "p99Ms": 103.97,
+        "maxMs": 153.2
       },
       "participant_import": {
         "requests": 1,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 1189.27,
-        "p95Ms": 1189.27,
-        "p99Ms": 1189.27,
-        "maxMs": 1189.27
+        "p50Ms": 1243.52,
+        "p95Ms": 1243.52,
+        "p99Ms": 1243.52,
+        "maxMs": 1243.52
       },
       "post_load_recovery": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 73.37,
-        "p95Ms": 136.22,
-        "p99Ms": 139.93,
-        "maxMs": 141.03
+        "p50Ms": 41.07,
+        "p95Ms": 75.52,
+        "p99Ms": 81.12,
+        "maxMs": 84.17
       }
     },
     "workerPhases": {
@@ -256,37 +256,37 @@
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 136.20537100000365,
-        "p95Ms": 232.61295700000483,
-        "p99Ms": 237.46564499999658,
-        "maxMs": 239.28733099999954
+        "p50Ms": 94.50972300000285,
+        "p95Ms": 111.46732699999848,
+        "p99Ms": 112.3310530000017,
+        "maxMs": 112.61456999999791
       },
       "participant_state_read": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 99.8767829999997,
-        "p95Ms": 165.31525200000033,
-        "p99Ms": 169.05016299999988,
-        "maxMs": 170.0409340000042
+        "p50Ms": 86.94432299999607,
+        "p95Ms": 96.93197099999816,
+        "p99Ms": 97.81473299999925,
+        "maxMs": 98.10554399999819
       },
       "live_state_read": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 85.20100600000296,
-        "p95Ms": 111.53817200000049,
-        "p99Ms": 113.3858459999974,
-        "maxMs": 113.70833300000231
+        "p50Ms": 67.70253100000264,
+        "p95Ms": 75.52306400000089,
+        "p99Ms": 77.09214899999643,
+        "maxMs": 77.74302599999646
       },
       "reconnect_rest_recovery": {
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 156.7449329999945,
-        "p95Ms": 245.48860000000423,
-        "p99Ms": 250.3814990000028,
-        "maxMs": 250.88652599999477
+        "p50Ms": 117.33918000000267,
+        "p95Ms": 145.26787499999773,
+        "p99Ms": 146.91457999999693,
+        "maxMs": 147.4706389999992
       },
       "mark_burst": {
         "requests": 0,
@@ -307,22 +307,22 @@
         "maxMs": 0
       },
       "live_under_participant_load": {
-        "requests": 125,
+        "requests": 254,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 57.52410699999746,
-        "p95Ms": 91.79707600000256,
-        "p99Ms": 313.86651400000846,
-        "maxMs": 315.4065600000031
+        "p50Ms": 26.754638999991585,
+        "p95Ms": 114.2284520000103,
+        "p99Ms": 143.53921100001025,
+        "maxMs": 164.16956799999753
       },
       "sustained_read": {
-        "requests": 62500,
+        "requests": 127000,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 135.06139099999564,
-        "p95Ms": 230.60970300000918,
-        "p99Ms": 280.7797850000061,
-        "maxMs": 490.2944819999975
+        "p50Ms": 96.75728200000594,
+        "p95Ms": 126.01742000000377,
+        "p99Ms": 144.10572700000193,
+        "maxMs": 173.99068899999838
       },
       "participant_import": {
         "requests": 0,
@@ -337,18 +337,18 @@
         "requests": 500,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 105.54514400000335,
-        "p95Ms": 175.10663100000238,
-        "p99Ms": 178.8607950000005,
-        "maxMs": 180.0413680000056
+        "p50Ms": 94.51004300000204,
+        "p95Ms": 105.2176230000041,
+        "p99Ms": 106.72133099999337,
+        "maxMs": 107.60396300000139
       }
     },
-    "peakRssBytes": 367603712,
+    "peakRssBytes": 368881664,
     "eventLoopDelay": {
-      "samples": 94,
-      "meanSampleMeanMs": 1.3112852363781824,
-      "peakSampleP99Ms": 83.492863,
-      "peakSampleMaxMs": 83.427787
+      "samples": 96,
+      "meanSampleMeanMs": 10.427070834013884,
+      "peakSampleP99Ms": 121.765887,
+      "peakSampleMaxMs": 121.761171
     },
     "databasePool": {
       "max": 20,
@@ -358,12 +358,14 @@
       "peakDatabaseWaits": 20,
       "peakWaitEvents": {
         "IO:WALSync": 1,
-        "Client:ClientRead": 20,
+        "Client:ClientRead": 15,
+        "CPU:none": 12,
         "LWLock:WALWrite": 1,
-        "CPU:none": 14,
         "Lock:transactionid": 1,
         "Lock:tuple": 18,
-        "LWLock:LockManager": 1
+        "IO:DataFileRead": 1,
+        "IPC:BufferIO": 19,
+        "LWLock:LockManager": 4
       }
     },
     "websocket": {
@@ -372,7 +374,7 @@
       "publicConnections": 1,
       "publicDrawEvents": 9
     },
-    "drawPropagationMs": 148.6475849999988,
+    "drawPropagationMs": 88.23901999999362,
     "doubleClickCount": 2,
     "doubleClickDrawsCreated": 1,
     "concurrentDrawCount": 7,
@@ -396,7 +398,7 @@
     },
     "healthDuringLoad": {
       "status": 200,
-      "latencyMs": 41.852570999995805
+      "latencyMs": 64.2779029999947
     },
     "invariantChecks": {
       "tickets": 500,

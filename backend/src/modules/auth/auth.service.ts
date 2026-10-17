@@ -81,8 +81,28 @@ export class AuthService {
       throw new UnauthorizedError('Invalid email or password');
     }
 
-    // 3. Check account status
+    // 3. Verify password
     const isParticipant = !!user.participantProfile && !user.adminProfile;
+    const isPasswordValid = await verifyPassword(user.passwordHash, input.password);
+    if (!isPasswordValid) {
+      this.rateLimiter.recordFailure(email, ip);
+
+      await this.audit.record({
+        actorId: user.id,
+        action: 'LOGIN_FAILED',
+        actorType: user.adminProfile?.role || (isParticipant ? 'PARTICIPANT' : 'ANONYMOUS'),
+        resourceType: 'auth',
+        resourceId: user.id,
+        metadata: { reason: 'INVALID_PASSWORD', email },
+        ip,
+        userAgent: input.userAgent,
+        requestId: input.requestId,
+      });
+
+      throw new UnauthorizedError('Invalid email or password');
+    }
+
+    // 4. Check account status
     const isProfileInactive = isParticipant && user.participantProfile?.status !== 'ACTIVE';
 
     if (user.status !== 'ACTIVE' || isProfileInactive) {
@@ -101,26 +121,6 @@ export class AuthService {
       });
 
       throw new UnauthorizedError('Account is inactive');
-    }
-
-    // 4. Verify password
-    const isPasswordValid = await verifyPassword(user.passwordHash, input.password);
-    if (!isPasswordValid) {
-      this.rateLimiter.recordFailure(email, ip);
-
-      await this.audit.record({
-        actorId: user.id,
-        action: 'LOGIN_FAILED',
-        actorType: user.adminProfile?.role || (isParticipant ? 'PARTICIPANT' : 'ANONYMOUS'),
-        resourceType: 'auth',
-        resourceId: user.id,
-        metadata: { reason: 'INVALID_PASSWORD', email },
-        ip,
-        userAgent: input.userAgent,
-        requestId: input.requestId,
-      });
-
-      throw new UnauthorizedError('Invalid email or password');
     }
 
     // 5. Success - reset rate limit and create session

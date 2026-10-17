@@ -52,6 +52,7 @@ describe('Live Display read API integration', () => {
     resetCachedEnv();
     await closeDb();
     await runMigrations(testDbUrl);
+    await getDb().update(events).set({ status: 'COMPLETED' }).where(eq(events.status, 'LIVE'));
 
     const db = getDb();
     const [olderEvent, latestEvent] = await db.insert(events).values([
@@ -124,8 +125,8 @@ describe('Live Display read API integration', () => {
     ]).returning();
     convergenceClaimId = convergenceClaim.id;
     await db.insert(winners).values([
-      { claimId: verifiedClaim.id, participantId: profiles[0].id, roundId: completedRoundId, eventId: liveEventId, patternType: 'EARLY_5', verifiedBy: admin.id, verifiedAt: new Date('2090-01-01T00:00:00.000Z') },
-      { claimId: secondVerifiedClaim.id, participantId: profiles[1].id, roundId: completedRoundId, eventId: liveEventId, patternType: 'EARLY_5', verifiedBy: admin.id, verifiedAt: new Date('2091-01-01T00:00:00.000Z') },
+      { claimId: verifiedClaim.id, participantId: profiles[0].id, roundId: completedRoundId, eventId: liveEventId, patternType: 'EARLY_5', verifiedBy: admin.id, verifiedAt: new Date('2020-01-01T00:00:00.000Z') },
+      { claimId: secondVerifiedClaim.id, participantId: profiles[1].id, roundId: completedRoundId, eventId: liveEventId, patternType: 'EARLY_5', verifiedBy: admin.id, verifiedAt: new Date('2020-01-02T00:00:00.000Z') },
       { claimId: otherClaim.id, participantId: profiles[0].id, roundId: roundIds['Other event active'], eventId: liveEventId, patternType: 'FULL_HOUSE', verifiedBy: admin.id },
     ]);
 
@@ -258,6 +259,7 @@ describe('Live Display read API integration', () => {
 
     const plans = await getSqlClient().begin(async (sql) => {
       await sql`SET LOCAL enable_seqscan = OFF`;
+      await sql`SET LOCAL enable_sort = OFF`;
       const eventPlan = await sql`EXPLAIN (COSTS OFF) SELECT id, title, description, status, scheduled_at, started_at, completed_at FROM events WHERE status = 'LIVE' ORDER BY started_at DESC NULLS LAST, id DESC LIMIT 1`;
       const roundPlan = await sql`EXPLAIN (COSTS OFF) SELECT id, event_id, sequence_number, name, status, updated_at FROM rounds WHERE event_id = ${liveEventId} AND status IN ('ACTIVE', 'PAUSED', 'RECOVERY_REQUIRED', 'READY', 'COMPLETED') ORDER BY CASE status WHEN 'ACTIVE' THEN 0 WHEN 'PAUSED' THEN 1 WHEN 'RECOVERY_REQUIRED' THEN 2 WHEN 'READY' THEN 3 ELSE 4 END, sequence_number DESC, updated_at DESC, id DESC LIMIT 1`;
       const drawPlan = await sql`EXPLAIN (COSTS OFF) SELECT draws.id, draws.round_id, draws.sequence_number, draws.draw_mode, draws.question_text, draws.key_value, draws.drawn_at FROM draws INNER JOIN rounds ON draws.round_id = rounds.id WHERE draws.round_id = ${completedRoundId} AND rounds.event_id = ${liveEventId} ORDER BY draws.sequence_number ASC, draws.id ASC`;

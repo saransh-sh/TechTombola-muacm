@@ -796,7 +796,7 @@ describe('Winner Evaluation and Claim Submission Integration', () => {
     });
     const adminWinners = await app.inject({
       method: 'GET',
-      url: '/api/v1/admin/winners?page=1&limit=10',
+      url: '/api/v1/admin/winners?page=1&limit=100',
       headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
     });
     expect(p1Wins.statusCode).toBe(200);

@@ -44,6 +44,7 @@ describe('Operations read repository integration', () => {
     const participant = await userRepository.create({ email: roleEmails.participant, passwordHash, name: 'Operations Participant', status: 'ACTIVE' });
     const [participantEvent] = await getDb().insert(events).values({ title: `Role test ${crypto.randomUUID()}`, status: 'DRAFT' }).returning();
     await getDb().insert(participantProfiles).values({ userId: participant.id, eventId: participantEvent.id });
+    await getDb().update(events).set({ status: 'COMPLETED' }).where(eq(events.status, 'LIVE'));
     app = await buildApp({ enableLogging: false });
     await app.ready();
   });
@@ -235,16 +236,13 @@ describe('Operations read repository integration', () => {
       expect(stateRead.round?.status).toBe(status);
       expect(stateRead.recoveryRequired).toBe(status === 'RECOVERY_REQUIRED');
     }
+    await db.update(events).set({ status: 'COMPLETED' }).where(eq(events.id, liveEventId));
   });
 
   it('paginates audit ties deterministically and has supporting composite indexes', async () => {
     const actorId = crypto.randomUUID();
     const at = new Date('2026-10-15T12:00:00.000Z');
-    const ids = [
-      '11111111-1111-4111-8111-111111111111',
-      '22222222-2222-4222-8222-222222222222',
-      '33333333-3333-4333-8333-333333333333',
-    ];
+    const ids = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()].sort();
     await getDb().insert(auditLogs).values(ids.map((id) => ({
       id, actorId, actorType: 'ADMIN', action: 'DRAW_CREATED', resourceType: 'round', resourceId: 'ops-page-test',
       metadata: { note: 'redacted fixture' }, ip: '192.0.2.1', userAgent: 'test agent', requestId: 'test request', createdAt: at,
@@ -259,7 +257,7 @@ describe('Operations read repository integration', () => {
     });
 
     const allForActor = await repository.listAudit({ limit: 100, actorId });
-    const allForAction = await repository.listAudit({ limit: 100, action: 'DRAW_CREATED' });
+    const allForAction = await repository.listAudit({ limit: 100, actorId, action: 'DRAW_CREATED' });
     const allAfter = await repository.listAudit({ limit: 100, actorId, from: at });
     const allBefore = await repository.listAudit({ limit: 100, actorId, to: at });
     expect(allForActor.map((row) => row.actorId)).toContain(actorId);

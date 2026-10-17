@@ -1,8 +1,8 @@
 {
   "ticket": 24,
   "result": "passed",
-  "source": "tt_restore_source_74cb77ffb7a44efcbdc25bf0eada6526",
-  "target": "tt_restore_target_74cb77ffb7a44efcbdc25bf0eada6526",
+  "source": "tt_restore_source_15c32da864354880bdcd097573fca168",
+  "target": "tt_restore_target_15c32da864354880bdcd097573fca168",
   "checks": {
     "emptySource": "passed",
     "backupSecretScan": "passed",
@@ -37,11 +37,11 @@
     "users": 2,
     "winners": 1
   },
-  "sourceSnapshotSha256": "ecf043b46d102c850274c70177ae715ac4937a456b004858d6e48f633a1bf828",
+  "sourceSnapshotSha256": "da2f23ffe4cfc016c264ae26bd2480507a2097ec2d79601eafa08ecc569ac87d",
   "artifact": {
-    "file": "/home/kirito/Dev/Projects/TechTombola-muacm/backend/tests/restore/reports/tt_restore_source_74cb77ffb7a44efcbdc25bf0eada6526.dump",
-    "bytes": 67368,
-    "sha256": "e80a0f44e439d2464b52a362679a9e5bdd2b5b4961086a11edff71cdf5104452",
+    "file": "/home/kirito/Dev/Projects/TechTombola-muacm/backend/tests/restore/reports/tt_restore_source_15c32da864354880bdcd097573fca168.dump",
+    "bytes": 67541,
+    "sha256": "bbe9fa333fa6feada5bbf82c558c832caeb574f6e56d97fd6c2eeb60367fd73b",
     "permissions": "0600"
   },
   "restoredCounts": {
@@ -65,10 +65,10 @@
     "users": 2,
     "winners": 1
   },
-  "sourceOwnerRole": "tt_restore_owner_74cb77ffb7a44efcbdc25bf0eada6526",
+  "sourceOwnerRole": "tt_restore_owner_15c32da864354880bdcd097573fca168",
   "backupLoginDisabled": true,
   "sourcePreserved": true,
   "targetRemoved": true,
-  "generatedAt": "2026-10-17T09:15:36.789Z",
-  "durationSeconds": 4.133743265
+  "generatedAt": "2026-10-17T13:09:37.716Z",
+  "durationSeconds": 4.4998399319999995
 }

@@ -25,7 +25,7 @@
     "awsProvisioned": false
   },
   "image": {
-    "id": "sha256:07a0986f5ed5b905ef42ec51bb7f75f91bc8e3a95cfdee9b17622be8d83039df",
+    "id": "sha256:297628c07a11bfa5c2dc8e3ae97a1e7dfd3fe4486bc356b2e4b0b6c66d0374dd",
     "user": "bun",
     "architecture": "amd64",
     "bun": "1.4.2",
@@ -45,8 +45,8 @@
   "rollback": {
     "codeRef": "b7c6b8f69450411ac41159bfe33b92a23a7444ea",
     "dependencies": "current audited lockfile",
-    "image": "sha256:1aafbf2e0a6502bc2cd70ca70153f01013b0589213d2ab1a2aa0f6175857b60e"
+    "image": "sha256:e9b5953d9f2f6a14098fe4325ac9b4800ce49014e8bd8a03ee876f077b145bd4"
   },
-  "generatedAt": "2026-10-17T09:03:41.803Z",
-  "durationSeconds": 26.133955436
+  "generatedAt": "2026-10-17T13:09:28.726Z",
+  "durationSeconds": 14.741658434000001
 }
