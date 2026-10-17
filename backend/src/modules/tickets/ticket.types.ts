@@ -29,12 +29,26 @@ export interface GenerateTicketsResult {
   skipped: number;
 }
 
+export interface ParticipantTicketRead {
+  userStatus: string;
+  adminRole: string | null;
+  profile: { id: string; eventId: string; status: string } | null;
+  roundFound: boolean;
+  ticket: (TicketRecord & { cells: Array<TicketCellRecord & { keyValue: string; marked: boolean }> }) | null;
+}
+
 export interface ITicketRepository {
+  findBySessionAndRound(sessionId: string, userId: string, roundId: string, eventId: string): Promise<ParticipantTicketRead | null>;
+  findByUserAndRound(
+    userId: string,
+    roundId: string
+  ): Promise<(TicketRecord & { cells: Array<TicketCellRecord & { keyValue: string; marked: boolean }> }) | null>;
+
   findByParticipantAndRound(
     participantId: string,
     roundId: string,
     tx?: any
-  ): Promise<(TicketRecord & { cells: Array<TicketCellRecord & { keyValue: string }> }) | null>;
+  ): Promise<(TicketRecord & { cells: Array<TicketCellRecord & { keyValue: string; marked: boolean }> }) | null>;
 
   findTicketById(
     ticketId: string,

@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { requireAdmin, requireParticipant } from '../../middleware/auth.ts';
-import { ValidationError } from '../../shared/errors/index.ts';
+import { NotFoundError, ValidationError } from '../../shared/errors/index.ts';
 import {
   claimIdParamsSchema,
   listClaimsQuerySchema,
@@ -15,9 +15,12 @@ export function createClaimRoutes(winnerService: WinnerService): FastifyPluginAs
   // Participant: Submit win claim
   fastify.post('/participant/claims', { preHandler: [requireParticipant] }, async (request, reply) => {
     const body = submitClaimBodySchema.parse(request.body);
+    const eventId = request.user!.eventId;
+    if (!eventId) throw new NotFoundError('No event associated with this participant');
 
     const result = await claimService.submitClaim({
       userId: request.user!.id,
+      eventId,
       roundId: body.roundId,
       pattern: body.pattern,
     });
@@ -29,8 +32,10 @@ export function createClaimRoutes(winnerService: WinnerService): FastifyPluginAs
   // Participant: List own claims
   fastify.get('/participant/claims', { preHandler: [requireParticipant] }, async (request) => {
     const query = listClaimsQuerySchema.parse(request.query);
+    const eventId = request.user!.eventId;
+    if (!eventId) throw new NotFoundError('No event associated with this participant');
 
-    return claimService.listParticipantClaims(request.user!.id, query);
+    return claimService.listParticipantClaims(request.user!.id, eventId, query);
   });
 
   // Admin: Review all pending and historical claims across Events.
@@ -82,7 +87,9 @@ export function createClaimRoutes(winnerService: WinnerService): FastifyPluginAs
 
   fastify.get('/participant/wins', { preHandler: [requireParticipant] }, async (request) => {
     const query = listWinnersQuerySchema.parse(request.query);
-    return winnerService.listParticipantWins(request.user!.id, query);
+    const eventId = request.user!.eventId;
+    if (!eventId) throw new NotFoundError('No event associated with this participant');
+    return winnerService.listParticipantWins(request.user!.id, eventId, query);
   });
   };
 }

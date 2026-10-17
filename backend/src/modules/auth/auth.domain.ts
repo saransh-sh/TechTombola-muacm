@@ -1,7 +1,8 @@
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
+import { createSecretKey } from 'node:crypto';
 import { getEnv } from '../../config/env.ts';
-import { UnauthorizedError } from '../../shared/errors/app-error.ts';
+import { ForbiddenError, NotFoundError, UnauthorizedError } from '../../shared/errors/app-error.ts';
 
 export const SESSION_COOKIE_NAME = 'session_token';
 export const SESSION_DURATION_HOURS = 24;
@@ -54,7 +55,7 @@ export function signAuthToken(payload: AuthJwtPayload): string {
 export function verifyAuthToken(token: string): AuthJwtPayload {
   const env = getEnv();
   try {
-    const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] });
+    const decoded = jwt.verify(token, createSecretKey(Buffer.from(env.JWT_SECRET)), { algorithms: ['HS256'] });
     return decoded as AuthJwtPayload;
   } catch (err: any) {
     if (err.name === 'TokenExpiredError') {
@@ -73,4 +74,11 @@ export function getSessionCookieOptions() {
     sameSite: 'lax' as const,
     maxAge: SESSION_DURATION_HOURS * 60 * 60, // in seconds
   };
+}
+
+export function assertActiveParticipant(read: { userStatus: string; adminRole: string | null; profileStatus: string | null }): void {
+  if (read.userStatus !== 'ACTIVE') throw new UnauthorizedError('Account is inactive');
+  if (read.adminRole) throw new ForbiddenError('Insufficient permissions for this operation');
+  if (!read.profileStatus) throw new NotFoundError('Participant profile not found');
+  if (read.profileStatus !== 'ACTIVE') throw new ForbiddenError('Participant account is inactive');
 }

@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { requireAdmin, requireParticipant } from '../../middleware/auth.ts';
+import { requireAdmin, requireParticipantToken } from '../../middleware/auth.ts';
 import { ValidationError } from '../../shared/errors/index.ts';
 import {
   listDrawsQuerySchema,
@@ -59,9 +59,14 @@ export const drawRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Participant: list draws for current round or specified round
-  fastify.get('/participant/draws', { preHandler: [requireParticipant] }, async (request) => {
+  fastify.get('/participant/draws', { preHandler: [requireParticipantToken] }, async (request) => {
     const query = listParticipantDrawsQuerySchema.parse(request.query);
-
-    return drawService.listDrawsForParticipant(request.user!.id, query.roundId, query);
+    return drawService.listDrawsForParticipant(
+      request.user!.id,
+      query.roundId,
+      query,
+      request.user!.sessionId,
+      request.user!.eventId ?? undefined
+    );
   });
 };

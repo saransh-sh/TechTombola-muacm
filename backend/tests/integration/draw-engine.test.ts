@@ -11,7 +11,9 @@ import { eventRepository } from '../../src/modules/events/event.repository.ts';
 import { roundRepository } from '../../src/modules/rounds/round.repository.ts';
 import { roundService } from '../../src/modules/rounds/round.service.ts';
 import { drawService } from '../../src/modules/draws/draw.service.ts';
+import { DrawService } from '../../src/modules/draws/draw.service.ts';
 import { drawRepository } from '../../src/modules/draws/draw.repository.ts';
+import { idempotencyRepository } from '../../src/shared/idempotency/idempotency.repository.ts';
 import { participantRepository } from '../../src/modules/participants/participant.repository.ts';
 import { questionRepository } from '../../src/modules/questions/question.repository.ts';
 import { ticketService } from '../../src/modules/tickets/ticket.service.ts';
@@ -169,6 +171,26 @@ describe('Random and Manual Draw Engine Integration', () => {
     return { round, questions, keys };
   }
 
+  function serviceWithConcurrentIdempotencyMisses(): DrawService {
+    let releaseInitialReads!: () => void;
+    let initialReads = 0;
+    const bothInitialReads = new Promise<void>((resolve) => { releaseInitialReads = resolve; });
+    const idempotencyRepo = {
+      find: async (key: string, tx?: any) => {
+        const cached = await idempotencyRepository.find(key, tx);
+        if (!tx && initialReads < 2) {
+          initialReads++;
+          if (initialReads === 2) releaseInitialReads();
+          await bothInitialReads;
+        }
+        return cached;
+      },
+      save: (key: string, resourceType: string, responsePayload: any, tx?: any) =>
+        idempotencyRepository.save(key, resourceType, responsePayload, tx),
+    };
+    return new DrawService(drawRepository, roundRepository, undefined, idempotencyRepo);
+  }
+
   it('performs random draws with continuous sequences, idempotency replay, and audit logging', async () => {
     const { round } = await setupActiveRound(15);
 
@@ -241,6 +263,34 @@ describe('Random and Manual Draw Engine Integration', () => {
     expect(auditEntry.actorType).toBe('ADMIN');
 
     // Clean up round
+    await roundService.completeRound(adminUser.id, round.id);
+  });
+
+  it('replays a concurrent random Draw request with the same Idempotency-Key', async () => {
+    const { round } = await setupActiveRound(15);
+    const idempotencyKey = `concurrent_random_${crypto.randomUUID()}`;
+    const service = serviceWithConcurrentIdempotencyMisses();
+
+    const responses = await Promise.all([0, 1].map(() => service.drawRandom({ actorId: adminUser.id, roundId: round.id, idempotencyKey })));
+    expect(responses[0].draw.id).toBe(responses[1].draw.id);
+
+    const persistedDraws = await getDb().select().from(draws).where(eq(draws.roundId, round.id));
+    expect(persistedDraws).toHaveLength(1);
+    await roundService.completeRound(adminUser.id, round.id);
+  });
+
+  it('replays a concurrent manual Draw request with the same Idempotency-Key', async () => {
+    const { round, questions } = await setupActiveRound(15);
+    const idempotencyKey = `concurrent_manual_${crypto.randomUUID()}`;
+    const service = serviceWithConcurrentIdempotencyMisses();
+
+    const responses = await Promise.all([0, 1].map(() => service.drawManual({
+      actorId: adminUser.id, roundId: round.id, questionId: questions[0].id, idempotencyKey,
+    })));
+    expect(responses[0].draw.id).toBe(responses[1].draw.id);
+
+    const persistedDraws = await getDb().select().from(draws).where(eq(draws.roundId, round.id));
+    expect(persistedDraws).toHaveLength(1);
     await roundService.completeRound(adminUser.id, round.id);
   });
 

@@ -1,3 +1,4 @@
+import { assertActiveParticipant } from '../auth/auth.domain.ts';
 import { getDb } from '../../db/client.ts';
 import { auditService, type AuditService } from '../audit/audit.service.ts';
 import { eventRepository, type IEventRepository } from '../events/event.repository.ts';
@@ -16,7 +17,7 @@ import type {
   RoundSummary,
   UpdateRoundInput,
 } from './round.types.ts';
-import { ConflictError, NotFoundError, ValidationError } from '../../shared/errors/app-error.ts';
+import { ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from '../../shared/errors/app-error.ts';
 import { idempotencyRepository, type IIdempotencyRepository } from '../../shared/idempotency/idempotency.repository.ts';
 import type { RealtimeEvent } from '../../realtime/events.ts';
 
@@ -615,11 +616,16 @@ export class RoundService {
     return { round: updatedRound! };
   }
 
-  async getCurrentRoundForParticipant(
-    _participantUserId: string,
-    eventId: string
-  ): Promise<RoundSummary> {
-    const current = await this.repo.findCurrentRoundForEvent(eventId);
+  async getCurrentRoundForParticipant(userId: string, eventId: string, sessionId?: string): Promise<RoundSummary> {
+    if (sessionId) {
+      const read = await this.repo.findCurrentRoundForSession(sessionId, userId, eventId);
+      if (!read) throw new UnauthorizedError('Authentication required');
+      assertActiveParticipant(read);
+      if (!read.round) throw new NotFoundError('No current round found for this event');
+      return read.round;
+    }
+
+    const current = await this.repo.findCurrentRoundForParticipant(userId, eventId);
     if (!current) {
       throw new NotFoundError('No current round found for this event');
     }

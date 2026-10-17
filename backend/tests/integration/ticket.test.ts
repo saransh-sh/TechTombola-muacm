@@ -380,12 +380,17 @@ describe('Ticket Generation, Allocation, and Retrieval Integration', () => {
       .select()
       .from(tickets)
       .where(eq(tickets.participantId, participantProfile1.id));
+    const [existingCell] = await db
+      .select({ keyId: ticketCells.keyId })
+      .from(ticketCells)
+      .where(eq(ticketCells.ticketId, ticket1.id))
+      .limit(1);
 
     let caughtCellKeyDup = false;
     try {
       await db.insert(ticketCells).values({
         ticketId: ticket1.id,
-        keyId: keyList[0].id,
+        keyId: existingCell.keyId,
         rowIndex: 0,
         colIndex: 0,
       });
@@ -622,5 +627,29 @@ describe('Ticket Generation, Allocation, and Retrieval Integration', () => {
     const db = getDb();
     const countRows = await db.select().from(tickets).where(eq(tickets.roundId, batchRound.id));
     expect(countRows).toHaveLength(batchSize);
+  });
+
+  it('rejects a revoked Session on participant Ticket, Round, and Draw reads', async () => {
+    const logout = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/logout',
+      cookies: { [SESSION_COOKIE_NAME]: participantCookie1 },
+    });
+    expect(logout.statusCode).toBe(200);
+
+    for (const url of [
+      `/api/v1/participant/ticket?roundId=${roundDraft.id}`,
+      '/api/v1/participant/ticket',
+      '/api/v1/participant/round/current',
+      `/api/v1/participant/draws?roundId=${roundDraft.id}`,
+      '/api/v1/participant/draws',
+    ]) {
+      const response = await app.inject({
+        method: 'GET',
+        url,
+        cookies: { [SESSION_COOKIE_NAME]: participantCookie1 },
+      });
+      expect(response.statusCode).toBe(401);
+    }
   });
 });

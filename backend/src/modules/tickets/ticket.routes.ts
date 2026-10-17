@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { requireAdmin, requireParticipant } from '../../middleware/auth.ts';
+import { requireAdmin, requireParticipantToken } from '../../middleware/auth.ts';
 import { ValidationError } from '../../shared/errors/app-error.ts';
 import {
   generateTicketsParamsSchema,
@@ -37,9 +37,15 @@ export const ticketRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Participant: get own ticket for current round
-  fastify.get('/participant/ticket', { preHandler: [requireParticipant] }, async (request) => {
+  fastify.get('/participant/ticket', { preHandler: [requireParticipantToken] }, async (request) => {
     const query = getParticipantTicketQuerySchema.parse(request.query);
-    const ticket = await ticketService.getParticipantTicket(request.user!.id, query.roundId);
+    const ticket = await ticketService.getParticipantTicket(
+      request.user!.id,
+      query.roundId,
+      undefined,
+      request.user!.sessionId,
+      request.user!.eventId ?? undefined
+    );
 
     return {
       ticket,

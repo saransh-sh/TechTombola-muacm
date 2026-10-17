@@ -1,6 +1,3 @@
-import { eq } from 'drizzle-orm';
-import { getDb } from '../../db/client.ts';
-import { participantProfiles } from '../../db/schema/users.ts';
 import { ForbiddenError, NotFoundError } from '../../shared/errors/index.ts';
 import type { AuditService } from '../audit/audit.service.ts';
 import { auditService } from '../audit/audit.service.ts';
@@ -9,6 +6,7 @@ import { roundRepository } from '../rounds/round.repository.ts';
 import type { IDrawRepository } from '../draws/draw.repository.ts';
 import { drawRepository } from '../draws/draw.repository.ts';
 import { markRepository, type IMarkRepository } from './mark.repository.ts';
+import { participantRepository } from '../participants/participant.repository.ts';
 import {
   assertCellBelongsToTicket,
   assertTicketOwnership,
@@ -33,21 +31,14 @@ export class MarkService {
 
   async markCell(params: {
     userId: string;
+    eventId: string;
     ticketId: string;
     cellId: string;
   }): Promise<{ mark: MarkDto }> {
-    const { userId, ticketId, cellId } = params;
-    const db = getDb();
+    const { userId, eventId, ticketId, cellId } = params;
 
     // 1. Resolve Participant Profile
-    const [profile] = await db
-      .select({
-        id: participantProfiles.id,
-        status: participantProfiles.status,
-      })
-      .from(participantProfiles)
-      .where(eq(participantProfiles.userId, userId))
-      .limit(1);
+    const profile = await participantRepository.findByUserIdAndEvent(userId, eventId);
 
     if (!profile) {
       throw new NotFoundError('Participant profile not found');
@@ -62,6 +53,7 @@ export class MarkService {
       throw new NotFoundError('Ticket not found');
     }
     assertTicketOwnership(ticket, profile.id);
+    if (ticket.eventId !== eventId) throw new NotFoundError('Ticket not found');
 
     // 3. Fetch Round & Assert ACTIVE
     const round = await this.roundRepo.findById(ticket.roundId);
@@ -113,21 +105,14 @@ export class MarkService {
 
   async unmarkCell(params: {
     userId: string;
+    eventId: string;
     ticketId: string;
     cellId: string;
   }): Promise<{ success: boolean }> {
-    const { userId, ticketId, cellId } = params;
-    const db = getDb();
+    const { userId, eventId, ticketId, cellId } = params;
 
     // 1. Resolve Participant Profile
-    const [profile] = await db
-      .select({
-        id: participantProfiles.id,
-        status: participantProfiles.status,
-      })
-      .from(participantProfiles)
-      .where(eq(participantProfiles.userId, userId))
-      .limit(1);
+    const profile = await participantRepository.findByUserIdAndEvent(userId, eventId);
 
     if (!profile) {
       throw new NotFoundError('Participant profile not found');
@@ -142,6 +127,7 @@ export class MarkService {
       throw new NotFoundError('Ticket not found');
     }
     assertTicketOwnership(ticket, profile.id);
+    if (ticket.eventId !== eventId) throw new NotFoundError('Ticket not found');
 
     // 3. Fetch Round & Assert ACTIVE
     const round = await this.roundRepo.findById(ticket.roundId);

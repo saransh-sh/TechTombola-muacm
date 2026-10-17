@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gt, inArray, isNull, placeholder, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client.ts';
 import {
   rounds,
@@ -8,7 +8,7 @@ import {
   type InsertRound,
 } from '../../db/schema/rounds.ts';
 import { roundQuestions } from '../../db/schema/questions.ts';
-import { participantProfiles } from '../../db/schema/users.ts';
+import { adminProfiles, participantProfiles, sessions, users } from '../../db/schema/users.ts';
 import { tickets } from '../../db/schema/tickets.ts';
 import type {
   PatternConfig,
@@ -23,6 +23,13 @@ export interface IRoundRepository {
   findByEventAndSequence(eventId: string, sequenceNumber: number, tx?: any): Promise<RoundSummary | null>;
   findActiveRound(tx?: any): Promise<RoundSummary | null>;
   findCurrentRoundForEvent(eventId: string, tx?: any): Promise<RoundSummary | null>;
+  findCurrentRoundForParticipant(userId: string, eventId: string, tx?: any): Promise<RoundSummary | null>;
+  findCurrentRoundForSession(sessionId: string, userId: string, eventId: string, tx?: any): Promise<{
+    userStatus: string;
+    adminRole: string | null;
+    profileStatus: string | null;
+    round: RoundSummary | null;
+  } | null>;
   getReadinessMetrics(roundId: string, eventId: string, tx?: any): Promise<{ questionCount: number; activeParticipantsCount: number; ticketsCount: number }>;
   acquireGlobalActiveLock(tx: any): Promise<void>;
   list(options: { page?: number; limit: number; eventId?: string; status?: RoundStatus }, tx?: any): Promise<{ data: RoundSummary[]; total: number }>;
@@ -84,17 +91,27 @@ export class RoundRepository implements IRoundRepository {
     return this.mapRound(roundRecord, patternRecords);
   }
 
+  private readonly byIdQueries = new WeakMap<ReturnType<typeof getDb>, ReturnType<RoundRepository['prepareById']>>();
+
+  private prepareById(client: ReturnType<typeof getDb>) {
+    return client
+      .select({ round: rounds, pattern: roundPatterns })
+      .from(rounds)
+      .leftJoin(roundPatterns, eq(roundPatterns.roundId, rounds.id))
+      .where(eq(rounds.id, placeholder('id'))).prepare('rounds_by_id');
+  }
+
   async findById(id: string, tx?: any): Promise<RoundSummary | null> {
     const client = this.getClient(tx);
-    const [roundRecord] = await client.select().from(rounds).where(eq(rounds.id, id)).limit(1);
-    if (!roundRecord) return null;
+    let query = this.byIdQueries.get(client);
+    if (!query) {
+      query = this.prepareById(client);
+      this.byIdQueries.set(client, query);
+    }
+    const rows = await query.execute({ id });
+    if (!rows.length) return null;
 
-    const patternRecords = await client
-      .select()
-      .from(roundPatterns)
-      .where(eq(roundPatterns.roundId, id));
-
-    return this.mapRound(roundRecord, patternRecords);
+    return this.mapRound(rows[0]!.round, rows.flatMap((row: { pattern: RoundPatternRecord | null }) => row.pattern ? [row.pattern] : []));
   }
 
   async findByEventAndSequence(
@@ -246,23 +263,73 @@ export class RoundRepository implements IRoundRepository {
 
   async findCurrentRoundForEvent(eventId: string, tx?: any): Promise<RoundSummary | null> {
     const client = this.getClient(tx);
-    const roundRows: RoundRecord[] = await client
-      .select()
+    const rows = await client
+      .select({ round: rounds, pattern: roundPatterns })
       .from(rounds)
+      .leftJoin(roundPatterns, eq(roundPatterns.roundId, rounds.id))
       .where(and(eq(rounds.eventId, eventId), inArray(rounds.status, ['ACTIVE', 'PAUSED', 'READY'])))
-      .orderBy(desc(rounds.updatedAt));
+      .orderBy(sql`CASE WHEN ${rounds.status} IN ('ACTIVE', 'PAUSED') THEN 0 ELSE 1 END`, desc(rounds.updatedAt));
 
-    if (roundRows.length === 0) return null;
+    if (!rows.length) return null;
 
-    const activeOrPaused = roundRows.find((r) => r.status === 'ACTIVE' || r.status === 'PAUSED');
-    const selected = activeOrPaused || roundRows[0]!;
+    const selectedId = rows[0]!.round.id;
+    const selectedRows = rows.filter((row: { round: RoundRecord }) => row.round.id === selectedId);
+    return this.mapRound(selectedRows[0]!.round, selectedRows.flatMap((row: { pattern: RoundPatternRecord | null }) => row.pattern ? [row.pattern] : []));
+  }
 
-    const patternRecords = await client
-      .select()
-      .from(roundPatterns)
-      .where(eq(roundPatterns.roundId, selected.id));
+  async findCurrentRoundForParticipant(userId: string, eventId: string, tx?: any): Promise<RoundSummary | null> {
+    const client = this.getClient(tx);
+    const rows = await client
+      .select({ round: rounds, pattern: roundPatterns })
+      .from(participantProfiles)
+      .innerJoin(rounds, and(
+        eq(rounds.eventId, participantProfiles.eventId),
+        inArray(rounds.status, ['ACTIVE', 'PAUSED', 'READY'])
+      ))
+      .leftJoin(roundPatterns, eq(roundPatterns.roundId, rounds.id))
+      .where(and(eq(participantProfiles.userId, userId), eq(participantProfiles.eventId, eventId), eq(participantProfiles.status, 'ACTIVE')))
+      .orderBy(sql`CASE WHEN ${rounds.status} IN ('ACTIVE', 'PAUSED') THEN 0 ELSE 1 END`, desc(rounds.updatedAt));
 
-    return this.mapRound(selected, patternRecords);
+    if (!rows.length) return null;
+    const selectedId = rows[0]!.round.id;
+    const selectedRows = rows.filter((row: { round: RoundRecord }) => row.round.id === selectedId);
+    return this.mapRound(selectedRows[0]!.round, selectedRows.flatMap((row: { pattern: RoundPatternRecord | null }) => row.pattern ? [row.pattern] : []));
+  }
+
+  private readonly sessionRoundQueries = new WeakMap<ReturnType<typeof getDb>, ReturnType<RoundRepository['prepareSessionRound']>>();
+
+  private prepareSessionRound(client: ReturnType<typeof getDb>) {
+    return client
+      .select({ userStatus: users.status, adminRole: adminProfiles.role, profileStatus: participantProfiles.status, profileId: participantProfiles.id, round: rounds, pattern: roundPatterns })
+      .from(sessions)
+      .innerJoin(users, eq(users.id, sessions.userId))
+      .leftJoin(adminProfiles, eq(adminProfiles.userId, users.id))
+      .leftJoin(participantProfiles, and(eq(participantProfiles.userId, users.id), eq(participantProfiles.eventId, placeholder('eventId'))))
+      .leftJoin(rounds, and(eq(rounds.eventId, participantProfiles.eventId), inArray(rounds.status, ['ACTIVE', 'PAUSED', 'READY'])))
+      .leftJoin(roundPatterns, eq(roundPatterns.roundId, rounds.id))
+      .where(and(eq(sessions.id, placeholder('sessionId')), eq(sessions.userId, placeholder('userId')), isNull(sessions.revokedAt), gt(sessions.expiresAt, placeholder('now'))))
+      .orderBy(sql`CASE WHEN ${rounds.status} IN ('ACTIVE', 'PAUSED') THEN 0 ELSE 1 END`, desc(rounds.updatedAt)).prepare('participant_current_round_read');
+  }
+
+  async findCurrentRoundForSession(sessionId: string, userId: string, eventId: string, tx?: any) {
+    const client = this.getClient(tx);
+    let query = this.sessionRoundQueries.get(client);
+    if (!query) {
+      query = this.prepareSessionRound(client);
+      this.sessionRoundQueries.set(client, query);
+    }
+    const rows = await query.execute({ sessionId, userId, eventId, now: new Date().toISOString() });
+
+    if (!rows.length) return null;
+    const selectedId = rows[0]!.round?.id;
+    const selectedRows = rows.filter((row: { round: RoundRecord | null }) => row.round?.id === selectedId);
+    return {
+      userStatus: rows[0]!.userStatus,
+      adminRole: rows[0]!.adminRole,
+      profileId: rows[0]!.profileId,
+      profileStatus: rows[0]!.profileStatus,
+      round: selectedId ? this.mapRound(rows[0]!.round!, selectedRows.flatMap((row: { pattern: RoundPatternRecord | null }) => row.pattern ? [row.pattern] : [])) : null,
+    };
   }
 
   async getReadinessMetrics(

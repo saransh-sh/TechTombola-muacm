@@ -18,18 +18,18 @@ export interface WinnerListOptions {
 export interface IWinnerRepository {
   create(data: InsertWinner, tx: any): Promise<WinnerRecord>;
   countByRoundPattern(roundId: string, patternType: string, tx: any): Promise<number>;
-  findParticipantIdByUserId(userId: string): Promise<string | null>;
+  findParticipantIdByUserId(userId: string, eventId: string): Promise<string | null>;
   listAll(options: WinnerListOptions): Promise<{ data: WinnerListRow[]; total: number }>;
   listByParticipant(participantId: string, options: WinnerListOptions): Promise<{ data: WinnerListRow[]; total: number }>;
 }
 
 export class WinnerRepository implements IWinnerRepository {
-  async findParticipantIdByUserId(userId: string): Promise<string | null> {
+  async findParticipantIdByUserId(userId: string, eventId: string): Promise<string | null> {
     const db = getDb();
     const [profile] = await db
       .select({ id: participantProfiles.id })
       .from(participantProfiles)
-      .where(eq(participantProfiles.userId, userId))
+      .where(and(eq(participantProfiles.userId, userId), eq(participantProfiles.eventId, eventId)))
       .limit(1);
     return profile?.id ?? null;
   }

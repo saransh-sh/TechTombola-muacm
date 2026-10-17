@@ -260,8 +260,8 @@ export class WinnerService {
     return this.listWinners(this.winnerRepo.listAll(pagination), pagination);
   }
 
-  async listParticipantWins(userId: string, options: { page?: number; limit?: number } = {}) {
-    const participantId = await this.winnerRepo.findParticipantIdByUserId(userId);
+  async listParticipantWins(userId: string, eventId: string, options: { page?: number; limit?: number } = {}) {
+    const participantId = await this.winnerRepo.findParticipantIdByUserId(userId, eventId);
     if (!participantId) throw new NotFoundError('Participant profile not found');
     const pagination = this.normalizePagination(options);
     return this.listWinners(this.winnerRepo.listByParticipant(participantId, pagination), pagination);

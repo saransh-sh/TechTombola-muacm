@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, placeholder, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client.ts';
 import { winners } from '../../db/schema/claims.ts';
 import { draws } from '../../db/schema/draws.ts';
@@ -15,8 +15,11 @@ export interface ILiveReadRepository {
 }
 
 export class LiveReadRepository implements ILiveReadRepository {
-  async findCurrentEvent(): Promise<LiveEventRecord | null> {
-    const [event] = await getDb()
+  private readonly eventQueries = new WeakMap<ReturnType<typeof getDb>, ReturnType<LiveReadRepository['prepareCurrentEvent']>>();
+  private readonly roundQueries = new WeakMap<ReturnType<typeof getDb>, ReturnType<LiveReadRepository['prepareCurrentRound']>>();
+
+  private prepareCurrentEvent(db: ReturnType<typeof getDb>) {
+    return db
       .select({
         id: events.id,
         title: events.title,
@@ -29,12 +32,11 @@ export class LiveReadRepository implements ILiveReadRepository {
       .from(events)
       .where(eq(events.status, 'LIVE'))
       .orderBy(sql`${events.startedAt} DESC NULLS LAST`, desc(events.id))
-      .limit(1);
-    return event as LiveEventRecord | undefined ?? null;
+      .limit(1).prepare('live_current_event_read');
   }
 
-  async findCurrentRound(eventId: string): Promise<LiveRoundRecord | null> {
-    const [round] = await getDb()
+  private prepareCurrentRound(db: ReturnType<typeof getDb>) {
+    return db
       .select({
         id: rounds.id,
         eventId: rounds.eventId,
@@ -44,14 +46,35 @@ export class LiveReadRepository implements ILiveReadRepository {
         updatedAt: rounds.updatedAt,
       })
       .from(rounds)
-      .where(and(eq(rounds.eventId, eventId), inArray(rounds.status, ['ACTIVE', 'PAUSED', 'RECOVERY_REQUIRED', 'READY', 'COMPLETED'])))
+      .where(and(eq(rounds.eventId, placeholder('eventId')), inArray(rounds.status, ['ACTIVE', 'PAUSED', 'RECOVERY_REQUIRED', 'READY', 'COMPLETED'])))
       .orderBy(
         sql`CASE ${rounds.status} WHEN 'ACTIVE' THEN 0 WHEN 'PAUSED' THEN 1 WHEN 'RECOVERY_REQUIRED' THEN 2 WHEN 'READY' THEN 3 ELSE 4 END`,
         desc(rounds.sequenceNumber),
         desc(rounds.updatedAt),
         desc(rounds.id)
       )
-      .limit(1);
+      .limit(1).prepare('live_current_round_read');
+  }
+
+  async findCurrentEvent(): Promise<LiveEventRecord | null> {
+    const db = getDb();
+    let query = this.eventQueries.get(db);
+    if (!query) {
+      query = this.prepareCurrentEvent(db);
+      this.eventQueries.set(db, query);
+    }
+    const [event] = await query.execute();
+    return event as LiveEventRecord | undefined ?? null;
+  }
+
+  async findCurrentRound(eventId: string): Promise<LiveRoundRecord | null> {
+    const db = getDb();
+    let query = this.roundQueries.get(db);
+    if (!query) {
+      query = this.prepareCurrentRound(db);
+      this.roundQueries.set(db, query);
+    }
+    const [round] = await query.execute({ eventId });
     return round as LiveRoundRecord | undefined ?? null;
   }
 

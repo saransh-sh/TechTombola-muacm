@@ -1,9 +1,20 @@
-import { and, count, desc, eq } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, isNull, placeholder, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client.ts';
 import { tickets, ticketCells, type TicketCellRecord, type TicketRecord } from '../../db/schema/tickets.ts';
 import { roundQuestions, eventKeys } from '../../db/schema/questions.ts';
+import { ticketMarks } from '../../db/schema/marks.ts';
+import { rounds } from '../../db/schema/rounds.ts';
+import { adminProfiles, participantProfiles, sessions, users } from '../../db/schema/users.ts';
 import type { GeneratedCell, TicketKey } from './ticket.domain.ts';
 import type { ITicketRepository } from './ticket.types.ts';
+
+type TicketCellJoinRow = { cell: TicketCellRecord | null; keyValue: string | null; markedAt: Date | null };
+
+function mapTicketCells(rows: TicketCellJoinRow[]) {
+  return rows.flatMap((row) => row.cell && row.keyValue !== null
+    ? [{ ...row.cell, keyValue: row.keyValue, marked: row.markedAt !== null }]
+    : []);
+}
 
 export class TicketRepository implements ITicketRepository {
   private getClient(tx?: any) {
@@ -80,41 +91,118 @@ export class TicketRepository implements ITicketRepository {
     participantId: string,
     roundId: string,
     tx?: any
-  ): Promise<(TicketRecord & { cells: Array<TicketCellRecord & { keyValue: string }> }) | null> {
+  ): Promise<(TicketRecord & { cells: Array<TicketCellRecord & { keyValue: string; marked: boolean }> }) | null> {
     const db = this.getClient(tx);
 
-    const [ticket] = await db
-      .select()
-      .from(tickets)
-      .where(and(eq(tickets.participantId, participantId), eq(tickets.roundId, roundId)))
-      .limit(1);
-
-    if (!ticket) {
-      return null;
-    }
-
-    const cells = await db
+    const rows = await db
       .select({
-        id: ticketCells.id,
-        ticketId: ticketCells.ticketId,
-        keyId: ticketCells.keyId,
-        rowIndex: ticketCells.rowIndex,
-        colIndex: ticketCells.colIndex,
-        createdAt: ticketCells.createdAt,
+        ticket: tickets,
+        cell: ticketCells,
         keyValue: eventKeys.value,
+        markedAt: ticketMarks.markedAt,
       })
-      .from(ticketCells)
-      .innerJoin(eventKeys, eq(ticketCells.keyId, eventKeys.id))
-      .where(eq(ticketCells.ticketId, ticket.id));
+      .from(tickets)
+      .leftJoin(ticketCells, eq(ticketCells.ticketId, tickets.id))
+      .leftJoin(eventKeys, eq(ticketCells.keyId, eventKeys.id))
+      .leftJoin(ticketMarks, and(eq(ticketMarks.ticketId, tickets.id), eq(ticketMarks.cellId, ticketCells.id)))
+      .where(and(eq(tickets.participantId, participantId), eq(tickets.roundId, roundId)))
+      .orderBy(asc(ticketCells.rowIndex), asc(ticketCells.colIndex));
 
-    cells.sort((a: { rowIndex: number; colIndex: number }, b: { rowIndex: number; colIndex: number }) => {
-      if (a.rowIndex !== b.rowIndex) return a.rowIndex - b.rowIndex;
-      return a.colIndex - b.colIndex;
-    });
+    if (!rows.length) return null;
 
     return {
-      ...ticket,
-      cells,
+      ...rows[0]!.ticket,
+      cells: mapTicketCells(rows),
+    };
+  }
+
+  async findByUserAndRound(
+    userId: string,
+    roundId: string
+  ) {
+    const db = this.getClient();
+    const rows = await db
+      .select({
+        profile: participantProfiles,
+        ticket: tickets,
+        cell: ticketCells,
+        keyValue: eventKeys.value,
+        markedAt: ticketMarks.markedAt,
+      })
+      .from(participantProfiles)
+      .innerJoin(rounds, and(eq(rounds.id, roundId), eq(rounds.eventId, participantProfiles.eventId)))
+      .leftJoin(tickets, and(eq(tickets.participantId, participantProfiles.id), eq(tickets.roundId, rounds.id), eq(tickets.eventId, rounds.eventId)))
+      .leftJoin(ticketCells, eq(ticketCells.ticketId, tickets.id))
+      .leftJoin(eventKeys, eq(ticketCells.keyId, eventKeys.id))
+      .leftJoin(ticketMarks, and(eq(ticketMarks.ticketId, tickets.id), eq(ticketMarks.cellId, ticketCells.id)))
+      .where(and(eq(participantProfiles.userId, userId), eq(participantProfiles.status, 'ACTIVE')))
+      .orderBy(asc(ticketCells.rowIndex), asc(ticketCells.colIndex));
+
+    if (!rows.length || !rows[0]!.ticket) return null;
+    return {
+      ...rows[0]!.ticket,
+      cells: mapTicketCells(rows),
+    };
+  }
+
+  private readonly sessionTicketQueries = new WeakMap<ReturnType<typeof getDb>, ReturnType<TicketRepository['prepareSessionTicket']>>();
+
+  private prepareSessionTicket(db: ReturnType<typeof getDb>) {
+    return db
+      .select({
+        userStatus: users.status,
+        adminRole: adminProfiles.role,
+        profileId: participantProfiles.id,
+        profileEventId: participantProfiles.eventId,
+        profileStatus: participantProfiles.status,
+        roundId: rounds.id,
+        ticket: tickets,
+        cells: sql<Array<TicketCellRecord & { keyValue: string; marked: boolean }>>`(
+          SELECT COALESCE(json_agg(json_build_object(
+            'id', ${ticketCells.id},
+            'ticketId', ${ticketCells.ticketId},
+            'keyId', ${ticketCells.keyId},
+            'rowIndex', ${ticketCells.rowIndex},
+            'colIndex', ${ticketCells.colIndex},
+            'createdAt', ${ticketCells.createdAt},
+            'keyValue', ${eventKeys.value},
+            'marked', ${ticketMarks.markedAt} IS NOT NULL
+          ) ORDER BY ${ticketCells.rowIndex}, ${ticketCells.colIndex}), '[]'::json)
+          FROM ${ticketCells}
+          INNER JOIN ${eventKeys} ON ${eventKeys.id} = ${ticketCells.keyId}
+          LEFT JOIN ${ticketMarks} ON ${ticketMarks.ticketId} = ${ticketCells.ticketId} AND ${ticketMarks.cellId} = ${ticketCells.id}
+          WHERE ${ticketCells.ticketId} = ${tickets.id}
+        )`,
+      })
+      .from(sessions)
+      .innerJoin(users, eq(users.id, sessions.userId))
+      .leftJoin(adminProfiles, eq(adminProfiles.userId, users.id))
+      .leftJoin(participantProfiles, and(eq(participantProfiles.userId, users.id), eq(participantProfiles.eventId, placeholder('eventId'))))
+      .leftJoin(rounds, and(eq(rounds.id, placeholder('roundId')), eq(rounds.eventId, participantProfiles.eventId)))
+      .leftJoin(tickets, and(eq(tickets.participantId, participantProfiles.id), eq(tickets.roundId, rounds.id), eq(tickets.eventId, rounds.eventId)))
+      .where(and(eq(sessions.id, placeholder('sessionId')), eq(sessions.userId, placeholder('userId')), isNull(sessions.revokedAt), gt(sessions.expiresAt, placeholder('now')))).prepare('participant_ticket_read');
+  }
+
+  async findBySessionAndRound(sessionId: string, userId: string, roundId: string, eventId: string) {
+    const db = getDb();
+    let query = this.sessionTicketQueries.get(db);
+    if (!query) {
+      query = this.prepareSessionTicket(db);
+      this.sessionTicketQueries.set(db, query);
+    }
+    const rows = await query.execute({ sessionId, userId, roundId, eventId, now: new Date().toISOString() });
+
+    if (!rows.length) return null;
+    const first = rows[0]!;
+    return {
+      userStatus: first.userStatus,
+      adminRole: first.adminRole,
+      profile: first.profileId ? { id: first.profileId, eventId: first.profileEventId!, status: first.profileStatus! } : null,
+      roundFound: first.roundId !== null,
+      ticket: first.ticket ? {
+        ...first.ticket,
+        cells: first.cells.map((cell: TicketCellRecord & { keyValue: string; marked: boolean }) => ({ ...cell, createdAt: new Date(cell.createdAt) })),
+      } : null,
     };
   }
 

@@ -1,8 +1,6 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { assertActiveParticipant } from '../auth/auth.domain.ts';
 import { getDb } from '../../db/client.ts';
-import { rounds } from '../../db/schema/rounds.ts';
-import { participantProfiles } from '../../db/schema/users.ts';
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/index.ts';
+import { ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from '../../shared/errors/index.ts';
 import type { AuditService } from '../audit/audit.service.ts';
 import { auditService } from '../audit/audit.service.ts';
 import type { IRoundRepository } from '../rounds/round.repository.ts';
@@ -65,6 +63,11 @@ export class DrawService {
       const round = await this.drawRepo.lockRoundForDraw(roundId, tx);
       if (!round) {
         throw new NotFoundError('Round not found');
+      }
+
+      const cached = await this.idempotencyRepo?.find(key, tx);
+      if (cached) {
+        return { result: cached as { draw: DrawDto }, eventId: null, draw: null };
       }
 
       validateRoundActiveForDraw(round.status);
@@ -133,7 +136,7 @@ export class DrawService {
     });
 
     // 3. Post-commit realtime broadcast
-    if (this.realtimePublisher) {
+    if (this.realtimePublisher && draw) {
       try {
         await this.realtimePublisher.broadcastCommitted({
           type: 'DRAW_CREATED',
@@ -184,6 +187,11 @@ export class DrawService {
       const round = await this.drawRepo.lockRoundForDraw(roundId, tx);
       if (!round) {
         throw new NotFoundError('Round not found');
+      }
+
+      const cached = await this.idempotencyRepo?.find(key, tx);
+      if (cached) {
+        return { result: cached as { draw: DrawDto }, eventId: null, draw: null };
       }
 
       validateRoundActiveForDraw(round.status);
@@ -251,7 +259,7 @@ export class DrawService {
     });
 
     // 3. Post-commit realtime broadcast
-    if (this.realtimePublisher) {
+    if (this.realtimePublisher && draw) {
       try {
         await this.realtimePublisher.broadcastCommitted({
           type: 'DRAW_CREATED',
@@ -312,73 +320,20 @@ export class DrawService {
   async listDrawsForParticipant(
     userId: string,
     roundId?: string,
-    options: { page?: number; limit?: number } = {}
+    options: { page?: number; limit?: number } = {},
+    sessionId?: string,
+    eventId?: string
   ): Promise<{ data: ParticipantDrawDto[]; total: number; page: number; limit: number }> {
-    const db = getDb();
-
-    // 1. Fetch Participant Profile
-    const [profile] = await db
-      .select({
-        id: participantProfiles.id,
-        eventId: participantProfiles.eventId,
-        status: participantProfiles.status,
-      })
-      .from(participantProfiles)
-      .where(eq(participantProfiles.userId, userId))
-      .limit(1);
-
-    if (!profile) {
-      throw new NotFoundError('Participant profile not found');
-    }
-
-    if (profile.status !== 'ACTIVE') {
-      throw new ForbiddenError('Participant account is inactive');
-    }
-
-    // 2. Resolve Target Round
-    let targetRoundId: string;
-    if (roundId) {
-      const round = await this.roundRepo.findById(roundId);
-      if (!round || round.eventId !== profile.eventId) {
-        throw new NotFoundError('Round not found in event');
-      }
-      targetRoundId = round.id;
-    } else {
-      const currentRounds = await db
-        .select({
-          id: rounds.id,
-          status: rounds.status,
-          sequenceNumber: rounds.sequenceNumber,
-        })
-        .from(rounds)
-        .where(
-          and(
-            eq(rounds.eventId, profile.eventId),
-            inArray(rounds.status, ['ACTIVE', 'PAUSED', 'READY', 'COMPLETED'])
-          )
-        )
-        .orderBy(desc(rounds.updatedAt));
-
-      if (currentRounds.length === 0) {
-        throw new NotFoundError('No current round found for this event');
-      }
-
-      // Prioritize ACTIVE or PAUSED, then latest
-      const activeOrPaused = currentRounds.find(
-        (r) => r.status === 'ACTIVE' || r.status === 'PAUSED'
-      );
-      targetRoundId = (activeOrPaused || currentRounds[0]!).id;
-    }
-
     const page = Math.max(1, options.page ?? 1);
     const limit = Math.min(100, Math.max(1, options.limit ?? 50));
+    if (!sessionId) throw new UnauthorizedError('Authentication required');
+    if (!eventId) throw new NotFoundError('No event associated with this participant');
 
-    // 3. Chronological draws for participant (ordered by sequence ASC)
-    const { data, total } = await this.drawRepo.listByRound(targetRoundId, {
-      page,
-      limit,
-      order: 'ASC',
-    });
+    const read = await this.drawRepo.listForParticipantSession(sessionId, userId, roundId, eventId, { page, limit });
+    if (!read) throw new UnauthorizedError('Authentication required');
+    assertActiveParticipant(read);
+    if (!read.roundFound) throw new NotFoundError(roundId ? 'Round not found in event' : 'No current round found for this event');
+    const { data, total } = read;
 
     // 4. Sanitize to ParticipantDrawDto (hides questionId and keyId internals if desired, exposes already drawn content)
     return {

@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { requireAdmin, requireParticipant } from '../../middleware/auth.ts';
+import { requireAdmin, requireParticipant, requireParticipantToken } from '../../middleware/auth.ts';
 import {
   createRoundSchema,
   roundIdParamSchema,
@@ -147,13 +147,10 @@ export function createRoundRoutes(deps: RoundRoutesDependencies = {}): FastifyPl
     });
 
     // Participant: Get current round authoritative DTO
-    fastify.get('/participant/round/current', { preHandler: [requireParticipant] }, async (request) => {
-      const eventId = request.user?.eventId;
-      if (!eventId) {
-        throw new NotFoundError('No event associated with this participant');
-      }
-
-      const round = await service.getCurrentRoundForParticipant(request.user!.id, eventId);
+    fastify.get('/participant/round/current', { preHandler: [requireParticipantToken] }, async (request) => {
+      const eventId = request.user!.eventId;
+      if (!eventId) throw new NotFoundError('No event associated with this participant');
+      const round = await service.getCurrentRoundForParticipant(request.user!.id, eventId, request.user!.sessionId);
       return { round };
     });
   };

@@ -178,13 +178,16 @@ export class AuthService {
 
   async validateToken(token: string): Promise<AuthenticatedPrincipal> {
     const payload = verifyAuthToken(token);
+    if (payload.role === 'PARTICIPANT' && !payload.eventId) {
+      throw new UnauthorizedError('Participant Session is missing its Event scope');
+    }
 
-    const session = await this.sessionRepo.findActiveById(payload.jti);
-    if (!session) {
+    const active = await this.sessionRepo.findActiveWithUser(payload.jti, payload.sub, payload.eventId);
+    if (!active) {
       throw new UnauthorizedError('Session has expired or has been revoked');
     }
 
-    const user = await this.userRepo.findById(payload.sub);
+    const { session, user } = active;
     const isParticipant = !!user?.participantProfile && !user?.adminProfile;
     const isProfileInactive = isParticipant && user?.participantProfile?.status !== 'ACTIVE';
 

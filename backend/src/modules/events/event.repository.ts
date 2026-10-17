@@ -1,4 +1,4 @@
-import { and, count, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, placeholder } from 'drizzle-orm';
 import { getDb } from '../../db/client.ts';
 import { events, type EventRecord, type InsertEvent } from '../../db/schema/events.ts';
 import type { EventStatus, EventSummary } from './event.types.ts';
@@ -36,9 +36,20 @@ export class EventRepository implements IEventRepository {
     return this.mapRecord(record);
   }
 
+  private readonly byIdQueries = new WeakMap<ReturnType<typeof getDb>, ReturnType<EventRepository['prepareById']>>();
+
+  private prepareById(client: ReturnType<typeof getDb>) {
+    return client.select().from(events).where(eq(events.id, placeholder('id'))).limit(1).prepare('events_by_id');
+  }
+
   async findById(id: string, tx?: any): Promise<EventSummary | null> {
     const client = this.getClient(tx);
-    const [record] = await client.select().from(events).where(eq(events.id, id)).limit(1);
+    let query = this.byIdQueries.get(client);
+    if (!query) {
+      query = this.prepareById(client);
+      this.byIdQueries.set(client, query);
+    }
+    const [record] = await query.execute({ id });
     return record ? this.mapRecord(record) : null;
   }
 

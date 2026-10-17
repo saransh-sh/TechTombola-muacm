@@ -27,7 +27,7 @@ async function waitForConnections(manager: RealtimeConnectionManager, count: num
   throw new Error(`Expected ${count} registered connections, received ${manager.connectionCount()}`);
 }
 describe('real-time WebSocket transport integration', () => {
-  let app: FastifyInstance; let manager: RealtimeConnectionManager; let websocketUrl: string; let sessionActive = true;
+  let app: FastifyInstance; let manager: RealtimeConnectionManager; let websocketUrl: string; let sessionActive = true; let subscriptionGate: Promise<void> | undefined; let subscriptionEntered: (() => void) | undefined;
   const authenticate = async (request: FastifyRequest, _reply: FastifyReply) => {
     const isAdmin = request.headers['x-role'] === 'ADMIN';
     request.user = { id: isAdmin ? 'admin' : 'participant', email: 'user@example.test', name: 'User', role: isAdmin ? 'ADMIN' : 'PARTICIPANT', status: 'ACTIVE', eventId };
@@ -41,6 +41,8 @@ describe('real-time WebSocket transport integration', () => {
       validateSession: async () => { if (!sessionActive) throw new Error('revoked'); return { user: { id: 'participant', email: 'user@example.test', name: 'User', role: 'PARTICIPANT', status: 'ACTIVE', eventId }, session: { id: 'session-1', userId: 'participant', expiresAt: new Date() } }; },
       subscriptionService: {
         resolveAuthenticated: async (principal, query) => {
+          subscriptionEntered?.();
+          if (subscriptionGate) await subscriptionGate;
           const input = query as { eventId?: string; roundId?: string };
           if (input.roundId !== roundId || (input.eventId && input.eventId !== eventId)) throw new Error('Unknown Event or Round');
           return { eventId, roundId, audience: principal.role === 'PARTICIPANT' ? 'AUTHENTICATED' : 'ADMIN' };
@@ -68,6 +70,39 @@ describe('real-time WebSocket transport integration', () => {
     await manager.broadcastCommitted({ type: 'WIN_CLAIM_CREATED', eventId, roundId, occurredAt: '2026-10-15T12:00:00.000Z', payload: { claimId: '33333333-3333-4333-8333-333333333333', participantName: 'Asha', pattern: 'EARLY_5' } });
     expect(JSON.parse(await claimMessage).type).toBe('WIN_CLAIM_CREATED');
     display.close(); participant.close(); admin.close();
+  });
+
+  it('completes authenticated subscription validation before acknowledging the WebSocket connection', async () => {
+    let release!: () => void;
+    let entryTimer: ReturnType<typeof setTimeout>;
+    const entered = new Promise<void>((resolve, reject) => {
+      entryTimer = setTimeout(() => reject(new Error('Subscription validation did not start')), 2000);
+      subscriptionEntered = () => { clearTimeout(entryTimer); resolve(); };
+    });
+    subscriptionGate = new Promise<void>((resolve) => { release = resolve; });
+    let acknowledged = false;
+    const onConnection = () => { acknowledged = true; };
+    app.websocketServer.on('connection', onConnection);
+    const socket = new WebSocket(`${websocketUrl}/api/v1/ws?roundId=${roundId}`);
+    const connected = new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('WebSocket connection did not finish')), 2000);
+      socket.once('error', (error) => { clearTimeout(timeout); reject(error); });
+      socket.once('open', () => { clearTimeout(timeout); resolve(); });
+    });
+    try {
+      await entered;
+      expect(acknowledged).toBe(false);
+      release();
+      await connected;
+      expect(manager.connectionCount()).toBeGreaterThanOrEqual(1);
+    } finally {
+      clearTimeout(entryTimer!);
+      release();
+      subscriptionGate = undefined;
+      subscriptionEntered = undefined;
+      app.websocketServer.off('connection', onConnection);
+      socket.close();
+    }
   });
 
   it('rejects invalid public scope and client mutation frames', async () => {

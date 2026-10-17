@@ -1,6 +1,4 @@
-import { eq } from 'drizzle-orm';
 import { getDb } from '../../db/client.ts';
-import { participantProfiles, users } from '../../db/schema/users.ts';
 import { ConflictError, ForbiddenError, NotFoundError, UnprocessableEntityError } from '../../shared/errors/index.ts';
 import type { AuditService } from '../audit/audit.service.ts';
 import { auditService } from '../audit/audit.service.ts';
@@ -11,6 +9,7 @@ import { ticketRepository } from '../tickets/ticket.repository.ts';
 import type { IDrawRepository } from '../draws/draw.repository.ts';
 import { drawRepository } from '../draws/draw.repository.ts';
 import { claimRepository, type IClaimRepository } from './claim.repository.ts';
+import { participantRepository } from '../participants/participant.repository.ts';
 import {
   evaluatePattern,
   validatePatternEligibility,
@@ -49,27 +48,18 @@ export class ClaimService {
 
   async submitClaim(params: {
     userId: string;
+    eventId: string;
     roundId: string;
     pattern: WinningPatternType;
   }): Promise<{ claim: ClaimDto }> {
-    const { userId, roundId, pattern } = params;
+    const { userId, eventId, roundId, pattern } = params;
     const db = getDb();
 
     // 1. Resolve Participant Profile and User
-    const [row] = await db
-      .select({
-        profile: participantProfiles,
-        user: users,
-      })
-      .from(participantProfiles)
-      .innerJoin(users, eq(participantProfiles.userId, users.id))
-      .where(eq(participantProfiles.userId, userId))
-      .limit(1);
-
-    if (!row) {
+    const profile = await participantRepository.findByUserIdAndEvent(userId, eventId);
+    if (!profile) {
       throw new NotFoundError('Participant profile not found');
     }
-    const { profile, user } = row;
     if (profile.status !== 'ACTIVE') {
       throw new ForbiddenError('Participant account is inactive');
     }
@@ -79,6 +69,7 @@ export class ClaimService {
     if (!round) {
       throw new NotFoundError('Round not found');
     }
+    if (round.eventId !== eventId) throw new NotFoundError('Round not found');
     validateRoundActiveForClaim(round.status);
 
     // 3. Fetch Pattern Configuration & Assert Enabled and OPEN
@@ -161,7 +152,7 @@ export class ClaimService {
           occurredAt: new Date().toISOString(),
           payload: {
             claimId: claim.id,
-            participantName: user.name,
+            participantName: profile.name,
             pattern,
           },
         });
@@ -185,14 +176,10 @@ export class ClaimService {
 
   async listParticipantClaims(
     userId: string,
+    eventId: string,
     options: { page?: number; limit?: number } = {}
   ): Promise<{ data: ClaimDto[]; total: number; page: number; limit: number }> {
-    const db = getDb();
-    const [profile] = await db
-      .select({ id: participantProfiles.id })
-      .from(participantProfiles)
-      .where(eq(participantProfiles.userId, userId))
-      .limit(1);
+    const profile = await participantRepository.findByUserIdAndEvent(userId, eventId);
 
     if (!profile) {
       throw new NotFoundError('Participant profile not found');

@@ -3,7 +3,7 @@ import { authService } from '../modules/auth/auth.service.ts';
 import { SESSION_COOKIE_NAME } from '../modules/auth/auth.domain.ts';
 import { requireAuth } from '../middleware/auth.ts';
 import type { RealtimeConnectionManager } from './connection-manager.ts';
-import { RealtimeSubscriptionService } from './subscription.service.ts';
+import { RealtimeSubscriptionService, type RealtimeSubscription } from './subscription.service.ts';
 
 export interface RealtimeRouteDependencies {
   subscriptionService: Pick<RealtimeSubscriptionService, 'resolveAuthenticated' | 'resolvePublic'>;
@@ -19,11 +19,27 @@ export function createRealtimeRoutes({
   authenticate = requireAuth,
 }: RealtimeRouteDependencies): FastifyPluginAsync {
   return async (fastify) => {
+    const subscriptions = new WeakMap<FastifyRequest, RealtimeSubscription | null>();
     fastify.addHook('onClose', async () => connectionManager.close());
 
-    fastify.get('/ws', { websocket: true, preValidation: authenticate }, async (socket, request) => {
+    fastify.get('/ws', {
+      websocket: true,
+      preValidation: async (request, reply) => {
+        await authenticate(request, reply);
+        try {
+          subscriptions.set(request, await subscriptionService.resolveAuthenticated(request.user!, request.query));
+        } catch {
+          subscriptions.set(request, null);
+        }
+      },
+    }, (socket, request) => {
       try {
-        const subscription = await subscriptionService.resolveAuthenticated(request.user!, request.query);
+        const subscription = subscriptions.get(request);
+        subscriptions.delete(request);
+        if (!subscription) {
+          socket.close(1008, 'Subscription rejected');
+          return;
+        }
         const token = request.cookies[SESSION_COOKIE_NAME]!;
         connectionManager.add({
           socket,

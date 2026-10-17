@@ -1,8 +1,9 @@
+import { assertActiveParticipant } from '../auth/auth.domain.ts';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { getDb } from '../../db/client.ts';
 import { participantProfiles } from '../../db/schema/users.ts';
 import { rounds } from '../../db/schema/rounds.ts';
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/index.ts';
+import { ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from '../../shared/errors/index.ts';
 import type { AuditService } from '../audit/audit.service.ts';
 import type { IRoundRepository } from '../rounds/round.repository.ts';
 import type { IIdempotencyRepository } from '../../shared/idempotency/idempotency.repository.ts';
@@ -12,7 +13,6 @@ import type {
   ITicketRepository,
   TicketDto,
 } from './ticket.types.ts';
-import { markRepository } from '../marks/mark.repository.ts';
 
 export class TicketService {
   constructor(
@@ -166,38 +166,50 @@ export class TicketService {
     return result;
   }
 
-  async getParticipantTicket(userId: string, roundId?: string): Promise<TicketDto> {
-    const db = getDb();
-
-    // 1. Fetch Participant Profile by user ID
-    const [profile] = await db
-      .select({
-        id: participantProfiles.id,
-        eventId: participantProfiles.eventId,
-        status: participantProfiles.status,
-      })
-      .from(participantProfiles)
-      .where(eq(participantProfiles.userId, userId))
-      .limit(1);
-
-    if (!profile) {
-      throw new NotFoundError('Participant profile not found');
-    }
-
-    if (profile.status !== 'ACTIVE') {
-      throw new ForbiddenError('Participant account is inactive');
-    }
-
-    // 2. Resolve Target Round
-    let targetRoundId: string;
-
+  async getParticipantTicket(
+    userId: string,
+    roundId?: string,
+    participant?: { id: string; eventId: string; status: string },
+    sessionId?: string,
+    eventId?: string
+  ): Promise<TicketDto> {
+    let ticket;
     if (roundId) {
-      const round = await this.roundRepo.findById(roundId);
-      if (!round || round.eventId !== profile.eventId) {
-        throw new NotFoundError('Round not found in event');
+      if (sessionId) {
+        if (!eventId) throw new NotFoundError('No event associated with this participant');
+        const read = await this.ticketRepo.findBySessionAndRound(sessionId, userId, roundId, eventId);
+        if (!read) throw new UnauthorizedError('Authentication required');
+        assertActiveParticipant({ ...read, profileStatus: read.profile?.status ?? null });
+        if (!read.roundFound) throw new NotFoundError('Round not found in event');
+        ticket = read.ticket;
+      } else {
+        ticket = await this.ticketRepo.findByUserAndRound(userId, roundId);
       }
-      targetRoundId = round.id;
+    } else if (sessionId) {
+      if (!eventId) throw new NotFoundError('No event associated with this participant');
+      const current = await this.roundRepo.findCurrentRoundForSession(sessionId, userId, eventId);
+      if (!current) throw new UnauthorizedError('Authentication required');
+      assertActiveParticipant(current);
+      if (!current.round) throw new NotFoundError('No current round found for this event');
+
+      const read = await this.ticketRepo.findBySessionAndRound(sessionId, userId, current.round.id, eventId);
+      if (!read?.ticket) throw new NotFoundError('Ticket not found for the current round');
+      ticket = read.ticket;
     } else {
+      const db = getDb();
+      const profile = participant ?? (await db
+        .select({
+          id: participantProfiles.id,
+          eventId: participantProfiles.eventId,
+          status: participantProfiles.status,
+        })
+        .from(participantProfiles)
+        .where(eq(participantProfiles.userId, userId))
+        .limit(1))[0];
+
+      if (!profile) throw new NotFoundError('Participant profile not found');
+      if (profile.status !== 'ACTIVE') throw new ForbiddenError('Participant account is inactive');
+
       // Find current round for the participant's event (priority: ACTIVE, PAUSED, then READY)
       const currentRounds = await db
         .select({
@@ -220,17 +232,13 @@ export class TicketService {
 
       // Pick ACTIVE or PAUSED first if exists, else READY
       const activeOrPaused = currentRounds.find((r: { status: string }) => r.status === 'ACTIVE' || r.status === 'PAUSED');
-      targetRoundId = (activeOrPaused || currentRounds[0]!).id;
+      const targetRoundId = (activeOrPaused || currentRounds[0]!).id;
+      ticket = await this.ticketRepo.findByParticipantAndRound(profile.id, targetRoundId);
     }
 
-    // 3. Fetch Ticket for Participant & Round
-    const ticket = await this.ticketRepo.findByParticipantAndRound(profile.id, targetRoundId);
     if (!ticket) {
       throw new NotFoundError('Ticket not found for the current round');
     }
-
-    const marks = await markRepository.getMarksForTicket(ticket.id);
-    const markedCellIds = new Set(marks.map((m) => m.cellId));
 
     return {
       id: ticket.id,
@@ -246,7 +254,7 @@ export class TicketService {
         column: c.colIndex,
         keyId: c.keyId,
         keyValue: c.keyValue,
-        marked: markedCellIds.has(c.id),
+        marked: c.marked,
       })),
     };
   }

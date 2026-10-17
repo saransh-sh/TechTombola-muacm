@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'bun:test';
+import jwt from 'jsonwebtoken';
 import {
   hashPassword,
   verifyPassword,
   timingSafeDummyVerify,
   signAuthToken,
   verifyAuthToken,
+  assertActiveParticipant,
 } from '../../src/modules/auth/auth.domain.ts';
 import { LoginRateLimiter } from '../../src/modules/auth/auth.rate-limiter.ts';
-import { RateLimitError, UnauthorizedError } from '../../src/shared/errors/app-error.ts';
+import { ForbiddenError, NotFoundError, RateLimitError, UnauthorizedError } from '../../src/shared/errors/app-error.ts';
 import { getSessionCookieOptions } from '../../src/modules/auth/auth.domain.ts';
-import { resetCachedEnv } from '../../src/config/env.ts';
+import { getEnv, resetCachedEnv } from '../../src/config/env.ts';
 
 describe('Password hashing & verification', () => {
   it('hashes and verifies passwords using Argon2id', async () => {
@@ -53,6 +55,15 @@ describe('JWT token signing & verification', () => {
     expect(decoded.jti).toBe(payload.jti);
     expect(decoded.role).toBe(payload.role);
     expect(decoded.email).toBe(payload.email);
+  });
+
+  it('rejects expired tokens and tokens signed with an unapproved algorithm or key', () => {
+    const secret = getEnv().JWT_SECRET;
+    for (const token of [
+      jwt.sign(payload, secret, { algorithm: 'HS256', expiresIn: -1 }),
+      jwt.sign(payload, secret, { algorithm: 'HS384' }),
+      jwt.sign(payload, 'a-different-signing-secret', { algorithm: 'HS256' }),
+    ]) expect(() => verifyAuthToken(token)).toThrow(UnauthorizedError);
   });
 
   it('rejects tampered or forged token', () => {
@@ -128,5 +139,20 @@ describe('Session cookie security flags', () => {
       process.env.NODE_ENV = originalEnvironment;
       resetCachedEnv();
     }
+  });
+});
+
+describe('Fresh participant read authorization', () => {
+  it('allows only an active Participant profile on an active non-admin user', () => {
+    expect(() => assertActiveParticipant({ userStatus: 'ACTIVE', adminRole: null, profileStatus: 'ACTIVE' })).not.toThrow();
+  });
+
+  it.each([
+    ['INACTIVE', null, 'ACTIVE', UnauthorizedError],
+    ['ACTIVE', 'ADMIN', 'ACTIVE', ForbiddenError],
+    ['ACTIVE', null, null, NotFoundError],
+    ['ACTIVE', null, 'INACTIVE', ForbiddenError],
+  ] as const)('rejects user=%s role=%s profile=%s', (userStatus, adminRole, profileStatus, error) => {
+    expect(() => assertActiveParticipant({ userStatus, adminRole, profileStatus })).toThrow(error);
   });
 });

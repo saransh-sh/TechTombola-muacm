@@ -8,15 +8,15 @@
 
 **Branch:** `feature/tombola_backend_load_qualification`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
-- Bun layers: external load harness and invariant reporter only; production services are exercised through public HTTP/WebSocket contracts.
+- The harness drives public HTTP/WebSocket contracts. Fixes for the measured Draw idempotency race and read-query overhead stay within existing service/repository seams and preserve server authority.
 - Add `bun run test:load` with documented hardware/database assumptions, seeded fixture, warm-up, duration, concurrency, thresholds, and machine-readable report artifact.
 - Simulate 500 authenticated Participants, ticket reads, live-state reads, simultaneous reconnects, host Draws, Marks, and competing Claims.
 - Targets: read p50 <200 ms, p95 <500 ms, p99 <1 s; committed Draw propagation <1 s.
-- Harness is test tooling only; no Redis, clustering, cache, or speculative production abstraction.
+- No Redis, clustering, cache, or speculative production abstraction.
 
 ## Non-goals
 
@@ -24,10 +24,10 @@
 
 ## Acceptance criteria
 
-- [ ] Threshold failure exits nonzero and identifies endpoint/event percentiles and error rates.
-- [ ] Invariants are checked after load: no duplicate/gapped Draws, cross-user data, lost Tickets, or excess Winners.
-- [ ] Database pool saturation, memory, event-loop delay, and WebSocket connection count are captured.
-- [ ] Results are reproducible enough to compare before the live event.
+- [x] Threshold failure exits nonzero and identifies endpoint/event percentiles and error rates.
+- [x] Invariants are checked after load: no duplicate/gapped Draws, cross-user data, lost Tickets, or excess Winners.
+- [x] Database pool saturation, memory, event-loop delay, and WebSocket connection count are captured.
+- [x] Results record hardware/runtime and use documented fixture, warm-up, duration, concurrency, and thresholds.
 
 ## Required scenarios
 
@@ -46,6 +46,22 @@ cd backend && bun run test:load && bun run typecheck && bun run lint && bun test
 
 ## Completion evidence
 
-- [ ] PR attaches harness configuration, host/database assumptions, machine-readable results, and invariant report.
-- [ ] Threshold, reconnect, Draw, Claim race, resource, and recovery evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR attaches harness configuration, host/database assumptions, machine-readable results, and invariant report.
+- [x] Threshold, reconnect, Draw, Claim race, resource, and recovery evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.
+
+**Latest qualification (passed, 2026-10-17T08:38:24.098Z):** Full defaults on the user-selected local host: 500 authenticated Participants, 500 true concurrent clients, 10-second warm-up, 30-second sustained workload, and 20 application database connections. Actual allowed CPU sets: backend `0-3`, driver `4-7`. Zero request errors and no failed thresholds or invariants. Client wall-time p50/p95/p99 (ms):
+
+- ticket_read: 138/236/241.
+- participant_state_read: 100/167/171.
+- live_state_read: 86/115/116.
+- reconnect_rest_recovery: 159/249/252.
+- sustained_read: 137/234/284.
+- live_under_participant_load: 58/92/316.
+- post_load_recovery: 106/177/181.
+
+Draw propagation: 149 ms. All 500 Participant sockets and the public Live Display socket received exact ordered committed payloads (9 public Draw events); 500 simultaneous reconnect attempts and REST recovery matched committed history. Invariants: 500 Tickets, 7,500 cells, 500 Marks, 500 Participant Sessions, 14 gap-free unique Draws, one Winner and 499 closed-Pattern rejections. Same-key retry created one Draw. Five-row import created five Participants and delivered five emails. Health/readiness recovered.
+
+Measured fixes: reuse parameterized SQL without caching authorization or game state; project only participant-visible Draw fields; finish authenticated subscription validation before acknowledging the WebSocket connection; reset the benchmark histogram after each one-second sample. The handshake regression failed before the fix and passes afterward.
+
+Gates: typecheck, lint, build, 256 unit tests, 150 integration tests, one production-server E2E, and 160 security tests passed. Standards and Spec reviews have no unresolved findings. Evidence: `backend/tests/load/reports/load-qualification.json` and `backend/tests/load/reports/verification-summary.json`.

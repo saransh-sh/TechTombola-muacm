@@ -5,7 +5,8 @@ import { runMigrations } from '../../src/db/migrate.ts';
 import { closeDb, getDb } from '../../src/db/client.ts';
 import { buildApp } from '../../src/app.ts';
 import { userRepository } from '../../src/modules/auth/user.repository.ts';
-import { hashPassword, SESSION_COOKIE_NAME } from '../../src/modules/auth/auth.domain.ts';
+import { hashPassword, SESSION_COOKIE_NAME, signAuthToken } from '../../src/modules/auth/auth.domain.ts';
+import { sessionRepository } from '../../src/modules/auth/session.repository.ts';
 import { resetCachedEnv } from '../../src/config/env.ts';
 import { eventRepository } from '../../src/modules/events/event.repository.ts';
 import { roundRepository } from '../../src/modules/rounds/round.repository.ts';
@@ -13,8 +14,10 @@ import { roundService } from '../../src/modules/rounds/round.service.ts';
 import { participantRepository } from '../../src/modules/participants/participant.repository.ts';
 import { questionRepository } from '../../src/modules/questions/question.repository.ts';
 import { ticketService } from '../../src/modules/tickets/ticket.service.ts';
+import { drawRepository } from '../../src/modules/draws/draw.repository.ts';
 import { rounds } from '../../src/db/schema/rounds.ts';
 import { events } from '../../src/db/schema/events.ts';
+import { participantProfiles } from '../../src/db/schema/users.ts';
 
 describe('Round Readiness and Live Operation Integration', () => {
   const testDbUrl =
@@ -672,6 +675,149 @@ describe('Round Readiness and Live Operation Integration', () => {
       headers: { cookie: `${SESSION_COOKIE_NAME}=${p3Cookie}` },
     });
     expect(resNoCurrentRound.statusCode).toBe(404);
+  });
+
+  it('keeps the current participant Round and explicit Ticket/Draw reads scoped to the authenticated event', async () => {
+    const db = getDb();
+    const event1Round = await roundRepository.create(
+      { eventId: event1.id, sequenceNumber: 99, name: 'Participant Event Round', status: 'DRAFT' },
+      []
+    );
+    for (let i = 1; i <= 15; i++) {
+      const value = `SCOPE_E1_${i}_${Date.now()}`;
+      const key = await questionRepository.createKey(event1.id, value, value);
+      await questionRepository.createQuestion(event1Round.id, key.id, `Scope event 1 question ${i}`);
+    }
+    await ticketService.generateTickets({
+      roundId: event1Round.id,
+      actorId: adminUser.id,
+      idempotencyKey: `scope_e1_${event1Round.id}`,
+    });
+    await roundRepository.update(event1Round.id, { status: 'READY' });
+
+    await db.insert(participantProfiles).values({
+      userId: participantUser1.id,
+      eventId: event2.id,
+      externalId: `CROSS_EVENT_${Date.now()}`,
+      status: 'ACTIVE',
+    });
+    const otherEventRound = await roundRepository.create(
+      { eventId: event2.id, sequenceNumber: 99, name: 'Other Event Round', status: 'DRAFT' },
+      []
+    );
+    let otherKeyId = '';
+    let otherKeyValue = '';
+    let otherQuestionId = '';
+    for (let i = 1; i <= 15; i++) {
+      const value = `SCOPE_E2_${i}_${Date.now()}`;
+      const key = await questionRepository.createKey(event2.id, value, value);
+      otherKeyId ||= key.id;
+      otherKeyValue ||= value;
+      const question = await questionRepository.createQuestion(otherEventRound.id, key.id, `Scope event 2 question ${i}`);
+      otherQuestionId ||= question.id;
+    }
+    await ticketService.generateTickets({
+      roundId: otherEventRound.id,
+      actorId: adminUser.id,
+      idempotencyKey: `scope_e2_${otherEventRound.id}`,
+    });
+    await roundRepository.update(otherEventRound.id, { status: 'PAUSED' });
+    await drawRepository.create({
+      roundId: otherEventRound.id,
+      questionId: otherQuestionId,
+      keyId: otherKeyId,
+      sequenceNumber: 1,
+      drawMode: 'RANDOM',
+      questionText: 'Question from another Event',
+      keyValue: otherKeyValue,
+      drawnBy: adminUser.id,
+    });
+
+    const currentRound = await app.inject({
+      method: 'GET',
+      url: '/api/v1/participant/round/current',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${participantCookie1}` },
+    });
+    expect(currentRound.statusCode).toBe(200);
+    expect(currentRound.json().round.eventId).toBe(event1.id);
+    expect(currentRound.json().round.id).toBe(event1Round.id);
+
+    const currentTicket = await app.inject({
+      method: 'GET',
+      url: '/api/v1/participant/ticket',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${participantCookie1}` },
+    });
+    expect(currentTicket.statusCode).toBe(200);
+    expect(currentTicket.json().ticket.roundId).toBe(event1Round.id);
+    expect(currentTicket.json().ticket.eventId).toBe(event1.id);
+
+    const currentDraws = await app.inject({
+      method: 'GET',
+      url: '/api/v1/participant/draws',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${participantCookie1}` },
+    });
+    expect(currentDraws.statusCode).toBe(200);
+    expect(currentDraws.json().data).toHaveLength(0);
+    expect(currentDraws.json().total).toBe(0);
+
+    const crossEventTicket = await app.inject({
+      method: 'GET',
+      url: `/api/v1/participant/ticket?roundId=${otherEventRound.id}`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${participantCookie1}` },
+    });
+    expect(crossEventTicket.statusCode).toBe(404);
+
+    const crossEventDraws = await app.inject({
+      method: 'GET',
+      url: `/api/v1/participant/draws?roundId=${otherEventRound.id}`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${participantCookie1}` },
+    });
+    expect(crossEventDraws.statusCode).toBe(404);
+  });
+
+  it('rejects a participant Session whose token Event has no matching participant profile', async () => {
+    const profile = await participantRepository.create(
+      {
+        email: `scope_mismatch_${Date.now()}@test.internal`,
+        name: 'Scope Mismatch Participant',
+        passwordHash: await hashPassword('PartPass123!'),
+      },
+      { eventId: event2.id, externalId: `SCOPE_MISMATCH_${Date.now()}` }
+    );
+    const session = await sessionRepository.create({
+      userId: profile.userId,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    });
+    const token = signAuthToken({
+      sub: profile.userId,
+      jti: session.id,
+      role: 'PARTICIPANT',
+      email: profile.email,
+      name: profile.name,
+      eventId: event1.id,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/participant/event',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` },
+    });
+
+    expect(response.statusCode).toBe(403);
+
+    const unscopedToken = signAuthToken({
+      sub: profile.userId,
+      jti: session.id,
+      role: 'PARTICIPANT',
+      email: profile.email,
+      name: profile.name,
+    });
+    const unscopedResponse = await app.inject({
+      method: 'GET',
+      url: '/api/v1/participant/event',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${unscopedToken}` },
+    });
+    expect(unscopedResponse.statusCode).toBe(401);
   });
 
   it('broadcasts real-time events and tolerates broadcast failures post-commit', async () => {

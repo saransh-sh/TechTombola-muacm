@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import websocket from '@fastify/websocket';
@@ -52,6 +52,16 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     genReqId: (req) => normalizeRequestId(req.headers[REQUEST_ID_HEADER]),
     requestIdHeader: false,
   });
+
+  if (process.env.LOAD_DIAGNOSTICS === '1') {
+    const starts = new WeakMap<FastifyRequest, number>();
+    app.addHook('onRequest', async (request) => starts.set(request, performance.now()));
+    app.addHook('onSend', async (request, reply, payload) => {
+      const started = starts.get(request);
+      if (started !== undefined) reply.header('x-load-server-ms', (performance.now() - started).toFixed(2));
+      return payload;
+    });
+  }
 
   // Enable CORS
   const allowedOrigins = env.CORS_ORIGIN.split(',').map((o) => o.trim());
