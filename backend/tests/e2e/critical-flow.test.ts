@@ -156,6 +156,10 @@ describe('Issue 20 production-server critical flows', () => {
     }
   });
 
+  it('serves readiness from the built runtime with its bundled migrations', async () => {
+    expect((await fetch(`${baseUrl}/ready`)).status).toBe(200);
+  });
+
   it('bootstraps, configures, plays, recovers, verifies all Patterns, and completes', async () => {
     try {
     const superEmail = `super-${crypto.randomUUID()}@issue20.test`;

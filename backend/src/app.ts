@@ -7,7 +7,7 @@ import { ZodError } from 'zod';
 import { getEnv } from './config/env.ts';
 import { REQUEST_ID_HEADER, ERROR_CODES, WEBSOCKET_MAX_PAYLOAD_BYTES } from './config/constants.ts';
 import { normalizeRequestId } from './shared/utils/request-id.ts';
-import { APP_LOG_REDACT_PATHS } from './shared/utils/logger.ts';
+import { APP_LOG_REDACT_PATHS, serializeLogError } from './shared/utils/logger.ts';
 import { AppError } from './shared/errors/app-error.ts';
 import { createAppRoutes } from './routes/index.ts';
 import { RealtimeConnectionManager } from './realtime/connection-manager.ts';
@@ -47,10 +47,12 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       ? {
           level: env.LOG_LEVEL,
           redact: APP_LOG_REDACT_PATHS,
+          serializers: { err: serializeLogError },
         }
       : false,
     genReqId: (req) => normalizeRequestId(req.headers[REQUEST_ID_HEADER]),
     requestIdHeader: false,
+    disableRequestLogging: true,
   });
 
   if (process.env.LOAD_DIAGNOSTICS === '1') {
@@ -157,6 +159,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
     // 3. Known domain / application errors
     if (error instanceof AppError) {
+      if (isLoggingEnabled) request.log.warn({ event: 'request_rejected', errorCode: error.code }, 'Request rejected');
       reply.status(error.statusCode).send({
         error: {
           code: error.code,
@@ -169,7 +172,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
     // 4. Unexpected / database / 500 errors - strictly hide stack traces and DB details
     if (isLoggingEnabled) {
-      request.log.error(error);
+      request.log.error({ err: error }, 'Request or database operation failed');
     }
 
     reply.status(500).send({
@@ -183,6 +186,25 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
   // Register application routes
   const realtimeConnectionManager = options.realtimeConnectionManager ?? new RealtimeConnectionManager();
+  if (isLoggingEnabled) {
+    app.addHook('onResponse', async (request, reply) => {
+      const route = request.routeOptions.url ?? 'unmatched';
+      const params = request.params as Record<string, unknown> | undefined;
+      const resource = params?.id ?? params?.ticketId ?? params?.roundId;
+      const gameAction = request.method !== 'GET' && /\/(rounds|claims|marks)(\/|$)/.test(route);
+      request.log.info({
+        event: [401, 403].includes(reply.statusCode) ? 'authorization_failure' : gameAction ? 'game_action' : 'request_completed',
+        requestId: request.id,
+        actorId: request.user?.id,
+        resourceId: typeof resource === 'string' && /^[0-9a-f-]{36}$/i.test(resource) ? resource : undefined,
+        method: request.method,
+        route,
+        statusCode: reply.statusCode,
+        latencyMs: reply.elapsedTime,
+        websocketConnections: realtimeConnectionManager.connectionCount(),
+      }, 'Request completed');
+    });
+  }
   const realtimeSubscriptionService = new RealtimeSubscriptionService(eventRepository, roundRepository);
   const winnerService = options.winnerService ?? new WinnerService({
     claimRepo: claimRepository,
@@ -196,7 +218,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   const recoveryService = options.recoveryService ?? new RecoveryService(undefined, undefined, undefined, undefined, realtimeConnectionManager);
   const operationsService = new OperationsService(new OperationsRepository(), realtimeConnectionManager);
   app.addHook('onReady', async () => {
-    await recoveryService.markInterruptedRounds();
+    const roundIds = await recoveryService.markInterruptedRounds();
+    app.log.info({ event: 'recovery_state', roundIds, recoveryRequired: roundIds.length }, 'Startup recovery check complete');
   });
   const liveReadService = options.liveReadService ?? new LiveReadService(new LiveReadRepository());
   await app.register(createAppRoutes({ realtimeConnectionManager, realtimeSubscriptionService, winnerService, liveReadService, recoveryService, operationsService }));

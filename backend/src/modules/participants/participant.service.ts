@@ -92,8 +92,9 @@ export class ParticipantService {
           tx
         );
       } catch (err: any) {
-        if (err.code === '23505') { // Postgres unique_violation
-          const constraint = err.constraint_name || err.constraint || '';
+        const databaseError = err.cause ?? err;
+        if (databaseError.code === '23505') { // Postgres unique_violation
+          const constraint = databaseError.constraint_name || databaseError.constraint || '';
           if (constraint.includes('user_event') || constraint.includes('users_email')) {
             throw new ConflictError(
               `A participant with email '${email}' is already enrolled in this event`,

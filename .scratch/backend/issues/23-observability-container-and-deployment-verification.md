@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_backend_deployment`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -25,10 +25,10 @@
 
 ## Acceptance criteria
 
-- [ ] Image builds reproducibly, passes vulnerability/config checks available in the project, and starts with read-only runtime filesystem except declared temp paths.
-- [ ] `/ready` fails during unavailable database/migration mismatch and succeeds only when traffic is safe.
-- [ ] Logs and metrics diagnose Draw/Claim/recovery failures without leaking protected data.
-- [ ] Deployment plan remains one Bun process + PostgreSQL with no broker or infrastructure-specific application logic.
+- [x] Image builds reproducibly, passes vulnerability/config checks available in the project, and starts with read-only runtime filesystem except declared temp paths.
+- [x] `/ready` fails during unavailable database/migration mismatch and succeeds only when traffic is safe.
+- [x] Logs and metrics diagnose Draw/Claim/recovery failures without leaking protected data.
+- [x] Deployment plan remains one Bun process + PostgreSQL with no broker or infrastructure-specific application logic.
 
 ## Required scenarios
 
@@ -47,6 +47,8 @@ cd backend && bun run verify:container && bun run typecheck && bun run lint && b
 
 ## Completion evidence
 
-- [ ] PR attaches image metadata/scan, probe, shutdown, migration, smoke, and rollback output.
-- [ ] Log/metric redaction and AWS cost-envelope assumptions are documented.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR attaches image metadata/scan, probe, shutdown, migration, smoke, and rollback output.
+- [x] Log/metric redaction and AWS cost-envelope assumptions are documented.
+- [x] `/code-review` has no unresolved Standards or Spec findings.
+
+Verified: 260 unit, 152 integration, 2 E2E, 162 security tests; typecheck/lint/build; 12 container checks; 500-user load qualification. Evidence: `backend/tests/deployment/reports/`. Both review axes have no unresolved findings. No AWS deployment or OS image CVE scan was performed.

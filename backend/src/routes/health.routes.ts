@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { checkMigrations } from '../db/check.ts';
 import { checkDbHealth } from '../db/client.ts';
 import { ServiceUnavailableError } from '../shared/errors/app-error.ts';
 
@@ -18,10 +19,17 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
       throw new ServiceUnavailableError('Database is unavailable');
     }
 
+    try {
+      if (!(await checkMigrations()).isUpToDate) throw new ServiceUnavailableError('Database migration version does not match the application');
+    } catch {
+      throw new ServiceUnavailableError('Database migration version is unavailable or incompatible');
+    }
+
     return {
       status: 'ready',
       checks: {
         database: 'ok',
+        migrations: 'ok',
         config: 'ok',
       },
       latencyMs: dbStatus.latencyMs,

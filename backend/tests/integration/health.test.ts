@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../src/app.ts';
-import { closeDb } from '../../src/db/client.ts';
+import { closeDb, getSqlClient } from '../../src/db/client.ts';
 import { runMigrations } from '../../src/db/migrate.ts';
 
 describe('Health and Readiness Endpoints', () => {
@@ -51,6 +51,24 @@ describe('Health and Readiness Endpoints', () => {
     expect(body.checks.database).toBe('ok');
     expect(body.checks.config).toBe('ok');
     expect(typeof body.latencyMs).toBe('number');
+  });
+
+  it('rejects missing and unknown migration versions and recovers when the schema matches', async () => {
+    const sql = getSqlClient();
+    const [latest] = await sql<{ version: string }[]>`SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1`;
+    try {
+      await sql`DELETE FROM schema_migrations WHERE version = ${latest.version}`;
+      expect((await app.inject({ method: 'GET', url: '/ready' })).statusCode).toBe(503);
+    } finally {
+      await sql`INSERT INTO schema_migrations (version) VALUES (${latest.version}) ON CONFLICT DO NOTHING`;
+    }
+    try {
+      await sql`INSERT INTO schema_migrations (version) VALUES ('9999_unknown_probe.sql')`;
+      expect((await app.inject({ method: 'GET', url: '/ready' })).statusCode).toBe(503);
+    } finally {
+      await sql`DELETE FROM schema_migrations WHERE version = '9999_unknown_probe.sql'`;
+    }
+    expect((await app.inject({ method: 'GET', url: '/ready' })).statusCode).toBe(200);
   });
 
   it('echoes a valid incoming x-request-id header', async () => {

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import postgres from 'postgres';
 import { getEnv } from '../config/env.ts';
 
-export async function checkMigrations(overrideUrl?: string): Promise<{ isUpToDate: boolean; pending: string[]; applied: string[] }> {
+export async function checkMigrations(overrideUrl?: string): Promise<{ isUpToDate: boolean; pending: string[]; applied: string[]; unexpected: string[] }> {
   const env = getEnv();
   const url = overrideUrl || env.DATABASE_URL;
   const sql = postgres(url, { max: 1, connect_timeout: 5 });
@@ -20,7 +20,7 @@ export async function checkMigrations(overrideUrl?: string): Promise<{ isUpToDat
     if (!tableExists[0]?.exists) {
       const migrationsDir = join(import.meta.dir, 'migrations');
       const files = readdirSync(migrationsDir).filter((file) => file.endsWith('.sql')).sort();
-      return { isUpToDate: false, pending: files, applied: [] };
+      return { isUpToDate: false, pending: files, applied: [], unexpected: [] };
     }
 
     const appliedRows = await sql<{ version: string }[]>`
@@ -33,8 +33,10 @@ export async function checkMigrations(overrideUrl?: string): Promise<{ isUpToDat
     const files = readdirSync(migrationsDir).filter((file) => file.endsWith('.sql')).sort();
     const pending = files.filter((f) => !appliedSet.has(f));
 
+    const unexpected = applied.filter((version) => !files.includes(version));
     return {
-      isUpToDate: pending.length === 0,
+      isUpToDate: pending.length === 0 && unexpected.length === 0,
+      unexpected,
       pending,
       applied,
     };
@@ -45,9 +47,9 @@ export async function checkMigrations(overrideUrl?: string): Promise<{ isUpToDat
 
 if (import.meta.main) {
   try {
-    const { isUpToDate, pending } = await checkMigrations();
+    const { isUpToDate, pending, unexpected } = await checkMigrations();
     if (!isUpToDate) {
-      console.error(`Database has ${pending.length} unapplied migration(s): ${pending.join(', ')}`);
+      console.error(`Database migration mismatch: pending=${pending.join(', ')}; unexpected=${unexpected.join(', ')}`);
       process.exit(1);
     }
     console.log('Database schema is up to date.');

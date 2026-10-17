@@ -1,5 +1,6 @@
 import { getEnv, getSafeEnv } from './config/env.ts';
 import { buildApp } from './app.ts';
+import { serializeLogError } from './shared/utils/logger.ts';
 import { closeDb } from './db/client.ts';
 
 async function main() {
@@ -44,5 +45,8 @@ async function main() {
 }
 
 if (import.meta.main) {
-  main();
+  main().catch((error) => {
+    console.error(JSON.stringify({ event: 'startup_failed', err: serializeLogError(error) }));
+    process.exit(1);
+  });
 }

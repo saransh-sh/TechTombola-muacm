@@ -1,3 +1,5 @@
+import { ParticipantService } from '../../src/modules/participants/participant.service.ts';
+import { participantRepository } from '../../src/modules/participants/participant.repository.ts';
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import type { FastifyInstance } from 'fastify';
 import { runMigrations } from '../../src/db/migrate.ts';
@@ -120,6 +122,17 @@ describe('Participant Management Integration', () => {
       .where(eq(auditLogs.resourceId, body.participant.id));
     expect(logs.length).toBeGreaterThanOrEqual(1);
     expect(logs[0].action).toBe('PARTICIPANT_CREATED');
+  });
+
+  it('maps wrapped database uniqueness failures during enrollment races', async () => {
+    for (const [constraint, code] of [['users_email_unique', 'DUPLICATE_PARTICIPANT'], ['participant_external_id_unique', 'DUPLICATE_EXTERNAL_ID']]) {
+      const repository = Object.create(participantRepository);
+      repository.create = async () => { throw new Error('Failed query', { cause: { code: '23505', constraint_name: constraint } }); };
+      const service = new ParticipantService(repository);
+      await expect(service.createParticipant(adminUser.id, {
+        eventId: eventA.id, email: `race-${crypto.randomUUID()}@test.internal`, name: 'Race fixture', externalId: crypto.randomUUID(),
+      })).rejects.toMatchObject({ code, statusCode: 409 });
+    }
   });
 
   it('rejects duplicate participant enrollment in the same event', async () => {
