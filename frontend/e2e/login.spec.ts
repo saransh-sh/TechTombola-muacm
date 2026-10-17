@@ -68,12 +68,23 @@ async function mockAuthentication(page: Page, role?: 'PARTICIPANT' | 'ADMIN' | '
       enabled: true, maxWinners: 1, status: 'OPEN', createdAt: event.createdAt, updatedAt: event.updatedAt,
     })), createdAt: event.createdAt, updatedAt: event.updatedAt,
   };
+  let currentRound = round;
   await page.route('**/api/v1/admin/rounds?*', (route) => route.fulfill({
     status: route.request().method() === 'POST' ? 201 : 200,
     contentType: 'application/json',
-    body: JSON.stringify(route.request().method() === 'POST' ? { round: { ...round, ...route.request().postDataJSON() } } : { data: [round], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } }),
+    body: JSON.stringify(route.request().method() === 'POST' ? { round: { ...currentRound, ...route.request().postDataJSON() } } : { data: [currentRound], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } }),
   }));
-  await page.route('**/api/v1/admin/rounds/*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round }) }));
+  await page.route('**/api/v1/admin/rounds/*', async (route) => {
+    if (route.request().method() === 'PATCH') currentRound = { ...currentRound, ...route.request().postDataJSON() };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round: currentRound }) });
+  });
+  await page.route(/\/api\/v1\/admin\/rounds\/[^/]+\/tickets\/generate$/, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ roundId: currentRound.id, totalParticipants: 500, created: 500, existing: 0, skipped: 0 }) }));
+  await page.route(/\/api\/v1\/admin\/rounds\/[^/]+\/tickets\?/, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], total: 0 }) }));
+  await page.route(/\/api\/v1\/admin\/rounds\/[^/]+\/(ready|start|pause|resume|complete|cancel)$/, async (route) => {
+    const command = new URL(route.request().url()).pathname.split('/').at(-1)!;
+    currentRound = { ...currentRound, status: ({ ready: 'READY', start: 'ACTIVE', pause: 'PAUSED', resume: 'ACTIVE', complete: 'COMPLETED', cancel: 'CANCELLED' } as const)[command as 'ready' | 'start' | 'pause' | 'resume' | 'complete' | 'cancel'] };
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round: currentRound }) });
+  });
   const key = { id: '7c5e95cf-9a31-4a3c-83cc-a353ccde9fd1', eventId: event.id, value: 'DOCKER', normalizedValue: 'DOCKER', createdAt: event.createdAt, updatedAt: event.updatedAt };
   const question = { id: 'a4a85404-a3d6-4da6-9b21-ccfc6a11e713', roundId: round.id, keyId: key.id, keyValue: key.value, questionText: 'What runs containers?', createdAt: event.createdAt, updatedAt: event.updatedAt };
   await page.route('**/api/v1/admin/keys?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [key], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } }) }));
@@ -177,6 +188,28 @@ test('admin dashboard shows operational metrics and keyboard navigation at table
   await page.screenshot({ path: 'design/screenshots/admin-question-key-management-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+test('Round operations show server allocation and confirm the authoritative ready/start flow on desktop and mobile', async ({ page }) => {
+  await mockAuthentication(page, 'ADMIN', true);
+  const eventId = '0d3aa3e6-4c58-4c36-b363-d5f11640ba52';
+  const roundId = '5c15e548-2bf0-4b12-8e8b-7d2c7cd91872';
+  page.on('dialog', (dialog) => dialog.accept());
+  await page.goto(`/admin/rounds?eventId=${eventId}&roundId=${roundId}`);
+  await expect(page.getByRole('heading', { name: 'Round operations' })).toBeVisible();
+  await expect(page.getByText('Tickets reported by server')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Generate Tickets' })).toBeEnabled();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: 'design/screenshots/admin-round-operations-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('button', { name: 'Mark ready' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: 'design/screenshots/admin-round-operations-mobile.png', fullPage: true });
+  await page.getByRole('button', { name: 'Mark ready' }).click();
+  await expect(page.getByRole('button', { name: 'Start Round' })).toBeVisible();
+  await page.getByRole('button', { name: 'Start Round' }).click();
+  await expect(page.getByText('Start Round confirmed by the server.')).toBeVisible();
+  await expect(page.getByText('Status: ACTIVE')).toBeVisible();
 });
 
 test('participant management scopes and searches safely on mobile', async ({ page }) => {

@@ -6,6 +6,7 @@ import { getAdminEvent } from '../../lib/api/adminEvents';
 import { createAdminRound, getAdminRound, listAdminRounds, updateAdminRound } from '../../lib/api/adminRounds';
 import type { AdminRound, CreateAdminRound, PatternConfig, PatternType, UpdateAdminRound } from '../../types/adminRound';
 import type { AuthenticatedUser } from '../../types/auth';
+import { AdminRoundOperations } from './AdminRoundOperations';
 import styles from './AdminRounds.module.css';
 
 const PAGE_SIZE = 20;
@@ -209,6 +210,7 @@ export function AdminRounds() {
         {selected.error && <div><p role="alert">{permissionError(selected.error) ? 'Your account cannot view this Round.' : errorMessage(selected.error, 'Could not load this Round.')}</p><button type="button" onClick={() => void selected.refetch()}>Retry Round</button></div>}
         {round && selected.error && <p className={styles.notice} role="status">Showing the last saved Round details received from the server.</p>}
         {round && <><h3>{round.sequenceNumber}. {round.name}</h3><p className={styles.status}>Status: {round.status.replaceAll('_', ' ')}</p><h4>Winning Patterns</h4><ul className={styles.patternSummary}>{round.patterns.map((pattern) => <li key={pattern.id}><strong>{pattern.patternType.replaceAll('_', ' ')}</strong><span>{pattern.enabled ? 'Enabled' : 'Disabled'} · up to {pattern.maxWinners} {pattern.maxWinners === 1 ? 'winner' : 'winners'} · {pattern.status}</span></li>)}</ul>{readOnly && <p className={styles.notice}>Configuration is locked after a Round leaves DRAFT. Pattern status and capacity are shown as saved by the server.</p>}{!editing && !readOnly && <button type="button" disabled={pending} onClick={beginEdit}>Edit configuration</button>}</>}
+        {round && !creating && <AdminRoundOperations round={round} userId={user.id} />}
         {(creating || editing) && <form className={styles.form} onSubmit={submit}>
           <h3>{creating ? 'Create a Round' : 'Edit Round configuration'}</h3>
           <label>Sequence number<input type="number" min="1" step="1" required value={form.sequenceNumber} disabled={pending} onChange={(e) => setForm({ ...form, sequenceNumber: e.target.value })} /></label>

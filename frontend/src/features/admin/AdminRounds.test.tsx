@@ -4,13 +4,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Link, MemoryRouter, Outlet, Route, Routes } from 'react-router-dom';
 import { ApiError } from '../../lib/api/client';
 import { getAdminEvent } from '../../lib/api/adminEvents';
-import { createAdminRound, getAdminRound, listAdminRounds, updateAdminRound } from '../../lib/api/adminRounds';
+import { cancelAdminRound, completeAdminRound, createAdminRound, generateAdminRoundTickets, getAdminRound, getAdminRoundTicketCount, listAdminRounds, pauseAdminRound, readyAdminRound, resumeAdminRound, startAdminRound, updateAdminRound } from '../../lib/api/adminRounds';
 import type { AdminRound, PatternType } from '../../types/adminRound';
 import type { AuthenticatedUser } from '../../types/auth';
 import { AdminRounds } from './AdminRounds';
 
 vi.mock('../../lib/api/adminEvents', () => ({ getAdminEvent: vi.fn() }));
-vi.mock('../../lib/api/adminRounds', () => ({ createAdminRound: vi.fn(), getAdminRound: vi.fn(), listAdminRounds: vi.fn(), updateAdminRound: vi.fn() }));
+vi.mock('../../lib/api/adminRounds', () => ({
+  cancelAdminRound: vi.fn(), completeAdminRound: vi.fn(), createAdminRound: vi.fn(), generateAdminRoundTickets: vi.fn(),
+  getAdminRound: vi.fn(), getAdminRoundTicketCount: vi.fn(), listAdminRounds: vi.fn(), pauseAdminRound: vi.fn(),
+  readyAdminRound: vi.fn(), resumeAdminRound: vi.fn(), startAdminRound: vi.fn(), updateAdminRound: vi.fn(),
+}));
 
 const admin: AuthenticatedUser = { id: 'admin-1', email: 'admin@example.test', name: 'Admin User', role: 'ADMIN', status: 'ACTIVE' };
 const eventA = '91c16f5c-7285-4fc2-9954-7043a0d6e5b4';
@@ -42,6 +46,14 @@ describe('Admin Rounds and Pattern configuration', () => {
     vi.mocked(getAdminRound).mockResolvedValue(makeRound());
     vi.mocked(createAdminRound).mockImplementation(async (input) => makeRound({ ...input, id: 'a4a85404-a3d6-4da6-9b21-ccfc6a11e713', patterns: makeRound().patterns.map((pattern, i) => ({ ...pattern, ...input.patterns?.[i], roundId: 'a4a85404-a3d6-4da6-9b21-ccfc6a11e713' })) } as Partial<AdminRound>));
     vi.mocked(updateAdminRound).mockImplementation(async (_id, input) => makeRound({ ...input, patterns: makeRound().patterns.map((pattern, i) => ({ ...pattern, ...input.patterns?.[i] })) } as Partial<AdminRound>));
+    vi.mocked(getAdminRoundTicketCount).mockResolvedValue(0);
+    vi.mocked(generateAdminRoundTickets).mockResolvedValue({ roundId, totalParticipants: 0, created: 0, existing: 0, skipped: 0 });
+    vi.mocked(readyAdminRound).mockResolvedValue(makeRound({ status: 'READY' }));
+    vi.mocked(startAdminRound).mockResolvedValue(makeRound({ status: 'ACTIVE' }));
+    vi.mocked(pauseAdminRound).mockResolvedValue(makeRound({ status: 'PAUSED' }));
+    vi.mocked(resumeAdminRound).mockResolvedValue(makeRound({ status: 'ACTIVE' }));
+    vi.mocked(completeAdminRound).mockResolvedValue(makeRound({ status: 'COMPLETED' }));
+    vi.mocked(cancelAdminRound).mockResolvedValue(makeRound({ status: 'CANCELLED' }));
   });
 
   it('requires a selected Event and does not request a Round list without it', async () => {
