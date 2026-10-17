@@ -3,17 +3,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
 import { ApiError } from '../../lib/api/client';
 import { createAdminEvent, getAdminEvent, listAdminEvents, updateAdminEvent } from '../../lib/api/adminEvents';
-import type { AdminEvent, CreateAdminEvent, UpdateAdminEvent } from '../../types/adminEvent';
+import type { CreateAdminEvent, UpdateAdminEvent } from '../../types/adminEvent';
 import type { AuthenticatedUser } from '../../types/auth';
 import styles from './AdminEventManagement.module.css';
 
 const PAGE_SIZE = 20;
 const listKey = (userId: string, page: number) => ['admin-events', userId, 'list', page] as const;
 const eventKey = (userId: string, id: string) => ['admin-events', userId, 'detail', id] as const;
-const transitions: Record<AdminEvent['status'], AdminEvent['status'][]> = {
-  DRAFT: ['READY', 'CANCELLED'], READY: ['DRAFT', 'LIVE', 'CANCELLED'],
-  LIVE: ['PAUSED', 'COMPLETED'], PAUSED: ['LIVE', 'CANCELLED'], COMPLETED: [], CANCELLED: [],
-};
 
 function localDateTime(value: string | null) {
   if (!value) return '';
@@ -126,13 +122,6 @@ export function AdminEventManagement() {
     update.mutate({ id: selectedEvent.id, input: { title: form.title, description: form.description || null, ...(selectedEvent.status !== 'LIVE' && selectedEvent.status !== 'PAUSED' ? { scheduledAt: utcDateTime(form.scheduledAt) } : {}) } });
   }
 
-  function changeStatus(status: AdminEvent['status']) {
-    if (!selectedEvent) return;
-    if ((status === 'COMPLETED' || status === 'CANCELLED') && !window.confirm(`Move this Event to ${status.toLowerCase()}? This action cannot be undone.`)) return;
-    setMessage('');
-    update.mutate({ id: selectedEvent.id, input: { status } });
-  }
-
   function selectInput(name: 'title' | 'description' | 'scheduledAt', value: string) {
     setForm((current) => ({ ...current, [name]: value }));
   }
@@ -157,7 +146,9 @@ export function AdminEventManagement() {
         {eventId && selected.error && <div><p role="alert">{eventError(selected.error, 'We could not load this Event.')}</p><button type="button" onClick={() => void selected.refetch()}>Retry Event</button></div>}
         {selectedEvent && <>
           <h3 className={styles.eventName}>{selectedEvent.title}</h3><dl className={styles.details}><div><dt>Status</dt><dd>{selectedEvent.status}</dd></div><div><dt>Event ID</dt><dd>{selectedEvent.id}</dd></div><div><dt>Description</dt><dd>{selectedEvent.description || 'No description'}</dd></div><div><dt>Scheduled</dt><dd>{selectedEvent.scheduledAt ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(selectedEvent.scheduledAt)) : 'Not scheduled'}</dd></div><div><dt>Started</dt><dd>{selectedEvent.startedAt ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(selectedEvent.startedAt)) : 'Not started'}</dd></div><div><dt>Completed</dt><dd>{selectedEvent.completedAt ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(selectedEvent.completedAt)) : 'Not completed'}</dd></div></dl>
-          {!editing && <div className={styles.actions}><button type="button" disabled={pending || terminal} onClick={() => setEditing(true)}>Edit Event</button>{transitions[selectedEvent.status].map((status) => <button key={status} type="button" disabled={pending} onClick={() => changeStatus(status)}>{status === 'READY' ? 'Mark ready' : status === 'LIVE' ? 'Start Event' : status === 'PAUSED' ? 'Pause Event' : status === 'COMPLETED' ? 'Complete Event' : status === 'CANCELLED' ? 'Cancel Event' : 'Return to draft'}</button>)}</div>}
+          <p><Link to={`/admin/questions?eventId=${encodeURIComponent(selectedEvent.id)}`}>Manage Questions &amp; Keys</Link></p>
+          {!editing && <div className={styles.actions}><button type="button" disabled={pending || terminal} onClick={() => setEditing(true)}>Edit Event</button></div>}
+          <p className={styles.lifecycleNotice} role="status">Lifecycle actions are unavailable until the backend publishes their API contract. Event status remains server-managed.</p>
           {editing && <form className={styles.form} onSubmit={submitUpdate}><Field label="Event title" value={form.title} onChange={(value) => selectInput('title', value)} maxLength={255} required disabled={pending} /><Field label="Description" value={form.description} onChange={(value) => selectInput('description', value)} maxLength={2000} disabled={pending} /><label>Scheduled time<input type="datetime-local" value={form.scheduledAt} disabled={pending || selectedEvent.status === 'LIVE' || selectedEvent.status === 'PAUSED'} onChange={(event) => selectInput('scheduledAt', event.target.value)} /></label><p>Times use your device’s local time.</p><div className={styles.actions}><button type="submit" disabled={pending}>{update.isPending ? 'Saving…' : 'Save changes'}</button><button type="button" disabled={pending} onClick={() => { setEditing(false); setForm({ title: selectedEvent.title, description: selectedEvent.description ?? '', scheduledAt: localDateTime(selectedEvent.scheduledAt) }); }}>Cancel</button></div></form>}
         </>}
       </section>

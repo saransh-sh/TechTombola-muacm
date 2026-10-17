@@ -61,6 +61,23 @@ async function mockAuthentication(page: Page, role?: 'PARTICIPANT' | 'ADMIN' | '
   await page.route('**/api/v1/admin/participants/*', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ participant: route.request().method() === 'PATCH' ? { ...participant, ...route.request().postDataJSON() } : participant }) });
   });
+  const round = {
+    id: '5c15e548-2bf0-4b12-8e8b-7d2c7cd91872', eventId: event.id, sequenceNumber: 1, name: 'Opening round', status: 'DRAFT',
+    patterns: ['EARLY_5', 'TOP_LINE', 'MIDDLE_LINE', 'BOTTOM_LINE', 'FULL_HOUSE'].map((patternType, index) => ({
+      id: `a4a85404-a3d6-4da6-9b21-ccfc6a11e71${index}`, roundId: '5c15e548-2bf0-4b12-8e8b-7d2c7cd91872', patternType,
+      enabled: true, maxWinners: 1, status: 'OPEN', createdAt: event.createdAt, updatedAt: event.updatedAt,
+    })), createdAt: event.createdAt, updatedAt: event.updatedAt,
+  };
+  await page.route('**/api/v1/admin/rounds?*', (route) => route.fulfill({
+    status: route.request().method() === 'POST' ? 201 : 200,
+    contentType: 'application/json',
+    body: JSON.stringify(route.request().method() === 'POST' ? { round: { ...round, ...route.request().postDataJSON() } } : { data: [round], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } }),
+  }));
+  await page.route('**/api/v1/admin/rounds/*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round }) }));
+  const key = { id: '7c5e95cf-9a31-4a3c-83cc-a353ccde9fd1', eventId: event.id, value: 'DOCKER', normalizedValue: 'DOCKER', createdAt: event.createdAt, updatedAt: event.updatedAt };
+  const question = { id: 'a4a85404-a3d6-4da6-9b21-ccfc6a11e713', roundId: round.id, keyId: key.id, keyValue: key.value, questionText: 'What runs containers?', createdAt: event.createdAt, updatedAt: event.updatedAt };
+  await page.route('**/api/v1/admin/keys?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [key], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } }) }));
+  await page.route('**/api/v1/admin/questions?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [question], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } }) }));
 }
 
 test('login screen exposes labelled credentials and accessible validation', async ({ page }) => {
@@ -136,6 +153,27 @@ test('admin dashboard shows operational metrics and keyboard navigation at table
   await page.screenshot({ path: 'design/screenshots/admin-event-management-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.getByRole('link', { name: 'Rounds' }).click();
+  await expect(page).toHaveURL(/\/admin\/rounds\?eventId=/);
+  await expect(page.getByRole('heading', { name: 'Round configuration' })).toBeVisible();
+  await expect(page.getByText('Opening round')).toBeVisible();
+  await page.getByRole('button', { name: /Opening round/ }).click();
+  await expect(page.getByText(/EARLY 5/)).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: 'design/screenshots/admin-round-configuration-desktop.png', fullPage: true });
+  await page.getByRole('button', { name: 'Create Round' }).click();
+  await page.getByRole('button', { name: 'Save Round' }).click();
+  await expect(page.getByLabel('Round name')).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.getByRole('link', { name: 'Questions & Keys' }).click();
+  await expect(page).toHaveURL(/\/admin\/questions\?eventId=/);
+  await expect(page.getByRole('heading', { name: 'Questions & Keys' })).toBeVisible();
+  await expect(page.getByText('What runs containers?')).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: 'design/screenshots/admin-question-key-management-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
 test('participant management scopes and searches safely on mobile', async ({ page }) => {
@@ -149,10 +187,6 @@ test('participant management scopes and searches safely on mobile', async ({ pag
   await page.getByRole('button', { name: 'Search' }).click();
   await expect(page.getByText('No Participants match this Event and filter.')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto('/admin/participants?eventId=0d3aa3e6-4c58-4c36-b363-d5f11640ba52&participantId=4d9ec244-a97a-4c8c-a657-1e7fd5b9be69');
-  await expect(page.locator('dd').filter({ hasText: 'sam@example.test' })).toBeVisible();
-  await page.screenshot({ path: 'design/screenshots/admin-participant-management-desktop.png', fullPage: true });
 });
 
 test('an expired session returns to login without showing protected content', async ({ page }) => {

@@ -10,8 +10,10 @@ Reference inspected on 2026-10-17: [Hacktoberfest](https://hacktoberfest.com/), 
 - Admin dashboard, tablet 1024×900: [admin-dashboard-tablet.png](design/screenshots/admin-dashboard-tablet.png)
 - Event management, desktop 1440×1000: [admin-event-management-desktop.png](design/screenshots/admin-event-management-desktop.png)
 - Participant management, desktop 1440×1000: [admin-participant-management-desktop.png](design/screenshots/admin-participant-management-desktop.png)
+- Round configuration, desktop 1440×1000: [admin-round-configuration-desktop.png](design/screenshots/admin-round-configuration-desktop.png)
+- Question and Key management, desktop 1440×1000: [admin-question-key-management-desktop.png](design/screenshots/admin-question-key-management-desktop.png)
 
-The rendered login, dashboard and Participant captures use mocked API responses; they document browser rendering, not real backend integration.
+The rendered login, dashboard, Event, Round, Question/Key and Participant captures use mocked API responses; they document browser rendering, not real backend integration.
 
 ## Tokens
 

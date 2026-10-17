@@ -20,10 +20,11 @@ describe('admin Event contracts', () => {
     expect(createAdminEventSchema.parse({ title: ' Event ' })).toEqual({ title: 'Event' });
   });
 
-  it('only accepts fields and statuses in the backend update schema', () => {
+  it('accepts metadata-only updates and rejects status changes without a lifecycle contract', () => {
     expect(updateAdminEventSchema.safeParse({}).success).toBe(false);
     expect(updateAdminEventSchema.safeParse({ status: 'UNKNOWN' }).success).toBe(false);
-    expect(updateAdminEventSchema.safeParse({ title: 'Updated', status: 'READY' }).success).toBe(true);
+    expect(updateAdminEventSchema.safeParse({ title: 'Updated', status: 'READY' }).success).toBe(false);
+    expect(updateAdminEventSchema.parse({ title: 'Updated' })).toEqual({ title: 'Updated' });
   });
 
   it('rejects malformed Event records and pagination metadata', () => {
