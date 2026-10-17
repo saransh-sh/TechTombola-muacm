@@ -11,6 +11,7 @@ import { ErrorMessage, LoadingMessage } from './components/Feedback';
 import { AdminDashboard } from './features/admin/AdminDashboard';
 import { AdminLayout, AdminSectionPlaceholder } from './features/admin/AdminLayout';
 import { AdminEventManagement } from './features/admin/AdminEventManagement';
+import { AdminRounds } from './features/admin/AdminRounds';
 import type { AuthenticatedUser } from './types/auth';
 import './styles/global.css';
 
@@ -74,7 +75,7 @@ function AppRoutes() {
         <Route index element={<AdminDashboard />} />
         <Route path="event" element={<AdminEventManagement />} />
         <Route path="events" element={<Navigate to="/admin/event" replace />} />
-        <Route path="rounds" element={<AdminSectionPlaceholder />} />
+        <Route path="rounds" element={<AdminRounds />} />
         <Route path="questions" element={<AdminSectionPlaceholder />} />
         <Route path="participants" element={<AdminSectionPlaceholder />} />
         <Route path="draw-control" element={<AdminSectionPlaceholder />} />
