@@ -19,6 +19,16 @@ async function mockAuthentication(page: Page, role?: 'PARTICIPANT' | 'ADMIN' | '
     user = null;
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ message: 'Successfully logged out' }) });
   });
+  await page.route('**/api/v1/admin/dashboard', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      event: { id: 'event-1', title: 'Tech Tombola 2026', status: 'LIVE' },
+      round: { id: 'round-1', name: 'Round 1', sequenceNumber: 1, status: 'ACTIVE' },
+      participants: 500, connectedConnections: 431, drawCount: 12, pendingClaims: 2,
+      verifiedWinners: 4, recoveryRequired: false, systemStatus: 'operational',
+    }),
+  }));
 }
 
 test('login screen exposes labelled credentials and accessible validation', async ({ page }) => {
@@ -55,7 +65,8 @@ test('admin and super admin accounts share the role-gated admin application', as
   await page.getByLabel('Password').fill('password');
   await page.getByRole('button', { name: /sign in/i }).click();
   await expect(page).toHaveURL(/\/admin$/);
-  await expect(page.getByText('Super Admin access.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Operations dashboard' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'System' })).toBeVisible();
 });
 
 test('an admin login opens the shared admin application', async ({ page }) => {
@@ -65,7 +76,28 @@ test('an admin login opens the shared admin application', async ({ page }) => {
   await page.getByLabel('Password').fill('password');
   await page.getByRole('button', { name: /sign in/i }).click();
   await expect(page).toHaveURL(/\/admin$/);
-  await expect(page.getByText('Admin access.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Operations dashboard' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'System' })).toHaveCount(0);
+});
+
+test('admin dashboard shows operational metrics and keyboard navigation at tablet width', async ({ page }) => {
+  await mockAuthentication(page, 'ADMIN', true);
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.goto('/admin');
+  await expect(page.getByText('Tech Tombola 2026')).toBeVisible();
+  await expect(page.getByText('431', { exact: true })).toBeVisible();
+  await expect(page.getByText('12', { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: 'design/screenshots/admin-dashboard-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.screenshot({ path: 'design/screenshots/admin-dashboard-tablet.png', fullPage: true });
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Sign out' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('link', { name: 'Dashboard' })).toBeFocused();
+  await page.getByRole('link', { name: 'Event' }).click();
+  await expect(page).toHaveURL(/\/admin\/events$/);
+  await expect(page.getByRole('heading', { name: 'Event management' })).toBeVisible();
 });
 
 test('an expired session returns to login without showing protected content', async ({ page }) => {
@@ -73,7 +105,7 @@ test('an expired session returns to login without showing protected content', as
   await page.goto('/admin/rounds');
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole('heading', { name: /find your winning line/i })).toBeVisible();
-  await expect(page.getByText('Admin access.')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Operations dashboard' })).toHaveCount(0);
 });
 
 test('a participant cannot enter an admin route', async ({ page }) => {

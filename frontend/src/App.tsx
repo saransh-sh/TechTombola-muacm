@@ -8,6 +8,8 @@ import { useAuthUiStore } from './features/auth/authStore';
 import { roleHomePath } from './features/auth/routing';
 import { queryClient } from './lib/queryClient';
 import { ErrorMessage, LoadingMessage } from './components/Feedback';
+import { AdminDashboard } from './features/admin/AdminDashboard';
+import { AdminLayout, AdminSectionPlaceholder } from './features/admin/AdminLayout';
 import type { AuthenticatedUser } from './types/auth';
 import './styles/global.css';
 
@@ -25,7 +27,7 @@ function ProtectedLayout({ allowed }: { allowed: AuthenticatedUser['role'][] }) 
   const user = session.data;
   if (!user || !user.role) return <ErrorMessage>We could not identify this account's role. Contact your event administrator.</ErrorMessage>;
   if (!allowed.includes(user.role)) return <Navigate to={roleHomePath(user.role)} replace />;
-  return <div className="role-page"><header><strong>TECH TOMBOLA</strong><span>{user.name}</span><LogoutButton /></header><main><p>{user.role === 'PARTICIPANT' ? 'Your event ticket is ready.' : user.role === 'SUPER_ADMIN' ? 'Super Admin access.' : 'Admin access.'}</p></main><Outlet /></div>;
+  return <div className="role-page"><header><strong>TECH TOMBOLA</strong><span>{user.name}</span><LogoutButton /></header>{user.role === 'PARTICIPANT' && <main><p>Your event ticket is ready.</p></main>}<Outlet context={user} /></div>;
 }
 
 function LoginRoute() {
@@ -66,7 +68,20 @@ function AppRoutes() {
   return <Routes>
     <Route path="/login" element={<LoginRoute />} />
     <Route element={<ProtectedLayout allowed={['PARTICIPANT']} />}><Route path="/participant/*" element={<div />} /></Route>
-    <Route element={<ProtectedLayout allowed={['ADMIN', 'SUPER_ADMIN']} />}><Route path="/admin/*" element={<div />} /></Route>
+    <Route element={<ProtectedLayout allowed={['ADMIN', 'SUPER_ADMIN']} />}>
+      <Route path="/admin" element={<AdminLayout />}>
+        <Route index element={<AdminDashboard />} />
+        <Route path="events" element={<AdminSectionPlaceholder />} />
+        <Route path="rounds" element={<AdminSectionPlaceholder />} />
+        <Route path="questions" element={<AdminSectionPlaceholder />} />
+        <Route path="participants" element={<AdminSectionPlaceholder />} />
+        <Route path="draw-control" element={<AdminSectionPlaceholder />} />
+        <Route path="claims" element={<AdminSectionPlaceholder />} />
+        <Route path="winners" element={<AdminSectionPlaceholder />} />
+        <Route path="audit" element={<AdminSectionPlaceholder />} />
+        <Route path="system" element={<AdminSectionPlaceholder />} />
+      </Route>
+    </Route>
     <Route path="/" element={<Navigate to="/login" replace />} />
     <Route path="*" element={<Navigate to="/login" replace />} />
   </Routes>;
