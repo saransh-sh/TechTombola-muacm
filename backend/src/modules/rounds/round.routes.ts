@@ -100,7 +100,7 @@ export function createRoundRoutes(deps: RoundRoutesDependencies = {}): FastifyPl
       });
     });
 
-    // Admin: Resume round (PAUSED/RECOVERY_REQUIRED -> ACTIVE) with Idempotency-Key
+    // Admin: Resume round (PAUSED -> ACTIVE; interruptions use validated recovery) with Idempotency-Key
     fastify.post('/admin/rounds/:id/resume', { preHandler: [requireAdmin] }, async (request) => {
       const params = roundIdParamSchema.parse(request.params);
       const idempotencyKey = request.headers['idempotency-key'];

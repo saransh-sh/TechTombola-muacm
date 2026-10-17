@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_backend_load_qualification`
 
-**Status:** done
+**Status:** implemented-unmerged
 
 ## Scope and contracts
 

@@ -142,6 +142,15 @@ describe('Restart and crash recovery integration', () => {
     expect(login.statusCode).toBe(200);
     const cookie = extractCookie(login);
     expect(cookie).toBeTruthy();
+    for (const interrupted of [roundId, corruptRoundId]) {
+      for (const operation of ['start', 'resume']) {
+        const bypass = await secondApp.inject({ method: 'POST', url: `/api/v1/admin/rounds/${interrupted}/${operation}`, headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}`, 'idempotency-key': crypto.randomUUID() } });
+        expect(bypass.statusCode).toBe(409);
+        expect(bypass.json().error.code).toBe('INVALID_STATE_TRANSITION');
+      }
+      const [unchanged] = await getDb().select({ status: rounds.status }).from(rounds).where(eq(rounds.id, interrupted));
+      expect(unchanged!.status).toBe('RECOVERY_REQUIRED');
+    }
     const eventId = (await getDb().select({ eventId: rounds.eventId }).from(rounds).where(eq(rounds.id, roundId)))[0]!.eventId;
     liveSocket = new WebSocket(`${websocketBaseUrl}/api/v1/live/ws?eventId=${eventId}&roundId=${roundId}`);
     await new Promise<void>((resolve, reject) => { liveSocket!.once('open', () => resolve()); liveSocket!.once('error', reject); });

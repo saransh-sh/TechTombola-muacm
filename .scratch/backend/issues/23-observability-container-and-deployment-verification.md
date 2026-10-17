@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_backend_deployment`
 
-**Status:** done
+**Status:** implemented-unmerged
 
 ## Scope and contracts
 

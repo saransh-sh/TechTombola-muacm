@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import {
   ALLOWED_ROUND_TRANSITIONS,
+  assertCanResumeRound,
+  assertCanStartRound,
   canTransitionRound,
   assertValidRoundTransition,
   validateRoundReadiness,
@@ -195,3 +197,17 @@ describe('Round State Transitions and Readiness Domain Logic', () => {
     });
   });
 });
+
+ it('ordinary resume accepts only PAUSED and cannot bypass recovery or start gates', () => {
+  expect(() => assertCanResumeRound('PAUSED')).not.toThrow();
+  for (const status of ['DRAFT', 'READY', 'ACTIVE', 'RECOVERY_REQUIRED', 'COMPLETED', 'CANCELLED'] as const) {
+    expect(() => assertCanResumeRound(status)).toThrow(ConflictError);
+  }
+ });
+
+ it('start accepts only READY and cannot bypass recovery or resume gates', () => {
+  expect(() => assertCanStartRound('READY')).not.toThrow();
+  for (const status of ['DRAFT', 'PAUSED', 'ACTIVE', 'RECOVERY_REQUIRED', 'COMPLETED', 'CANCELLED'] as const) {
+    expect(() => assertCanStartRound(status)).toThrow(ConflictError);
+  }
+ });

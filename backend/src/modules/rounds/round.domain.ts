@@ -57,6 +57,18 @@ export const ALLOWED_ROUND_TRANSITIONS: Record<RoundStatus, RoundStatus[]> = {
   CANCELLED: [],
 };
 
+export function assertCanStartRound(status: RoundStatus): void {
+  if (status !== 'READY') {
+    throw new ConflictError('Only READY Rounds can start; interrupted Rounds require validated recovery', 'INVALID_STATE_TRANSITION');
+  }
+}
+
+export function assertCanResumeRound(status: RoundStatus): void {
+  if (status !== 'PAUSED') {
+    throw new ConflictError('Only PAUSED Rounds can resume; interrupted Rounds require validated recovery', 'INVALID_STATE_TRANSITION');
+  }
+}
+
 export function canTransitionRound(current: RoundStatus, next: RoundStatus): boolean {
   const allowed = ALLOWED_ROUND_TRANSITIONS[current] || [];
   return allowed.includes(next);

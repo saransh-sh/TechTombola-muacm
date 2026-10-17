@@ -5,6 +5,8 @@ import { eventRepository, type IEventRepository } from '../events/event.reposito
 import { roundRepository, type IRoundRepository } from './round.repository.ts';
 import {
   assertCanConfigureRound,
+  assertCanResumeRound,
+  assertCanStartRound,
   assertValidRoundTransition,
   getDefaultPatternConfigs,
   validatePatternConfigs,
@@ -294,7 +296,7 @@ export class RoundService {
         throw new NotFoundError(`Round with id '${roundId}' not found`);
       }
 
-      assertValidRoundTransition(round.status, 'ACTIVE');
+      assertCanStartRound(round.status);
 
       const event = await this.eventRepo.findById(round.eventId, tx);
       if (!event) {
@@ -465,7 +467,7 @@ export class RoundService {
         throw new NotFoundError(`Round with id '${roundId}' not found`);
       }
 
-      assertValidRoundTransition(round.status, 'ACTIVE');
+      assertCanResumeRound(round.status);
 
       const event = await this.eventRepo.findById(round.eventId, tx);
       if (!event) {
