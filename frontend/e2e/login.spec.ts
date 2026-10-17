@@ -45,6 +45,22 @@ async function mockAuthentication(page: Page, role?: 'PARTICIPANT' | 'ADMIN' | '
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ event: route.request().method() === 'PATCH' ? { ...event, ...route.request().postDataJSON() } : event }),
   }));
+  const participant = {
+    id: '4d9ec244-a97a-4c8c-a657-1e7fd5b9be69', userId: '8d632d5f-16b1-4292-99e5-0d3628914c2c', eventId: event.id,
+    email: 'sam@example.test', name: 'Sam Rivera', externalId: 'E-42', status: 'ACTIVE', emailDeliveryStatus: 'SENT',
+    createdAt: event.createdAt, updatedAt: event.updatedAt,
+  };
+  await page.route('**/api/v1/admin/participants?*', async (route) => {
+    const url = new URL(route.request().url());
+    const body = route.request().method() === 'POST' ? { participant: { ...participant, ...route.request().postDataJSON() } } : {
+      data: url.searchParams.get('search') && !'Sam Rivera sam@example.test E-42'.toLowerCase().includes(url.searchParams.get('search')!.toLowerCase()) ? [] : [participant],
+      pagination: { page: Number(url.searchParams.get('page') ?? 1), limit: 20, total: 1, totalPages: 1 },
+    };
+    await route.fulfill({ status: route.request().method() === 'POST' ? 201 : 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+  await page.route('**/api/v1/admin/participants/*', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ participant: route.request().method() === 'PATCH' ? { ...participant, ...route.request().postDataJSON() } : participant }) });
+  });
 }
 
 test('login screen exposes labelled credentials and accessible validation', async ({ page }) => {
@@ -120,6 +136,23 @@ test('admin dashboard shows operational metrics and keyboard navigation at table
   await page.screenshot({ path: 'design/screenshots/admin-event-management-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+test('participant management scopes and searches safely on mobile', async ({ page }) => {
+  await mockAuthentication(page, 'ADMIN', true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/admin/participants?eventId=0d3aa3e6-4c58-4c36-b363-d5f11640ba52');
+  await expect(page.getByRole('heading', { name: 'Participant management' })).toBeVisible();
+  await expect(page.getByText('Sam Rivera')).toBeVisible();
+  await expect(page.getByText(/G03 is unresolved/)).toBeVisible();
+  await page.getByLabel('Search by name, email or external ID').fill('missing');
+  await page.getByRole('button', { name: 'Search' }).click();
+  await expect(page.getByText('No Participants match this Event and filter.')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/admin/participants?eventId=0d3aa3e6-4c58-4c36-b363-d5f11640ba52&participantId=4d9ec244-a97a-4c8c-a657-1e7fd5b9be69');
+  await expect(page.locator('dd').filter({ hasText: 'sam@example.test' })).toBeVisible();
+  await page.screenshot({ path: 'design/screenshots/admin-participant-management-desktop.png', fullPage: true });
 });
 
 test('an expired session returns to login without showing protected content', async ({ page }) => {
