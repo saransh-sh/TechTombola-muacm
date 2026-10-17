@@ -3,17 +3,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ApiError } from '../../lib/api/client';
 import { getParticipantClaims, submitParticipantClaim } from '../../lib/api/claims';
+import { expireParticipantSession } from '../auth/session';
 import type { ClaimPattern, ParticipantClaim } from '../../types/claims';
 import type { ParticipantRound } from '../../types/participant';
 import { useAuthUiStore } from '../auth/authStore';
 
 export const participantClaimsKey = (userId: string, page = 1) => ['participant', userId, 'claims', page] as const;
-
-function expireParticipantSession(queryClient: ReturnType<typeof useQueryClient>, identityChanged: () => void, navigate: ReturnType<typeof useNavigate>, returnTo: string) {
-  queryClient.clear();
-  identityChanged();
-  navigate('/login', { replace: true, state: { returnTo } });
-}
 
 export function useParticipantClaims(userId: string, page = 1) {
   const queryClient = useQueryClient();

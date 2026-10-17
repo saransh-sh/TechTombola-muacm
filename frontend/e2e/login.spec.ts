@@ -29,6 +29,9 @@ async function mockAuthentication(page: Page, role?: 'PARTICIPANT' | 'ADMIN' | '
   await page.route('**/api/v1/participant/round/current', (route) => route.fulfill({
     status: 404, contentType: 'application/json', body: JSON.stringify({ error: { code: 'NOT_FOUND', message: 'No current round' } }),
   }));
+  await page.route('**/api/v1/participant/wins?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], total: 0, page: 1, limit: 50 }) }));
+  await page.route('**/api/v1/participant/claims?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], total: 0, page: 1, limit: 50 }) }));
+  await page.route('**/api/v1/live/winners', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ roundId: null, data: [] }) }));
 }
 
 test('login screen exposes labelled credentials and accessible validation', async ({ page }) => {
@@ -295,6 +298,20 @@ test('participant confirms a configured claim and sees its server status in hist
   await expect(page.getByText('Waiting for verification', { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByText('Waiting for verification', { exact: true })).toBeVisible();
+  expect(await page.locator('body').evaluate((element) => element.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('participant results separate account-verified wins from public winner names', async ({ page }) => {
+  await mockAuthentication(page, 'PARTICIPANT', true);
+  const verifiedAt = '2026-10-17T14:00:00.000Z';
+  await page.route('**/api/v1/participant/wins?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: 'winner-1', claimId: 'claim-1', participantId: 'participant-profile-7', roundId: 'round-1', eventId: 'event-1', patternType: 'FULL_HOUSE', verifiedAt }], total: 1, page: 1, limit: 50 }) }));
+  await page.route('**/api/v1/live/winners', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ roundId: 'round-1', data: { EARLY_5: [{ id: 'winner-2', roundId: 'round-1', pattern: 'EARLY_5', participantName: 'Ari Patel', verifiedAt }], TOP_LINE: [], MIDDLE_LINE: [], BOTTOM_LINE: [], FULL_HOUSE: [] } }) }));
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/participant/results');
+  await expect(page.getByRole('heading', { name: 'Your verified wins' })).toBeVisible();
+  await expect(page.getByText('Full House', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Verified winners in the live round' })).toBeVisible();
+  await expect(page.locator('section[aria-labelledby="public-winners-title"]').getByText('Ari Patel', { exact: true })).toBeVisible();
   expect(await page.locator('body').evaluate((element) => element.scrollWidth <= window.innerWidth)).toBe(true);
 });
 

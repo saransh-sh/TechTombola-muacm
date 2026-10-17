@@ -9,6 +9,7 @@ import * as participantApi from './lib/api/participant';
 import * as ticketApi from './lib/api/ticket';
 import * as drawApi from './lib/api/draws';
 import * as claimsApi from './lib/api/claims';
+import * as winnersApi from './lib/api/winners';
 
 const realtimeState = vi.hoisted(() => ({ status: 'CONNECTED' as string, warning: '', liveDraws: [] as unknown[], retry: vi.fn() }));
 
@@ -17,6 +18,7 @@ vi.mock('./lib/api/participant', () => ({ getParticipantEvent: vi.fn(), getCurre
 vi.mock('./lib/api/ticket', () => ({ getParticipantTicket: vi.fn() }));
 vi.mock('./lib/api/draws', () => ({ getParticipantDraws: vi.fn() }));
 vi.mock('./lib/api/claims', () => ({ getParticipantClaims: vi.fn(), submitParticipantClaim: vi.fn() }));
+vi.mock('./lib/api/winners', () => ({ getParticipantWins: vi.fn(), getLiveWinners: vi.fn() }));
 vi.mock('./lib/realtime', () => ({ useParticipantRealtime: () => realtimeState }));
 
 describe('application role routes', () => {
@@ -27,6 +29,8 @@ describe('application role routes', () => {
     realtimeState.warning = '';
     realtimeState.liveDraws = [];
     vi.mocked(claimsApi.getParticipantClaims).mockResolvedValue({ data: [], total: 0, page: 1, limit: 50 });
+    vi.mocked(winnersApi.getParticipantWins).mockResolvedValue({ data: [], total: 0, page: 1, limit: 50 });
+    vi.mocked(winnersApi.getLiveWinners).mockResolvedValue({ roundId: null, data: [] });
     window.history.replaceState({}, '', '/login');
     vi.clearAllMocks();
   });

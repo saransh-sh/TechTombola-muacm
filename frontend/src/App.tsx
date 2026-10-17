@@ -12,6 +12,7 @@ import { ParticipantLobby } from './features/participant/ParticipantLobby';
 import { ParticipantTicket } from './features/participant/ParticipantTicket';
 import { ParticipantGame } from './features/participant/ParticipantGame';
 import { ParticipantClaims } from './features/participant/ParticipantClaims';
+import { ParticipantResults } from './features/participant/ParticipantResults';
 import type { AuthenticatedUser } from './types/auth';
 import './styles/global.css';
 
@@ -75,6 +76,7 @@ function AppRoutes() {
       <Route path="/participant/ticket" element={<ParticipantTicket />} />
       <Route path="/participant/game" element={<ParticipantGame />} />
       <Route path="/participant/claims" element={<ParticipantClaims />} />
+      <Route path="/participant/results" element={<ParticipantResults />} />
     </Route>
     <Route element={<ProtectedLayout allowed={['ADMIN', 'SUPER_ADMIN']} />}><Route path="/admin/*" element={<div />} /></Route>
     <Route path="/" element={<Navigate to="/login" replace />} />

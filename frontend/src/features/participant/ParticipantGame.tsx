@@ -10,6 +10,7 @@ import type { AuthenticatedUser } from '../../types/auth';
 import type { ParticipantDraw } from '../../types/draw';
 import { ParticipantTicket } from './ParticipantTicket';
 import { ClaimPanel } from './ClaimPanel';
+import { WinnerBanner } from './WinnerBanner';
 import styles from './ParticipantGame.module.css';
 
 export type DisplayDraw = Pick<ParticipantDraw, 'roundId' | 'sequenceNumber' | 'questionText' | 'keyValue' | 'drawnAt'> & { id?: string };
@@ -50,6 +51,7 @@ export function ParticipantGame() {
       {latest ? <QuestionCard draw={latest} animate={animateSequence === latest.sequenceNumber} /> : draws.data && <p className={styles.empty}>No questions have been drawn in this round yet.</p>}
       {history.length > 0 && <DrawHistory draws={history} />}
     </section>
+    {canRead && <WinnerBanner userId={user.id} roundId={round.data.id} roundStatus={round.data.status} />}
     <ParticipantTicket revealedKey={latest?.keyValue} animateReveal={animateSequence === latest?.sequenceNumber} drawnKeys={drawnKeys} canMark={round.data?.status === 'ACTIVE' && !round.error && !event.error && realtime.status === 'CONNECTED' && !draws.isFetching && !draws.error} />
     {event.data && round.data && <ClaimPanel round={round.data} />}
   </div>;

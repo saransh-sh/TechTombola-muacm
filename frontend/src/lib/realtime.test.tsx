@@ -92,6 +92,16 @@ describe('participant realtime connection', () => {
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['participant', 'user-1', 'round', ids.event] });
   });
 
+  it('refreshes participant-scoped and public winner snapshots on WINNER_VERIFIED', async () => {
+    renderHook(() => useParticipantRealtime(true, 'user-1', ids.event, ids.round, queryClient));
+    const socket = FakeWebSocket.instances[0]!;
+    await act(async () => { socket.open(); await Promise.resolve(); });
+    act(() => socket.message({ type: 'WINNER_VERIFIED', eventId: ids.event, roundId: ids.round, occurredAt: drawnAt, payload: { winnerId: '66666666-6666-4666-8666-666666666666', participantName: 'Ari Patel', pattern: 'EARLY_5' } }));
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['participant', 'user-1', 'wins'] });
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['participant', 'user-1', 'claims'] });
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['live', 'winners'] });
+  });
+
   it('reconciles saved Ticket marks after reconnect', async () => {
     vi.useFakeTimers();
     renderHook(() => useParticipantRealtime(true, 'user-1', ids.event, ids.round, queryClient));

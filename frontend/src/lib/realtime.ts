@@ -39,6 +39,11 @@ export function useParticipantRealtime(enabled: boolean, userId: string, eventId
     setLive({ scope, draws: [] });
 
     const drawsKey = ['participant', userId, 'draws', eventId, roundId];
+    const reconcileWinners = async () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['participant', userId, 'wins'] }),
+      queryClient.invalidateQueries({ queryKey: ['participant', userId, 'claims'] }),
+      queryClient.invalidateQueries({ queryKey: ['live', 'winners'] }),
+    ]);
     const assertFresh = (keys: (string | undefined)[][]) => {
       const failed = keys.some((key) => {
         const error = queryClient.getQueryState(key)?.error;
@@ -57,6 +62,7 @@ export function useParticipantRealtime(enabled: boolean, userId: string, eventId
         queryClient.invalidateQueries({ queryKey: ['participant', userId, 'round', eventId] }),
         queryClient.invalidateQueries({ queryKey: ['participant', userId, 'ticket', eventId, roundId] }),
         reconcileDraws(),
+        reconcileWinners(),
       ]);
       assertFresh([['participant', userId, 'event'], ['participant', userId, 'round', eventId], ['participant', userId, 'ticket', eventId, roundId], drawsKey]);
     };
@@ -64,6 +70,7 @@ export function useParticipantRealtime(enabled: boolean, userId: string, eventId
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['participant', userId, 'round', eventId] }),
         reconcileDraws(),
+        reconcileWinners(),
       ]);
       assertFresh([['participant', userId, 'round', eventId], drawsKey]);
     };
@@ -111,6 +118,8 @@ export function useParticipantRealtime(enabled: boolean, userId: string, eventId
             return { scope, draws: [...bySequence.values()].sort((a, b) => a.sequenceNumber - b.sequenceNumber).slice(-100) };
           });
           synchronize(reconcileDraws());
+        } else if (event.type === 'WINNER_VERIFIED') {
+          synchronize(reconcileWinners());
         } else if (event.type.startsWith('ROUND_')) {
           synchronize(reconcileRound());
         } else {
