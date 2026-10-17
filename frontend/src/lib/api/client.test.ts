@@ -10,6 +10,18 @@ describe('apiRequest', () => {
     await expect(apiRequest('/me')).resolves.toEqual({ ok: true });
     expect(fetch.mock.calls[0]?.[1]).toMatchObject({ credentials: 'include' });
   });
+  it('sets JSON content type for JSON bodies', async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetch);
+    await apiRequest('/items', { method: 'POST', body: JSON.stringify({ ok: true }) });
+    expect(new Headers(fetch.mock.calls[0]?.[1]?.headers).get('content-type')).toBe('application/json');
+  });
+  it('leaves multipart content type to Fetch so it can add the boundary', async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetch);
+    await apiRequest('/upload', { method: 'POST', body: new FormData() });
+    expect(new Headers(fetch.mock.calls[0]?.[1]?.headers).has('content-type')).toBe(false);
+  });
   it('handles empty success responses', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
     await expect(apiRequest('/auth/logout', { method: 'POST' })).resolves.toBeUndefined();

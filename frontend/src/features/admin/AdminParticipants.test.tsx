@@ -44,9 +44,10 @@ describe('Admin Participant management', () => {
     expect(listAdminParticipants).toHaveBeenCalledWith(expect.objectContaining({ eventId, page: 1, limit: 20 }));
   });
 
-  it('explains that Ticket and import status remain unavailable under G03', async () => {
+  it('explains that Ticket assignment status remains unavailable under G03', async () => {
     renderPage();
-    expect(await screen.findByText(/G03 is unresolved/)).toBeInTheDocument();
+    expect(await screen.findByText('Ticket assignment details are not available yet.')).toBeInTheDocument();
+    expect(screen.getByText(/G03 is unresolved/)).toBeInTheDocument();
     expect(screen.getByText(/does not mean a Participant is unassigned/)).toBeInTheDocument();
   });
 

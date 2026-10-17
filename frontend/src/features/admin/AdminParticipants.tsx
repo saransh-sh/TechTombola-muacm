@@ -4,6 +4,7 @@ import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
 import { ApiError } from '../../lib/api/client';
 import { createAdminParticipant, getAdminParticipant, listAdminParticipants, updateAdminParticipant } from '../../lib/api/adminParticipants';
 import { listAdminEvents } from '../../lib/api/adminEvents';
+import { AdminParticipantImport } from './AdminParticipantImport';
 import type { AdminParticipant, CreateAdminParticipant, UpdateAdminParticipant } from '../../types/adminParticipant';
 import type { AuthenticatedUser } from '../../types/auth';
 import styles from './AdminParticipants.module.css';
@@ -42,6 +43,7 @@ export function AdminParticipants() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState('');
+  const [importPending, setImportPending] = useState(false);
   const formIdentity = useRef('');
   const events = useQuery({ queryKey: ['admin-events', user.id, 'participant-scope'], queryFn: ({ signal }) => listParticipantEvents(signal) });
   const participants = useQuery({
@@ -85,7 +87,7 @@ export function AdminParticipants() {
     },
     onError: async (error, variables) => { if (latestParams.current.get('eventId') === variables.eventId && latestParams.current.get('participantId') === variables.id) setMessage(requestError(error, 'We could not confirm the saved Participant state. The latest record has been requested; review it before retrying.')); await Promise.all([queryClient.invalidateQueries({ queryKey: detailKey(user.id, variables.eventId, variables.id) }), queryClient.invalidateQueries({ queryKey: ['admin-participants', user.id, variables.eventId] })]); },
   });
-  const pending = create.isPending || update.isPending;
+  const pending = create.isPending || update.isPending || importPending;
   const selected = detail.data?.eventId === eventId && detail.data.id === participantId && participants.data?.data.some((person) => person.id === participantId && person.eventId === eventId) ? detail.data : undefined;
 
   function changeParam(key: string, value: string, resetPage = false) {
@@ -109,7 +111,7 @@ export function AdminParticipants() {
     <p className={styles.eyebrow}>OPERATIONS / PEOPLE</p>
     <header className={styles.heading}><div><h1>Participant management</h1><p>Manage identities within one Event. Search and status filters apply across the server dataset.</p></div><button type="button" disabled={!eventId || pending} onClick={() => { setCreating((current) => !current); setEditing(false); setForm({ email: '', name: '', externalId: '' }); setMessage(''); }}>Add Participant</button></header>
     {message && <p className={styles.notice} role="status">{message}</p>}
-    <aside className={styles.gap} role="note"><strong>Ticket and import details are not available yet.</strong><span>G03 is unresolved. A missing Ticket ID here does not mean a Participant is unassigned.</span></aside>
+    <aside className={styles.gap} role="note"><strong>Ticket assignment details are not available yet.</strong><span>G03 is unresolved. A missing Ticket ID here does not mean a Participant is unassigned.</span></aside>
     <section className={styles.scope} aria-label="Event scope">
       <label>Event<select value={eventId} disabled={events.isPending || pending} onChange={(event) => { setParams((current) => { const next = new URLSearchParams(current); if (event.target.value) next.set('eventId', event.target.value); else next.delete('eventId'); next.set('page', '1'); next.delete('participantId'); return next; }); setMessage(''); }}>
         <option value="">Choose an Event</option>{events.data?.data.map((event) => <option key={event.id} value={event.id}>{event.title}</option>)}
@@ -139,6 +141,7 @@ export function AdminParticipants() {
         </>}
       </section>
     </div>
+    {eventId && <AdminParticipantImport eventId={eventId} userId={user.id} onPendingChange={setImportPending} />}
     {creating && eventId && <section className={styles.createPanel} aria-labelledby="add-participant-title"><h2 id="add-participant-title">Add a Participant</h2><form className={styles.form} onSubmit={submitCreate}><label>Email<input type="email" value={form.email} maxLength={255} required disabled={pending} autoComplete="email" onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} /></label><label>Name<input value={form.name} maxLength={255} required disabled={pending} autoComplete="name" onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></label><label>External ID (optional)<input value={form.externalId} maxLength={255} disabled={pending} onChange={(event) => setForm((current) => ({ ...current, externalId: event.target.value }))} /></label><p>Credentials are delivered by the server. Passwords are never displayed here.</p><div className={styles.actions}><button type="submit" disabled={pending}>{create.isPending ? 'Creating…' : 'Create Participant'}</button><button type="button" disabled={pending} onClick={() => setCreating(false)}>Cancel</button></div></form></section>}
     <p className={styles.back}><Link to={{ pathname: '/admin', search: params.toString() ? `?${params}` : '' }}>Return to dashboard</Link></p>
   </main>;

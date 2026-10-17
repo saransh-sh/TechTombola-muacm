@@ -78,6 +78,9 @@ async function mockAuthentication(page: Page, role?: 'PARTICIPANT' | 'ADMIN' | '
   const question = { id: 'a4a85404-a3d6-4da6-9b21-ccfc6a11e713', roundId: round.id, keyId: key.id, keyValue: key.value, questionText: 'What runs containers?', createdAt: event.createdAt, updatedAt: event.updatedAt };
   await page.route('**/api/v1/admin/keys?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [key], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } }) }));
   await page.route('**/api/v1/admin/questions?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [question], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } }) }));
+  await page.route('**/api/v1/admin/participants/import', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ totalReceived: 1, createdCount: 1, skippedCount: 0, failedCount: 0, errors: [] }) });
+  });
 }
 
 test('login screen exposes labelled credentials and accessible validation', async ({ page }) => {
@@ -186,6 +189,22 @@ test('participant management scopes and searches safely on mobile', async ({ pag
   await page.getByLabel('Search by name, email or external ID').fill('missing');
   await page.getByRole('button', { name: 'Search' }).click();
   await expect(page.getByText('No Participants match this Event and filter.')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+test('admin previews and explicitly confirms a Participant CSV import', async ({ page }) => {
+  await mockAuthentication(page, 'ADMIN', true);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/admin/participants?eventId=0d3aa3e6-4c58-4c36-b363-d5f11640ba52');
+  await page.getByLabel('CSV file').setInputFiles({ name: 'players.csv', mimeType: 'text/csv', buffer: Buffer.from('name,email\nNora,nora@example.test') });
+  await expect(page.getByRole('table', { name: 'CSV preview' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Confirm import of 1 rows' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Confirm import of 1 rows' }).click();
+  await expect(page.getByRole('heading', { name: 'Import results' })).toBeVisible();
+  await expect(page.getByText('Created', { exact: true })).toBeVisible();
+  await expect(page.getByText(/does not include per-Participant credential-delivery status/)).toBeVisible();
+  await page.screenshot({ path: 'design/screenshots/admin-participant-csv-import-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 

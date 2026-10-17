@@ -14,13 +14,15 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   const signal = options.signal
     ? AbortSignal.any([options.signal, controller.signal])
     : controller.signal;
+  const headers = new Headers(options.headers);
+  if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
 
   try {
     const response = await fetch(`${API_BASE}/api/v1${path}`, {
       ...options,
       signal,
       credentials: 'include',
-      headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...options.headers },
+      headers,
     });
     if (response.status === 204) return undefined;
 

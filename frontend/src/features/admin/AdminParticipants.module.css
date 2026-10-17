@@ -333,3 +333,139 @@
     transform: none;
   }
 }
+
+.importPanel {
+  margin-top: 1rem;
+}
+
+.importHeading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.importHeading p,
+.preview > p {
+  margin: .4rem 0 0;
+  color: #414a43;
+  font-size: .88rem;
+}
+
+.importPanel > p {
+  margin: .85rem 0;
+  padding: .75rem 1rem;
+}
+
+.importPanel .form {
+  max-width: 640px;
+}
+
+.importPanel input[type="file"] {
+  padding: .45rem;
+  border: 2px solid var(--ink);
+  background: #fffdf6;
+}
+
+.preview {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--ink);
+}
+
+.preview > p {
+  margin-top: 0;
+}
+
+.issues {
+  display: grid;
+  gap: .4rem;
+  padding-left: 1.2rem;
+  color: #713b2e;
+}
+
+.tableWrap {
+  max-width: 100%;
+  overflow: auto;
+  margin-top: .8rem;
+  border: 2px solid var(--ink);
+  background: #fffdf6;
+}
+
+.tableWrap table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: .84rem;
+}
+
+.tableWrap caption {
+  padding: .55rem;
+  text-align: left;
+  font: 700 .75rem/1.4 var(--mono);
+  text-transform: uppercase;
+}
+
+.tableWrap th,
+.tableWrap td {
+  padding: .5rem .65rem;
+  border-top: 1px solid #8d9388;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.tableWrap th {
+  background: #e9dfc5;
+  font: 700 .72rem/1.4 var(--mono);
+}
+
+.report {
+  display: grid;
+  gap: .8rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--ink);
+}
+
+.report h3,
+.report h4 {
+  margin: 0;
+  font: 700 1.2rem/1.1 Impact, "Arial Narrow", system-ui, sans-serif;
+  text-transform: uppercase;
+}
+
+.report > p {
+  margin: 0;
+  padding: .75rem 1rem;
+  border: 2px solid var(--ink);
+  background: #e9dfc5;
+  color: var(--ink);
+  font-size: .86rem;
+}
+
+.ambiguous {
+  border: 2px solid var(--ink);
+  background: #f3d2c7;
+  color: var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.importPanel button:focus-visible,
+.importPanel input:focus-visible {
+  outline: 3px solid var(--coral);
+  outline-offset: 3px;
+}
+
+@media (max-width: 560px) {
+  .importPanel {
+    padding: 1rem;
+  }
+
+  .tableWrap {
+    margin-inline: -.2rem;
+  }
+
+  .tableWrap th,
+  .tableWrap td {
+    min-width: 7.5rem;
+  }
+}

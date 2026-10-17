@@ -36,6 +36,15 @@ export const updateAdminParticipantSchema = z.object({
   status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
 }).refine((data) => Object.keys(data).length > 0, { message: 'At least one field to update must be provided' });
 
+export const participantImportReportSchema = z.object({
+  totalReceived: z.number().int().nonnegative(),
+  createdCount: z.number().int().nonnegative(),
+  skippedCount: z.number().int().nonnegative(),
+  failedCount: z.number().int().nonnegative(),
+  errors: z.array(z.object({ rowIndex: z.number().int().positive(), email: z.string().optional(), reason: z.string() })),
+});
+
 export type AdminParticipant = z.infer<typeof adminParticipantSchema>;
 export type CreateAdminParticipant = z.infer<typeof createAdminParticipantSchema>;
 export type UpdateAdminParticipant = z.infer<typeof updateAdminParticipantSchema>;
+export type ParticipantImportReport = z.infer<typeof participantImportReportSchema>;
