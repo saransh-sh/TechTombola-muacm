@@ -127,6 +127,38 @@ describe('Admin Rounds and Pattern configuration', () => {
     ]) }));
   });
 
+  it('shows all Pattern types for a partial backend configuration and does not replace it on a name-only edit', async () => {
+    const topLine = makeRound().patterns.find((pattern) => pattern.patternType === 'TOP_LINE')!;
+    vi.mocked(getAdminRound).mockResolvedValue(makeRound({ patterns: [topLine] }));
+    renderPage(`/admin/rounds?eventId=${eventA}&roundId=${roundId}`);
+    await screen.findByText('1. Opening round');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit configuration' }));
+    expect(screen.getByLabelText('TOP LINE')).toBeChecked();
+    expect(screen.getByLabelText('EARLY 5')).not.toBeChecked();
+    expect(screen.getByLabelText('MIDDLE LINE')).not.toBeChecked();
+    expect(screen.getByLabelText('BOTTOM LINE')).not.toBeChecked();
+    expect(screen.getByLabelText('FULL HOUSE')).not.toBeChecked();
+    fireEvent.change(screen.getByLabelText('Round name'), { target: { value: 'Renamed round' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save configuration' }));
+    await screen.findByText('Round configuration saved.');
+    expect(updateAdminRound).toHaveBeenCalledWith(roundId, { sequenceNumber: 1, name: 'Renamed round' });
+  });
+
+  it('sends only persisted and explicitly changed Patterns when editing a partial configuration', async () => {
+    const topLine = makeRound().patterns.find((pattern) => pattern.patternType === 'TOP_LINE')!;
+    vi.mocked(getAdminRound).mockResolvedValue(makeRound({ patterns: [topLine] }));
+    renderPage(`/admin/rounds?eventId=${eventA}&roundId=${roundId}`);
+    await screen.findByText('1. Opening round');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit configuration' }));
+    fireEvent.click(screen.getByLabelText('MIDDLE LINE'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save configuration' }));
+    await screen.findByText('Round configuration saved.');
+    expect(updateAdminRound).toHaveBeenCalledWith(roundId, expect.objectContaining({ patterns: [
+      { patternType: 'TOP_LINE', enabled: true, maxWinners: 1 },
+      { patternType: 'MIDDLE_LINE', enabled: true, maxWinners: 1 },
+    ] }));
+  });
+
   it('shows backend sequence conflicts, refreshes server data, and retains edited values', async () => {
     vi.mocked(getAdminRound).mockResolvedValueOnce(makeRound()).mockResolvedValueOnce(makeRound({ name: 'Updated elsewhere' }));
     vi.mocked(updateAdminRound).mockRejectedValue(new ApiError(409, 'Round sequence number 2 already exists in this event'));
@@ -200,7 +232,37 @@ describe('Admin Rounds and Pattern configuration', () => {
     expect(await screen.findByText('Event: Tech Tombola B')).toBeInTheDocument();
     expect(listAdminRounds).toHaveBeenLastCalledWith(expect.objectContaining({ eventId: eventB }));
     expect(screen.queryByText('1. Opening round')).not.toBeInTheDocument();
-    expect(await screen.findByText('The selected Round belongs to another Event. Choose a Round from this Event.')).toBeInTheDocument();
+    expect(await screen.findByText('Select a Round or create one.')).toBeInTheDocument();
+  });
+
+  it('discards an open Round form and clears the prior Round when switching Events', async () => {
+    renderPage(`/admin/rounds?eventId=${eventA}&roundId=${roundId}`, true);
+    await screen.findByText('1. Opening round');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit configuration' }));
+    fireEvent.change(screen.getByLabelText('Round name'), { target: { value: 'Unsaved change' } });
+    fireEvent.click(screen.getByRole('link', { name: 'Switch Event' }));
+    expect(await screen.findByText('Event: Tech Tombola B')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByLabelText('Round name')).not.toBeInTheDocument());
+    expect(screen.queryByText('1. Opening round')).not.toBeInTheDocument();
+    expect(getAdminRound).toHaveBeenCalledTimes(1);
+    expect(listAdminRounds).toHaveBeenLastCalledWith(expect.objectContaining({ eventId: eventB, page: 1 }));
+  });
+
+  it('keeps the new Event selected when a create request finishes after switching Events', async () => {
+    let finish!: (value: AdminRound) => void;
+    vi.mocked(createAdminRound).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    renderPage(`/admin/rounds?eventId=${eventA}`, true);
+    await screen.findByText('No Rounds have been configured for this Event.');
+    fireEvent.click(screen.getByRole('button', { name: 'Create Round' }));
+    fireEvent.change(screen.getByLabelText('Round name'), { target: { value: 'Opening round' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Round' }));
+    await waitFor(() => expect(createAdminRound).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole('link', { name: 'Switch Event' }));
+    expect(await screen.findByText('Event: Tech Tombola B')).toBeInTheDocument();
+    await act(async () => finish(makeRound({ id: 'a4a85404-a3d6-4da6-9b21-ccfc6a11e713' })));
+    expect(screen.getByText('Event: Tech Tombola B')).toBeInTheDocument();
+    expect(screen.queryByText('Round created and saved.')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Round name')).not.toBeInTheDocument();
   });
 
   it('shows permission failures with retry controls', async () => {

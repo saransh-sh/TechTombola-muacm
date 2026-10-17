@@ -24,7 +24,10 @@ function newRoundForm() {
 }
 
 function roundForm(round: AdminRound) {
-  return { sequenceNumber: String(round.sequenceNumber), name: round.name, patterns: round.patterns.map(({ patternType, enabled, maxWinners }) => ({ patternType, enabled, maxWinners })) };
+  return { sequenceNumber: String(round.sequenceNumber), name: round.name, patterns: patternTypes.map((patternType) => {
+    const saved = round.patterns.find((pattern) => pattern.patternType === patternType);
+    return saved ? { patternType, enabled: saved.enabled, maxWinners: saved.maxWinners } : { patternType, enabled: false, maxWinners: 1 };
+  }) };
 }
 
 export function AdminRounds() {
@@ -33,16 +36,39 @@ export function AdminRounds() {
   const eventId = params.get('eventId') ?? '';
   const roundId = params.get('roundId') ?? '';
   const page = Math.max(1, Number(params.get('page')) || 1);
+  const latestParams = useRef(params);
+  latestParams.current = params;
+  const previousEventId = useRef(eventId);
+  const eventScopeChanging = previousEventId.current !== eventId;
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(newRoundForm);
   const [message, setMessage] = useState('');
+  const [changedPatterns, setChangedPatterns] = useState<Set<PatternType>>(() => new Set());
   const formRoundId = useRef('');
+
+  useEffect(() => {
+    if (previousEventId.current === eventId) return;
+    if (roundId || page !== 1) {
+      const next = new URLSearchParams(params);
+      next.delete('roundId');
+      next.set('page', '1');
+      setParams(next);
+      return;
+    }
+    previousEventId.current = eventId;
+    formRoundId.current = '';
+    setCreating(false);
+    setEditing(false);
+    setForm(newRoundForm());
+    setChangedPatterns(new Set());
+    setMessage('');
+  }, [eventId, page, params, roundId, setParams]);
 
   const event = useQuery({ queryKey: eventKey(user.id, eventId), queryFn: ({ signal }) => getAdminEvent(eventId, signal), enabled: Boolean(eventId) });
   const rounds = useQuery({ queryKey: listKey(user.id, eventId, page), queryFn: ({ signal }) => listAdminRounds({ eventId, page, limit: PAGE_SIZE, signal }), enabled: Boolean(eventId) });
-  const selected = useQuery({ queryKey: detailKey(user.id, eventId, roundId), queryFn: ({ signal }) => getAdminRound(roundId, signal), enabled: Boolean(eventId && roundId) });
+  const selected = useQuery({ queryKey: detailKey(user.id, eventId, roundId), queryFn: ({ signal }) => getAdminRound(roundId, signal), enabled: Boolean(eventId && roundId && !eventScopeChanging) });
 
   useEffect(() => {
     if (!roundId) { formRoundId.current = ''; return; }
@@ -53,6 +79,7 @@ export function AdminRounds() {
     }
     formRoundId.current = roundId;
     setForm(roundForm(selected.data));
+    setChangedPatterns(new Set());
     setEditing(false);
   }, [eventId, roundId, selected.data]);
 
@@ -61,17 +88,17 @@ export function AdminRounds() {
     onSuccess: async (saved, variables) => {
       queryClient.setQueryData(detailKey(user.id, variables.eventId, saved.id), saved);
       await queryClient.invalidateQueries({ queryKey: ['admin-rounds', user.id, variables.eventId, 'list'] });
-      if (params.get('eventId') === variables.eventId) {
-        const next = new URLSearchParams(params);
+      if (latestParams.current.get('eventId') === variables.eventId) {
+        const next = new URLSearchParams(latestParams.current);
         next.set('roundId', saved.id);
         next.set('page', '1');
         setParams(next);
         setCreating(false);
+        setMessage('Round created and saved.');
       }
-      setMessage('Round created and saved.');
     },
     onError: async (error, variables) => {
-      setMessage(errorMessage(error, 'We could not confirm whether the Round was created. Refresh the list before retrying.'));
+      if (latestParams.current.get('eventId') === variables.eventId) setMessage(errorMessage(error, 'We could not confirm whether the Round was created. Refresh the list before retrying.'));
       await queryClient.invalidateQueries({ queryKey: ['admin-rounds', user.id, variables.eventId, 'list'] });
     },
   });
@@ -81,14 +108,15 @@ export function AdminRounds() {
     onSuccess: async (saved, variables) => {
       queryClient.setQueryData(detailKey(user.id, variables.eventId, saved.id), saved);
       await queryClient.invalidateQueries({ queryKey: ['admin-rounds', user.id, variables.eventId, 'list'] });
-      if (params.get('eventId') === variables.eventId && params.get('roundId') === saved.id) {
+      if (latestParams.current.get('eventId') === variables.eventId && latestParams.current.get('roundId') === saved.id) {
         setForm(roundForm(saved));
+        setChangedPatterns(new Set());
         setEditing(false);
+        setMessage('Round configuration saved.');
       }
-      setMessage('Round configuration saved.');
     },
     onError: async (error, variables) => {
-      setMessage(errorMessage(error, 'The latest Round configuration has been requested. Review it before retrying.'));
+      if (latestParams.current.get('eventId') === variables.eventId) setMessage(errorMessage(error, 'The latest Round configuration has been requested. Review it before retrying.'));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: detailKey(user.id, variables.eventId, variables.id) }),
         queryClient.invalidateQueries({ queryKey: ['admin-rounds', user.id, variables.eventId, 'list'] }),
@@ -118,13 +146,21 @@ export function AdminRounds() {
   function changePage(nextPage: number) { updateParams({ page: String(nextPage) }); }
 
   function changePattern(index: number, patch: Partial<PatternConfig>) {
+    const patternType = form.patterns[index]?.patternType;
+    if (patternType) setChangedPatterns((current) => new Set(current).add(patternType));
     setForm((current) => ({ ...current, patterns: current.patterns.map((pattern, i) => i === index ? { ...pattern, ...patch } : pattern) }));
   }
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage('');
-    const input = { sequenceNumber: Number(form.sequenceNumber), name: form.name, patterns: form.patterns };
+    const input = {
+      sequenceNumber: Number(form.sequenceNumber),
+      name: form.name,
+      ...(creating ? { patterns: form.patterns } : changedPatterns.size ? {
+        patterns: form.patterns.filter((pattern) => round?.patterns.some((saved) => saved.patternType === pattern.patternType) || changedPatterns.has(pattern.patternType)),
+      } : {}),
+    };
     if (creating) create.mutate({ eventId, input: { eventId, ...input } });
     else if (round) update.mutate({ eventId, id: round.id, input });
   }
@@ -132,6 +168,7 @@ export function AdminRounds() {
   function beginCreate() {
     formRoundId.current = '';
     setForm(newRoundForm());
+    setChangedPatterns(new Set());
     setCreating(true);
     setEditing(false);
     setMessage('');
@@ -140,6 +177,7 @@ export function AdminRounds() {
   function beginEdit() {
     if (!round) return;
     setForm(roundForm(round));
+    setChangedPatterns(new Set());
     setEditing(true);
     setCreating(false);
     setMessage('');
