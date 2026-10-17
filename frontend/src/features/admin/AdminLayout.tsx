@@ -16,13 +16,13 @@ const links = [
 
 const sections: Record<string, string> = {
   events: 'Event management', rounds: 'Round configuration', questions: 'Questions and Keys',
-  participants: 'Participant management', 'draw-control': 'Draw control', claims: 'Claim review',
+  participants: 'Participant management', administrators: 'Administrator accounts', 'draw-control': 'Draw control', claims: 'Claim review',
   winners: 'Winner history', audit: 'Audit log', system: 'System health and recovery',
 };
 
 export function AdminLayout() {
   const user = useOutletContext<AuthenticatedUser>();
-  const navigation = user.role === 'SUPER_ADMIN' ? [...links, ['System', '/admin/system'] as const] : links;
+  const navigation = user.role === 'SUPER_ADMIN' ? [...links, ['Administrators', '/admin/administrators'] as const, ['System', '/admin/system'] as const] : links;
   return <div className={styles.layout}>
     <aside className={styles.nav} aria-label="Admin navigation">
       <p className={styles.brand}>EVENT OPERATIONS</p>

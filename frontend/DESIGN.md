@@ -8,6 +8,8 @@ Reference inspected on 2026-10-17: [Hacktoberfest](https://hacktoberfest.com/), 
 - Rendered login, mobile 390×844: [login-mobile.png](design/screenshots/login-mobile.png)
 - Admin dashboard, desktop 1440×1000: [admin-dashboard-desktop.png](design/screenshots/admin-dashboard-desktop.png)
 - Admin dashboard, tablet 1024×900: [admin-dashboard-tablet.png](design/screenshots/admin-dashboard-tablet.png)
+- Super Admin account management, desktop 1440×1000: [admin-administrators-desktop.png](design/screenshots/admin-administrators-desktop.png)
+- Super Admin account management, mobile 390×844: [admin-administrators-mobile.png](design/screenshots/admin-administrators-mobile.png)
 
 The rendered login and dashboard captures use mocked API responses; they document browser rendering, not real backend integration.
 

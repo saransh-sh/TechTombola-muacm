@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { getMe, logout } from './lib/api/auth';
 import { ApiError } from './lib/api/client';
 import { LoginPage } from './features/auth/LoginPage';
@@ -9,6 +9,7 @@ import { roleHomePath } from './features/auth/routing';
 import { queryClient } from './lib/queryClient';
 import { ErrorMessage, LoadingMessage } from './components/Feedback';
 import { AdminDashboard } from './features/admin/AdminDashboard';
+import { AdminAdministrators } from './features/admin/AdminAdministrators';
 import { AdminLayout, AdminSectionPlaceholder } from './features/admin/AdminLayout';
 import type { AuthenticatedUser } from './types/auth';
 import './styles/global.css';
@@ -28,6 +29,11 @@ function ProtectedLayout({ allowed }: { allowed: AuthenticatedUser['role'][] }) 
   if (!user || !user.role) return <ErrorMessage>We could not identify this account's role. Contact your event administrator.</ErrorMessage>;
   if (!allowed.includes(user.role)) return <Navigate to={roleHomePath(user.role)} replace />;
   return <div className="role-page"><header><strong>TECH TOMBOLA</strong><span>{user.name}</span><LogoutButton /></header>{user.role === 'PARTICIPANT' && <main><p>Your event ticket is ready.</p></main>}<Outlet context={user} /></div>;
+}
+
+function SuperAdminRoute() {
+  const user = useOutletContext<AuthenticatedUser>();
+  return user.role === 'SUPER_ADMIN' ? <Outlet context={user} /> : <Navigate to="/admin" replace />;
 }
 
 function LoginRoute() {
@@ -75,6 +81,7 @@ function AppRoutes() {
         <Route path="rounds" element={<AdminSectionPlaceholder />} />
         <Route path="questions" element={<AdminSectionPlaceholder />} />
         <Route path="participants" element={<AdminSectionPlaceholder />} />
+        <Route element={<SuperAdminRoute />}><Route path="administrators" element={<AdminAdministratorsRoute />} /></Route>
         <Route path="draw-control" element={<AdminSectionPlaceholder />} />
         <Route path="claims" element={<AdminSectionPlaceholder />} />
         <Route path="winners" element={<AdminSectionPlaceholder />} />
@@ -85,6 +92,11 @@ function AppRoutes() {
     <Route path="/" element={<Navigate to="/login" replace />} />
     <Route path="*" element={<Navigate to="/login" replace />} />
   </Routes>;
+}
+
+function AdminAdministratorsRoute() {
+  const user = useOutletContext<AuthenticatedUser>();
+  return <AdminAdministrators user={user} />;
 }
 
 export function App() {

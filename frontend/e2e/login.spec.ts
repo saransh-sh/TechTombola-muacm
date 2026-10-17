@@ -132,3 +132,60 @@ test('logout failure is visible and keeps the current authenticated screen', asy
   await expect(page.getByRole('alert')).toContainText('could not end your session');
   await expect(page).toHaveURL(/\/admin$/);
 });
+
+test('Super Admin manages staff accounts and sees the one-time credential', async ({ page }) => {
+  await mockAuthentication(page, 'SUPER_ADMIN', true);
+  const account = {
+    id: 'cb82743a-7cb2-4520-b997-2f4830eeb407', profileId: 'e9b872f8-abd2-401f-a07e-ea2b78f1f84c',
+    email: 'staff@example.test', name: 'Staff Admin', role: 'ADMIN', status: 'ACTIVE',
+    createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+  const oneTimeCredential = crypto.randomUUID();
+  await page.route('**/api/v1/super-admin/admins**', async (route) => {
+    if (route.request().method() === 'POST') {
+      await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ admin: account, temporaryPassword: oneTimeCredential }) });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [account], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } }) });
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/admin/administrators');
+  await expect(page.getByRole('heading', { name: 'Administrator accounts' })).toBeVisible();
+  await expect(page.getByText('staff@example.test')).toBeVisible();
+  await page.getByLabel('Email', { exact: true }).fill('new@example.test');
+  await page.getByLabel('Name', { exact: true }).fill('New Staff');
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page.locator('output[aria-label="Temporary password"]')).toHaveText(oneTimeCredential);
+  await page.getByRole('button', { name: 'Dismiss and clear password' }).click();
+  await expect(page.locator('output[aria-label="Temporary password"]')).toHaveCount(0);
+  await page.screenshot({ path: 'design/screenshots/admin-administrators-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.locator('body').evaluate((element) => element.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: 'design/screenshots/admin-administrators-mobile.png', fullPage: true });
+  const accountTable = page.getByRole('region', { name: 'Administrator account table' });
+  await accountTable.focus();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: /^Edit$/ })).toBeFocused();
+  expect(await accountTable.evaluate((element) => element.scrollLeft > 0)).toBe(true);
+});
+
+test('an Admin cannot open Super Admin account management', async ({ page }) => {
+  await mockAuthentication(page, 'ADMIN', true);
+  await page.goto('/admin/administrators');
+  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page.getByRole('heading', { name: 'Administrator accounts' })).toHaveCount(0);
+});
+
+test('a Participant cannot open Super Admin account management', async ({ page }) => {
+  await mockAuthentication(page, 'PARTICIPANT', true);
+  await page.goto('/admin/administrators');
+  await expect(page).toHaveURL(/\/participant$/);
+  await expect(page.getByRole('heading', { name: 'Administrator accounts' })).toHaveCount(0);
+});
+
+test('an anonymous visitor is sent to login before Super Admin account data loads', async ({ page }) => {
+  await mockAuthentication(page);
+  await page.goto('/admin/administrators');
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole('heading', { name: 'Administrator accounts' })).toHaveCount(0);
+});
