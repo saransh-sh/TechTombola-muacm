@@ -5,10 +5,12 @@ import { App } from './App';
 import { queryClient } from './lib/queryClient';
 import { ApiError } from './lib/api/client';
 import * as authApi from './lib/api/auth';
+import * as participantApi from './lib/api/participant';
 import { getAdminDashboard } from './lib/api/adminDashboard';
 import { useAuthUiStore } from './features/auth/authStore';
 
 vi.mock('./lib/api/auth', () => ({ getMe: vi.fn(), login: vi.fn(), logout: vi.fn() }));
+vi.mock('./lib/api/participant', () => ({ getParticipantEvent: vi.fn(), getCurrentRound: vi.fn() }));
 vi.mock('./lib/api/adminDashboard', () => ({ getAdminDashboard: vi.fn() }));
 
 const emptyDashboard = {
@@ -23,6 +25,7 @@ describe('application role routes', () => {
     window.history.replaceState({}, '', '/login');
     vi.clearAllMocks();
     vi.mocked(getAdminDashboard).mockResolvedValue(emptyDashboard);
+    vi.mocked(participantApi.getParticipantEvent).mockRejectedValue(new ApiError(404, 'No event associated'));
   });
 
   it('restores an admin session before showing the protected surface', async () => {
@@ -37,7 +40,7 @@ describe('application role routes', () => {
     vi.mocked(authApi.getMe).mockResolvedValue({ id: 'u1', email: 'a@example.test', name: 'Ari Patel', role: 'PARTICIPANT', status: 'ACTIVE' });
     window.history.replaceState({}, '', '/admin');
     render(<App />);
-    expect(await screen.findByText('Your event ticket is ready.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'No event assigned yet' })).toBeInTheDocument();
   });
 
   it('sends an expired session to the login form without protected-content flash', async () => {

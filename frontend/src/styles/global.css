@@ -9,3 +9,4 @@ button, input { font:inherit; }
 .role-page > header span { margin-left:auto; }
 .role-page > header button { border:1px solid var(--ink); background:transparent; padding:8px 12px; cursor:pointer; }
 .role-page > main { padding:32px; }
+@media(max-width:430px) { .role-page > header { gap:8px; padding:12px; } .role-page > header strong { font-size:13px; } .role-page > header span { font-size:12px; } .role-page > header button { padding:7px 8px; } }

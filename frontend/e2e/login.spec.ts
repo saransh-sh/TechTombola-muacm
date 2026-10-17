@@ -19,6 +19,18 @@ async function mockAuthentication(page: Page, role?: 'PARTICIPANT' | 'ADMIN' | '
     user = null;
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ message: 'Successfully logged out' }) });
   });
+  await page.route('**/api/v1/participant/event', (route) => route.fulfill({
+    status: user?.role === 'PARTICIPANT' ? 200 : 403,
+    contentType: 'application/json',
+    body: JSON.stringify(user?.role === 'PARTICIPANT'
+      ? { event: { id: 'event-1', title: 'Autumn Tombola', description: null, status: 'READY', scheduledAt: null, startedAt: null, completedAt: null, createdAt: '2026-10-17T10:00:00.000Z', updatedAt: '2026-10-17T10:00:00.000Z' } }
+      : { error: { code: 'FORBIDDEN', message: 'Participant access required' } }),
+  }));
+  await page.route('**/api/v1/participant/round/current', (route) => route.fulfill({
+    status: 404,
+    contentType: 'application/json',
+    body: JSON.stringify({ error: { code: 'NOT_FOUND', message: 'No current round' } }),
+  }));
   await page.route('**/api/v1/admin/dashboard', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -117,8 +129,14 @@ test('successful participant login opens the participant route', async ({ page }
   await page.getByLabel('Email address').fill('attendee@example.test');
   await page.getByLabel('Password').fill('password');
   await page.getByRole('button', { name: /sign in/i }).click();
-  await expect(page).toHaveURL(/\/participant$/);
-  await expect(page.getByText('Your event ticket is ready.')).toBeVisible();
+  await expect(page).toHaveURL(/\/participant\/lobby$/);
+  await expect(page.getByRole('heading', { name: /welcome, ari/i })).toBeVisible();
+  await expect(page.getByText('Autumn Tombola')).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: 'design/screenshots/lobby-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.locator('body').evaluate((element) => element.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: 'design/screenshots/lobby-mobile.png', fullPage: true });
 });
 
 test('admin and super admin accounts share the role-gated admin application', async ({ page }) => {
@@ -299,8 +317,8 @@ test('an expired session returns to login without showing protected content', as
 test('a participant cannot enter an admin route', async ({ page }) => {
   await mockAuthentication(page, 'PARTICIPANT', true);
   await page.goto('/admin');
-  await expect(page).toHaveURL(/\/participant$/);
-  await expect(page.getByText('Your event ticket is ready.')).toBeVisible();
+  await expect(page).toHaveURL(/\/participant\/lobby$/);
+  await expect(page.getByRole('heading', { name: /welcome, ari/i })).toBeVisible();
 });
 
 test('login restores the complete protected path, including query and fragment', async ({ page }) => {

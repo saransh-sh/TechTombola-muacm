@@ -17,6 +17,11 @@ import { AdminParticipants } from './features/admin/AdminParticipants';
 import { AdminDrawControl } from './features/admin/AdminDrawControl';
 import { AdminClaims } from './features/admin/AdminClaims';
 import { AdminWinners } from './features/admin/AdminWinners';
+import { ParticipantLobby } from './features/participant/ParticipantLobby';
+import { ParticipantTicket } from './features/participant/ParticipantTicket';
+import { ParticipantGame } from './features/participant/ParticipantGame';
+import { ParticipantClaims } from './features/participant/ParticipantClaims';
+import { ParticipantResults } from './features/participant/ParticipantResults';
 import type { AuthenticatedUser } from './types/auth';
 import './styles/global.css';
 
@@ -34,7 +39,7 @@ function ProtectedLayout({ allowed }: { allowed: AuthenticatedUser['role'][] }) 
   const user = session.data;
   if (!user || !user.role) return <ErrorMessage>We could not identify this account's role. Contact your event administrator.</ErrorMessage>;
   if (!allowed.includes(user.role)) return <Navigate to={roleHomePath(user.role)} replace />;
-  return <div className="role-page"><header><strong>TECH TOMBOLA</strong><span>{user.name}</span><LogoutButton /></header>{user.role === 'PARTICIPANT' && <main><p>Your event ticket is ready.</p></main>}<Outlet context={user} /></div>;
+  return <div className="role-page"><header><strong>TECH TOMBOLA</strong><span>{user.name}</span><LogoutButton /></header><Outlet context={user} /></div>;
 }
 
 function LoginRoute() {
@@ -74,7 +79,14 @@ function LogoutButton() {
 function AppRoutes() {
   return <Routes>
     <Route path="/login" element={<LoginRoute />} />
-    <Route element={<ProtectedLayout allowed={['PARTICIPANT']} />}><Route path="/participant/*" element={<div />} /></Route>
+    <Route element={<ProtectedLayout allowed={['PARTICIPANT']} />}>
+      <Route path="/participant" element={<Navigate to="/participant/lobby" replace />} />
+      <Route path="/participant/lobby" element={<ParticipantLobby />} />
+      <Route path="/participant/ticket" element={<ParticipantTicket />} />
+      <Route path="/participant/game" element={<ParticipantGame />} />
+      <Route path="/participant/claims" element={<ParticipantClaims />} />
+      <Route path="/participant/results" element={<ParticipantResults />} />
+    </Route>
     <Route element={<ProtectedLayout allowed={['ADMIN', 'SUPER_ADMIN']} />}>
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminDashboard />} />

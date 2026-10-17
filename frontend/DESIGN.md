@@ -21,6 +21,10 @@ Reference inspected on 2026-10-17: [Hacktoberfest](https://hacktoberfest.com/), 
 - Claim review, mobile 390px wide: [admin-claim-review-mobile.png](design/screenshots/admin-claim-review-mobile.png)
 - Winner history, desktop 1440px wide: [admin-winner-history-desktop.png](design/screenshots/admin-winner-history-desktop.png)
 - Winner history, mobile 390px wide: [admin-winner-history-mobile.png](design/screenshots/admin-winner-history-mobile.png)
+- Participant lobby, desktop: [lobby-desktop.png](design/screenshots/lobby-desktop.png)
+- Participant lobby, mobile: [lobby-mobile.png](design/screenshots/lobby-mobile.png)
+- Participant Ticket, desktop: [ticket-desktop.png](design/screenshots/ticket-desktop.png)
+- Participant Ticket, mobile: [ticket-mobile.png](design/screenshots/ticket-mobile.png)
 
 The rendered login, dashboard, Event, Round configuration/operations, Draw control, Claim review, Winner history, Question/Key, Participant and CSV import captures use mocked API responses; they document browser rendering, not real backend integration. Round operations display backend-reported Ticket counts and readiness errors. Recovery remains unavailable until the backend publishes a confirmed recovery command. The CSV import response currently omits per-Participant credential-delivery status; the UI points admins to the refreshed Participant list for that status.
 
