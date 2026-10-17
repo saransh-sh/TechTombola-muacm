@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
+import { ApiError } from './api/client';
 import { realtimeEventSchema, type ParticipantDraw, type RealtimeEvent } from '../types/draw';
 
 const MAX_RETRIES = 5;
 const RETRY_BASE_MS = 500;
 const RETRY_MAX_MS = 8000;
 
-export type ConnectionStatus = 'CONNECTING' | 'CONNECTED' | 'RECONNECTING' | 'DISCONNECTED';
+export type ConnectionStatus = 'CONNECTING' | 'SYNCING' | 'CONNECTED' | 'RECONNECTING' | 'DISCONNECTED';
 type LiveDraw = Pick<ParticipantDraw, 'roundId' | 'sequenceNumber' | 'questionText' | 'keyValue' | 'drawnAt'>;
 
 export function participantSocketUrl(roundId: string) {
@@ -26,6 +27,7 @@ export function useParticipantRealtime(enabled: boolean, userId: string, eventId
   useEffect(() => {
     let stopped = false;
     let retries = 0;
+    let syncVersion = 0;
     let socket: WebSocket | undefined;
     let timer: number | undefined;
     if (!enabled) {
@@ -37,20 +39,42 @@ export function useParticipantRealtime(enabled: boolean, userId: string, eventId
     setLive({ scope, draws: [] });
 
     const drawsKey = ['participant', userId, 'draws', eventId, roundId];
+    const assertFresh = (keys: (string | undefined)[][]) => {
+      const failed = keys.some((key) => {
+        const error = queryClient.getQueryState(key)?.error;
+        return error && !(error instanceof ApiError && error.status === 404);
+      });
+      if (failed) throw new Error('A participant snapshot could not be refreshed.');
+    };
     const reconcileDraws = async () => {
       await queryClient.cancelQueries({ queryKey: drawsKey, exact: true });
       await queryClient.refetchQueries({ queryKey: drawsKey, exact: true, type: 'active' });
+      assertFresh([drawsKey]);
     };
-    const reconcile = () => void Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['participant', userId, 'event'] }),
-      queryClient.invalidateQueries({ queryKey: ['participant', userId, 'round', eventId] }),
-      queryClient.invalidateQueries({ queryKey: ['participant', userId, 'ticket', eventId, roundId] }),
-      reconcileDraws(),
-    ]);
-    const reconcileRound = () => void Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['participant', userId, 'round', eventId] }),
-      reconcileDraws(),
-    ]);
+    const reconcile = async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['participant', userId, 'event'] }),
+        queryClient.invalidateQueries({ queryKey: ['participant', userId, 'round', eventId] }),
+        queryClient.invalidateQueries({ queryKey: ['participant', userId, 'ticket', eventId, roundId] }),
+        reconcileDraws(),
+      ]);
+      assertFresh([['participant', userId, 'event'], ['participant', userId, 'round', eventId], ['participant', userId, 'ticket', eventId, roundId], drawsKey]);
+    };
+    const reconcileRound = async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['participant', userId, 'round', eventId] }),
+        reconcileDraws(),
+      ]);
+      assertFresh([['participant', userId, 'round', eventId], drawsKey]);
+    };
+    const synchronize = (work: Promise<unknown>, warning = '') => {
+      const version = ++syncVersion;
+      setConnection({ scope, status: 'SYNCING', warning });
+      void work.then(
+        () => { if (!stopped && socket?.readyState === WebSocket.OPEN && syncVersion === version) setConnection({ scope, status: 'CONNECTED', warning }); },
+        () => { if (!stopped && socket?.readyState === WebSocket.OPEN && syncVersion === version) setConnection({ scope, status: 'DISCONNECTED', warning: 'Current game details could not be refreshed. Reconnect to check again.' }); },
+      );
+    };
 
     const connect = () => {
       if (stopped) return;
@@ -60,14 +84,12 @@ export function useParticipantRealtime(enabled: boolean, userId: string, eventId
       next.onopen = () => {
         if (stopped || socket !== next) return;
         retries = 0;
-        setConnection({ scope, status: 'CONNECTED', warning: '' });
-        reconcile();
+        synchronize(reconcile());
       };
       next.onmessage = (message) => {
         if (stopped || socket !== next) return;
         const unreadable = () => {
-          setConnection({ scope, status: 'CONNECTED', warning: 'A live update could not be read. Checking the server for current details.' });
-          reconcile();
+          synchronize(reconcile(), 'A live update could not be read. Checking the server for current details.');
         };
         if (typeof message.data !== 'string') {
           unreadable();
@@ -81,7 +103,6 @@ export function useParticipantRealtime(enabled: boolean, userId: string, eventId
           return;
         }
         if (event.eventId !== eventId || event.roundId !== roundId) return;
-        setConnection({ scope, status: 'CONNECTED', warning: '' });
         if (event.type === 'DRAW_CREATED') {
           const draw: LiveDraw = { roundId: event.roundId, sequenceNumber: event.payload.sequence, questionText: event.payload.question, keyValue: event.payload.key, drawnAt: event.payload.drawnAt };
           setLive((current) => {
@@ -89,14 +110,17 @@ export function useParticipantRealtime(enabled: boolean, userId: string, eventId
             bySequence.set(draw.sequenceNumber, draw);
             return { scope, draws: [...bySequence.values()].sort((a, b) => a.sequenceNumber - b.sequenceNumber).slice(-100) };
           });
-          reconcileDraws();
+          synchronize(reconcileDraws());
         } else if (event.type.startsWith('ROUND_')) {
-          reconcileRound();
+          synchronize(reconcileRound());
+        } else {
+          setConnection({ scope, status: 'CONNECTED', warning: '' });
         }
       };
       next.onerror = () => next.close();
       next.onclose = () => {
         if (stopped || socket !== next) return;
+        syncVersion += 1;
         retries += 1;
         if (retries > MAX_RETRIES) {
           setConnection({ scope, status: 'DISCONNECTED', warning: '' });

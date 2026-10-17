@@ -19,6 +19,14 @@
 .position,.cellState,.emptyLabel { display:block; font:700 clamp(7px,1vw,9px)/1.2 var(--mono); }
 .position { margin-bottom:5px; color:#52635d; }
 .cellState { margin-top:5px; }
+.markButton { display:block; width:100%; min-height:44px; margin-top:4px; padding:4px 2px; border:1px solid var(--ink); background:#f2c86d; color:var(--ink); font:700 10px/1.1 var(--mono); cursor:pointer; }
+.markButton:disabled { cursor:wait; opacity:.72; }
+.markButton:focus-visible { outline:3px solid #315c53; outline-offset:2px; }
+.pending { background:#f5e7bd; }
+.markSuccess,.markError,.markUncertain { margin:14px 0 0; padding:10px 12px; font:700 11px/1.5 var(--mono); }
+.markSuccess { color:#315c53; background:#edf4e9; }
+.markError,.markUncertain { color:#842e28; background:#f9e5df; }
+.markError button,.markUncertain button { display:block; margin-top:6px; padding:8px 10px; border:1px solid currentColor; background:transparent; color:inherit; font:inherit; cursor:pointer; }
 .statusIcon { display:none; }
 .playable { background:#fff; }
 .marked { color:#fffaf0; background:#315c53; }

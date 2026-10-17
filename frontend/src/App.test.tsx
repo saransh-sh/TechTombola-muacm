@@ -9,16 +9,21 @@ import * as participantApi from './lib/api/participant';
 import * as ticketApi from './lib/api/ticket';
 import * as drawApi from './lib/api/draws';
 
+const realtimeState = vi.hoisted(() => ({ status: 'CONNECTED' as string, warning: '', liveDraws: [] as unknown[], retry: vi.fn() }));
+
 vi.mock('./lib/api/auth', () => ({ getMe: vi.fn(), login: vi.fn(), logout: vi.fn() }));
 vi.mock('./lib/api/participant', () => ({ getParticipantEvent: vi.fn(), getCurrentRound: vi.fn() }));
 vi.mock('./lib/api/ticket', () => ({ getParticipantTicket: vi.fn() }));
 vi.mock('./lib/api/draws', () => ({ getParticipantDraws: vi.fn() }));
-vi.mock('./lib/realtime', () => ({ useParticipantRealtime: () => ({ status: 'CONNECTED', warning: '', liveDraws: [], retry: vi.fn() }) }));
+vi.mock('./lib/realtime', () => ({ useParticipantRealtime: () => realtimeState }));
 
 describe('application role routes', () => {
   afterEach(cleanup);
   beforeEach(() => {
     queryClient.clear();
+    realtimeState.status = 'CONNECTED';
+    realtimeState.warning = '';
+    realtimeState.liveDraws = [];
     window.history.replaceState({}, '', '/login');
     vi.clearAllMocks();
   });

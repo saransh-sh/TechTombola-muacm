@@ -35,6 +35,7 @@ export function ParticipantGame() {
   const history = [...bySequence.values()].sort((a, b) => a.sequenceNumber - b.sequenceNumber);
   const latest = history.at(-1);
   const animateSequence = realtime.liveDraws.at(-1)?.sequenceNumber;
+  const drawnKeys = new Set(history.map((draw) => draw.keyValue));
   const retryDraws = () => void draws.refetch();
 
   return <div className={styles.game}>
@@ -48,7 +49,7 @@ export function ParticipantGame() {
       {latest ? <QuestionCard draw={latest} animate={animateSequence === latest.sequenceNumber} /> : draws.data && <p className={styles.empty}>No questions have been drawn in this round yet.</p>}
       {history.length > 0 && <DrawHistory draws={history} />}
     </section>
-    <ParticipantTicket revealedKey={latest?.keyValue} animateReveal={animateSequence === latest?.sequenceNumber} />
+    <ParticipantTicket revealedKey={latest?.keyValue} animateReveal={animateSequence === latest?.sequenceNumber} drawnKeys={drawnKeys} canMark={round.data?.status === 'ACTIVE' && !round.error && !event.error && realtime.status === 'CONNECTED' && !draws.isFetching && !draws.error} />
   </div>;
 }
 
@@ -61,7 +62,7 @@ function roundStatusNote(status: string) {
 }
 
 function ConnectionIndicator({ status, warning, retry }: { status: ConnectionStatus; warning: string; retry: () => void }) {
-  const labels: Record<ConnectionStatus, string> = { CONNECTING: 'Connecting to live updates', CONNECTED: 'Live updates connected', RECONNECTING: 'Reconnecting to live updates', DISCONNECTED: 'Live updates disconnected' };
+  const labels: Record<ConnectionStatus, string> = { CONNECTING: 'Connecting to live updates', SYNCING: 'Syncing game details', CONNECTED: 'Live updates connected', RECONNECTING: 'Reconnecting to live updates', DISCONNECTED: 'Live updates disconnected' };
   return <div className={styles.connection}><p role="status" data-connection={status}>{labels[status]}</p>{status === 'DISCONNECTED' && <button onClick={retry}>Reconnect</button>}{warning && <p role="alert">{warning}</p>}</div>;
 }
 

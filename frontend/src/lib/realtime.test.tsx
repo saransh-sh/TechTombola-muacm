@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { QueryClient } from '@tanstack/react-query';
 import { participantSocketUrl, useParticipantRealtime } from './realtime';
@@ -25,13 +25,14 @@ function drawEvent(sequence: number, scope = ids.round) {
 }
 
 describe('participant realtime connection', () => {
-  const queryClient = { invalidateQueries: vi.fn().mockResolvedValue(undefined), cancelQueries: vi.fn().mockResolvedValue(undefined), refetchQueries: vi.fn().mockResolvedValue(undefined) } as unknown as QueryClient;
+  const queryClient = { invalidateQueries: vi.fn().mockResolvedValue(undefined), cancelQueries: vi.fn().mockResolvedValue(undefined), refetchQueries: vi.fn().mockResolvedValue(undefined), getQueryState: vi.fn().mockReturnValue(undefined) } as unknown as QueryClient;
   beforeEach(() => {
     FakeWebSocket.instances = [];
     vi.stubGlobal('WebSocket', FakeWebSocket as unknown as typeof WebSocket);
     queryClient.invalidateQueries = vi.fn().mockResolvedValue(undefined);
     queryClient.cancelQueries = vi.fn().mockResolvedValue(undefined);
     queryClient.refetchQueries = vi.fn().mockResolvedValue(undefined);
+    queryClient.getQueryState = vi.fn().mockReturnValue(undefined);
   });
   afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
@@ -40,6 +41,24 @@ describe('participant realtime connection', () => {
     expect(url.protocol).toBe('ws:');
     expect(url.pathname).toBe('/api/v1/ws');
     expect(url.searchParams.get('roundId')).toBe(ids.round);
+  });
+
+  it('keeps marking disabled while the server state is being reconciled', async () => {
+    let finishRefetch!: () => void;
+    queryClient.refetchQueries = vi.fn(() => new Promise<void>((resolve) => { finishRefetch = resolve; }));
+    const { result } = renderHook(() => useParticipantRealtime(true, 'user-1', ids.event, ids.round, queryClient));
+    await act(async () => { FakeWebSocket.instances[0]!.open(); await Promise.resolve(); });
+    expect(result.current.status).toBe('SYNCING');
+    await act(async () => { finishRefetch(); await Promise.resolve(); });
+    expect(result.current.status).toBe('CONNECTED');
+  });
+
+  it('keeps marking disabled and offers reconnect when an authoritative refresh fails', async () => {
+    queryClient.getQueryState = vi.fn((key) => key[2] === 'round' ? ({ error: new Error('offline') }) : undefined) as QueryClient['getQueryState'];
+    const { result } = renderHook(() => useParticipantRealtime(true, 'user-1', ids.event, ids.round, queryClient));
+    await act(async () => { FakeWebSocket.instances[0]!.open(); await Promise.resolve(); });
+    await waitFor(() => expect(result.current.status).toBe('DISCONNECTED'));
+    expect(result.current.warning).toMatch(/reconnect to check again/i);
   });
 
   it('reconciles after subscription and keeps unique in-scope Draws in sequence order', async () => {
@@ -71,6 +90,17 @@ describe('participant realtime connection', () => {
     await act(async () => { socket.open(); await Promise.resolve(); });
     act(() => socket.message({ type: 'ROUND_PAUSED', eventId: ids.event, roundId: ids.round, occurredAt: drawnAt, payload: { status: 'PAUSED' } }));
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['participant', 'user-1', 'round', ids.event] });
+  });
+
+  it('reconciles saved Ticket marks after reconnect', async () => {
+    vi.useFakeTimers();
+    renderHook(() => useParticipantRealtime(true, 'user-1', ids.event, ids.round, queryClient));
+    const first = FakeWebSocket.instances[0]!;
+    act(() => first.close());
+    await act(async () => { vi.advanceTimersByTime(500); });
+    const reconnected = FakeWebSocket.instances[1]!;
+    await act(async () => { reconnected.open(); await Promise.resolve(); });
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['participant', 'user-1', 'ticket', ids.event, ids.round] });
   });
 
   it('backs off reconnect attempts, stops after the retry limit, and lets the user retry', async () => {

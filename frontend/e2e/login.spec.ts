@@ -228,6 +228,44 @@ test('live Draw events reconcile to chronological REST history and matching tick
   expect(await page.locator('body').evaluate((element) => element.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test('marking waits for the server and the confirmed state survives a page refresh', async ({ page }) => {
+  await mockAuthentication(page, 'PARTICIPANT', true);
+  const eventId = '22222222-2222-4222-8222-222222222222';
+  const roundId = '33333333-3333-4333-8333-333333333333';
+  const ticketId = '44444444-4444-4444-8444-444444444444';
+  const cellIds = Array.from({ length: 15 }, (_, index) => `55555555-5555-4555-8555-${String(index + 1).padStart(12, '0')}`);
+  const drawnAt = '2026-10-17T14:00:00.000Z';
+  let marked = false;
+  let markRequests = 0;
+  const cells = cellIds.map((id, index) => ({ id, rowIndex: Math.floor(index / 5), colIndex: index % 5, row: Math.floor(index / 5), column: index % 5, keyId: `key-${index}`, keyValue: index === 0 ? 'DOCKER' : `KEY ${index}`, marked: marked && index === 0 }));
+  await page.route('**/api/v1/participant/event', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ event: { id: eventId, title: 'Autumn Tombola', description: null, status: 'LIVE', scheduledAt: null, startedAt: null, completedAt: null, createdAt: drawnAt, updatedAt: drawnAt } }) }));
+  await page.route('**/api/v1/participant/round/current', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round: { id: roundId, eventId, sequenceNumber: 1, name: 'Opening Round', status: 'ACTIVE', patterns: [], createdAt: drawnAt, updatedAt: drawnAt } }) }));
+  await page.route('**/api/v1/participant/draws?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: '66666666-6666-4666-8666-666666666666', roundId, sequenceNumber: 1, drawMode: 'RANDOM', questionText: 'Which tool packages apps?', keyValue: 'DOCKER', drawnAt }], total: 1, page: 1, limit: 100 }) }));
+  await page.route('**/api/v1/participant/ticket?roundId=*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: { id: ticketId, roundId, participantId: 'participant-1', eventId, createdAt: drawnAt, cells: cells.map((cell) => ({ ...cell, marked: marked && cell.id === cellIds[0] })) } }) }));
+  await page.route('**/api/v1/participant/tickets/*/marks', async (route) => {
+    markRequests += 1;
+    const body = route.request().postDataJSON() as { cellId: string };
+    expect(body).toEqual({ cellId: cellIds[0] });
+    marked = true;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ mark: { id: '77777777-7777-4777-8777-777777777777', ticketId, cellId: cellIds[0], markedAt: drawnAt } }) });
+  });
+  await page.routeWebSocket('**/api/v1/ws?roundId=*', () => {});
+  await page.goto('/participant/game');
+  const mark = page.getByRole('button', { name: 'Mark DOCKER, row 1, column 1' });
+  await expect(mark).toBeEnabled();
+  await mark.click();
+  await expect(page.getByRole('cell', { name: /DOCKER, marked, matches latest revealed key/i })).toHaveAttribute('data-marked', 'true');
+  expect(markRequests).toBe(1);
+  await page.reload();
+  await expect(page.getByRole('cell', { name: /DOCKER, marked, matches latest revealed key/i })).toHaveAttribute('data-marked', 'true');
+  await expect(page.getByRole('button', { name: 'Mark DOCKER, row 1, column 1' })).toHaveCount(0);
+  expect(await page.evaluate(() => Object.keys(localStorage).some((key) => /ticket|mark/i.test(key)))).toBe(false);
+  for (const width of [320, 390, 768]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.locator('body').evaluate((element) => element.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+});
+
 test('a Draw created during the initial snapshot and subscription gap is recovered from REST', async ({ page }) => {
   await mockAuthentication(page, 'PARTICIPANT', true);
   const eventId = '22222222-2222-4222-8222-222222222222';
@@ -269,7 +307,7 @@ test('a Draw created during the initial snapshot and subscription gap is recover
   await page.goto('/participant/game');
   await firstSnapshotStarted;
   draws = [{ id: '00000000-0000-4000-8000-000000000001', roundId, sequenceNumber: 1, drawMode: 'RANDOM', questionText: 'Question between snapshots?', keyValue: 'DOCKER', drawnAt }];
-  await expect(page.getByText('Live updates connected')).toBeVisible();
+  await expect(page.getByText('Syncing game details')).toBeVisible();
   await reconcileSnapshotStarted;
   roundStatus = 'PAUSED';
   socket!.send(JSON.stringify({ type: 'ROUND_PAUSED', eventId, roundId, occurredAt: drawnAt, payload: { status: 'PAUSED' } }));
