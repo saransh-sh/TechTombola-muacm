@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom';
+import { Link, MemoryRouter, Outlet, Route, Routes } from 'react-router-dom';
 import { ApiError } from '../../lib/api/client';
 import { listAdminEvents } from '../../lib/api/adminEvents';
 import { createAdminParticipant, getAdminParticipant, listAdminParticipants, updateAdminParticipant } from '../../lib/api/adminParticipants';
@@ -14,14 +14,16 @@ vi.mock('../../lib/api/adminParticipants', () => ({ createAdminParticipant: vi.f
 
 const admin: AuthenticatedUser = { id: 'admin-1', email: 'admin@example.test', name: 'Admin', role: 'ADMIN', status: 'ACTIVE' };
 const eventId = '0d3aa3e6-4c58-4c36-b363-d5f11640ba52';
+const eventBId = '91c16f5c-7285-4fc2-9954-7043a0d6e5b4';
 const personId = '4d9ec244-a97a-4c8c-a657-1e7fd5b9be69';
 const event = { id: eventId, title: 'Tech Tombola 2026', description: null, status: 'READY' as const, scheduledAt: null, startedAt: null, completedAt: null, createdAt: '2026-10-17T10:00:00.000Z', updatedAt: '2026-10-17T10:00:00.000Z' };
 const participant: AdminParticipant = { id: personId, userId: '8d632d5f-16b1-4292-99e5-0d3628914c2c', eventId, email: 'sam@example.test', name: 'Sam Rivera', externalId: 'E-42', status: 'ACTIVE', emailDeliveryStatus: 'FAILED', createdAt: event.createdAt, updatedAt: event.updatedAt };
 const result = { data: [participant], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } };
 
-function renderPage(initial = `/admin/participants?eventId=${eventId}`) {
+function renderPage(initial = `/admin/participants?eventId=${eventId}`, addScopeSwitch = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 0 } } });
-  return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[initial]}><Routes><Route element={<Outlet context={admin} />}><Route path="/admin/participants" element={<AdminParticipants />} /></Route></Routes></MemoryRouter></QueryClientProvider>);
+  const view = render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[initial]}><Routes><Route element={<Outlet context={admin} />}><Route path="/admin/participants" element={<><AdminParticipants />{addScopeSwitch && <Link to={`/admin/participants?eventId=${eventBId}`}>Switch Event</Link>}</>} /></Route></Routes></MemoryRouter></QueryClientProvider>);
+  return { ...view, client };
 }
 
 describe('Admin Participant management', () => {
@@ -74,6 +76,88 @@ describe('Admin Participant management', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create Participant' }));
     expect(await screen.findByText('Participant created and saved.')).toBeInTheDocument();
     expect(createAdminParticipant).toHaveBeenCalledWith({ eventId, email: 'new@example.test', name: 'New Player', externalId: null });
+  });
+
+  it('does not carry a pending create into a different Event after navigation', async () => {
+    const otherEvent = { ...event, id: eventBId, title: 'Second Event' };
+    vi.mocked(listAdminEvents).mockResolvedValue({ data: [event, otherEvent], pagination: { page: 1, limit: 100, total: 2, totalPages: 1 } });
+    vi.mocked(listAdminParticipants).mockImplementation(async ({ eventId: scopeId }) => scopeId === eventId ? result : { data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 1 } });
+    let finish!: (value: AdminParticipant) => void;
+    vi.mocked(createAdminParticipant).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    renderPage(`/admin/participants?eventId=${eventId}`, true);
+    await screen.findByText('Sam Rivera');
+    fireEvent.click(screen.getByRole('button', { name: 'Add Participant' }));
+    fireEvent.change(screen.getByLabelText('Email', { selector: 'input' }), { target: { value: 'new@example.test' } });
+    fireEvent.change(screen.getByLabelText('Name', { selector: 'input' }), { target: { value: 'New Player' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create Participant' }));
+    await screen.findByRole('button', { name: 'Creating…' });
+    fireEvent.click(screen.getByRole('link', { name: 'Switch Event' }));
+    await screen.findByText('No Participants match this Event and filter.');
+    expect(screen.queryByLabelText('Email')).not.toBeInTheDocument();
+    await act(async () => { finish({ ...participant, id: 'd89d76f6-86a3-4ef6-8c4a-fdbbf1319480' }); });
+    expect(screen.getByRole('combobox', { name: 'Event' })).toHaveValue(eventBId);
+    expect(screen.getByText('Select a Participant or add one to inspect details.')).toBeInTheDocument();
+    expect(screen.queryByText('Participant created and saved.')).not.toBeInTheDocument();
+  });
+
+  it('keeps a late create failure in its original Event scope', async () => {
+    const otherEvent = { ...event, id: eventBId, title: 'Second Event' };
+    vi.mocked(listAdminEvents).mockResolvedValue({ data: [event, otherEvent], pagination: { page: 1, limit: 100, total: 2, totalPages: 1 } });
+    vi.mocked(listAdminParticipants).mockImplementation(async ({ eventId: scopeId }) => scopeId === eventId ? result : { data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 1 } });
+    let fail!: (error: ApiError) => void;
+    vi.mocked(createAdminParticipant).mockReturnValue(new Promise((_resolve, reject) => { fail = reject; }));
+    const { client } = renderPage(`/admin/participants?eventId=${eventId}`, true);
+    await screen.findByText('Sam Rivera');
+    fireEvent.click(screen.getByRole('button', { name: 'Add Participant' }));
+    fireEvent.change(screen.getByLabelText('Email', { selector: 'input' }), { target: { value: 'new@example.test' } });
+    fireEvent.change(screen.getByLabelText('Name', { selector: 'input' }), { target: { value: 'New Player' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create Participant' }));
+    await screen.findByRole('button', { name: 'Creating…' });
+    fireEvent.click(screen.getByRole('link', { name: 'Switch Event' }));
+    await screen.findByText('No Participants match this Event and filter.');
+    await act(async () => { fail(new ApiError(409, 'Conflict')); });
+    expect(screen.queryByText(/already exists in the Event/)).not.toBeInTheDocument();
+    expect(client.getQueryState(['admin-participants', admin.id, eventId, 1, '', ''])?.isInvalidated).toBe(true);
+  });
+
+  it('does not show a stale update result after switching Event during a save', async () => {
+    const otherEvent = { ...event, id: eventBId, title: 'Second Event' };
+    vi.mocked(listAdminEvents).mockResolvedValue({ data: [event, otherEvent], pagination: { page: 1, limit: 100, total: 2, totalPages: 1 } });
+    vi.mocked(listAdminParticipants).mockImplementation(async ({ eventId: scopeId }) => scopeId === eventId ? result : { data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 1 } });
+    let finish!: (value: AdminParticipant) => void;
+    vi.mocked(updateAdminParticipant).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    renderPage(`/admin/participants?eventId=${eventId}&participantId=${personId}`, true);
+    expect(await screen.findByRole('heading', { name: 'Sam Rivera' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Participant' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Sam R.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByRole('button', { name: 'Saving…' });
+    fireEvent.click(screen.getByRole('link', { name: 'Switch Event' }));
+    await screen.findByText('No Participants match this Event and filter.');
+    await act(async () => { finish({ ...participant, name: 'Sam R.' }); });
+    expect(screen.getByRole('combobox', { name: 'Event' })).toHaveValue(eventBId);
+    expect(screen.getByText('Select a Participant or add one to inspect details.')).toBeInTheDocument();
+    expect(screen.queryByText('Participant changes saved.')).not.toBeInTheDocument();
+  });
+
+  it('keeps a late update failure in its original Participant scope', async () => {
+    const otherEvent = { ...event, id: eventBId, title: 'Second Event' };
+    vi.mocked(listAdminEvents).mockResolvedValue({ data: [event, otherEvent], pagination: { page: 1, limit: 100, total: 2, totalPages: 1 } });
+    vi.mocked(listAdminParticipants).mockImplementation(async ({ eventId: scopeId }) => scopeId === eventId ? result : { data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 1 } });
+    let fail!: (error: ApiError) => void;
+    vi.mocked(updateAdminParticipant).mockReturnValue(new Promise((_resolve, reject) => { fail = reject; }));
+    const { client } = renderPage(`/admin/participants?eventId=${eventId}&participantId=${personId}`, true);
+    expect(await screen.findByRole('heading', { name: 'Sam Rivera' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Participant' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Sam R.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByRole('button', { name: 'Saving…' });
+    fireEvent.click(screen.getByRole('link', { name: 'Switch Event' }));
+    await screen.findByText('No Participants match this Event and filter.');
+    await act(async () => { fail(new ApiError(409, 'Conflict')); });
+    expect(screen.queryByText(/already exists in the Event/)).not.toBeInTheDocument();
+    expect(client.getQueryState(['admin-participants', admin.id, eventId, 1, '', ''])?.isInvalidated).toBe(true);
+    expect(client.getQueryState(['admin-participants', admin.id, eventId, 'detail', personId])?.isInvalidated).toBe(true);
   });
 
   it('does not offer a password field in Participant creation', async () => {

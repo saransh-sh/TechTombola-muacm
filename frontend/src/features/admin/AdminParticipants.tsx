@@ -34,6 +34,8 @@ export function AdminParticipants() {
   const search = params.get('search') ?? '';
   const status = params.get('status') ?? '';
   const queryClient = useQueryClient();
+  const latestParams = useRef(params);
+  latestParams.current = params;
   const [searchDraft, setSearchDraft] = useState(search);
   const [form, setForm] = useState({ email: '', name: '', externalId: '' });
   const [editForm, setEditForm] = useState({ name: '', externalId: '' });
@@ -53,6 +55,7 @@ export function AdminParticipants() {
   });
 
   useEffect(() => { setSearchDraft(search); }, [search]);
+  useEffect(() => { setCreating(false); setEditing(false); setForm({ email: '', name: '', externalId: '' }); setMessage(''); }, [eventId]);
   useEffect(() => {
     const identity = `${eventId}:${participantId}`;
     if (!detail.data || detail.data.id !== participantId || detail.data.eventId !== eventId || formIdentity.current === identity) return;
@@ -63,22 +66,24 @@ export function AdminParticipants() {
 
   const create = useMutation({
     mutationFn: (input: CreateAdminParticipant) => createAdminParticipant(input),
-    onSuccess: async (saved) => {
+    onSuccess: async (saved, variables) => {
       queryClient.setQueryData(detailKey(user.id, saved.eventId, saved.id), saved);
       await queryClient.invalidateQueries({ queryKey: ['admin-participants', user.id, saved.eventId] });
-      setParams((current) => { const next = new URLSearchParams(current); next.set('participantId', saved.id); next.set('page', '1'); return next; });
+      if (latestParams.current.get('eventId') !== variables.eventId) return;
+      setParams((current) => { const next = new URLSearchParams(current); next.set('participantId', saved.id); next.set('page', '1'); next.delete('search'); next.delete('status'); return next; });
       setCreating(false); setForm({ email: '', name: '', externalId: '' }); setMessage('Participant created and saved.');
     },
-    onError: async (error) => { setMessage(requestError(error, 'We could not confirm whether the Participant was created. Refresh the list before retrying.')); await queryClient.invalidateQueries({ queryKey: ['admin-participants', user.id, eventId] }); },
+    onError: async (error, variables) => { if (latestParams.current.get('eventId') === variables.eventId) setMessage(requestError(error, 'We could not confirm whether the Participant was created. Refresh the list before retrying.')); await queryClient.invalidateQueries({ queryKey: ['admin-participants', user.id, variables.eventId] }); },
   });
   const update = useMutation({
-    mutationFn: ({ id, input }: { id: string; input: UpdateAdminParticipant }) => updateAdminParticipant(id, input),
-    onSuccess: async (saved) => {
+    mutationFn: ({ id, input }: { eventId: string; id: string; input: UpdateAdminParticipant }) => updateAdminParticipant(id, input),
+    onSuccess: async (saved, variables) => {
       queryClient.setQueryData(detailKey(user.id, saved.eventId, saved.id), saved);
       await queryClient.invalidateQueries({ queryKey: ['admin-participants', user.id, saved.eventId] });
+      if (latestParams.current.get('eventId') !== variables.eventId || latestParams.current.get('participantId') !== variables.id) return;
       setEditForm({ name: saved.name, externalId: saved.externalId ?? '' }); setEditing(false); setMessage('Participant changes saved.');
     },
-    onError: async (error, variables) => { setMessage(requestError(error, 'We could not confirm the saved Participant state. The latest record has been requested; review it before retrying.')); await Promise.all([queryClient.invalidateQueries({ queryKey: detailKey(user.id, eventId, variables.id) }), queryClient.invalidateQueries({ queryKey: ['admin-participants', user.id, eventId] })]); },
+    onError: async (error, variables) => { if (latestParams.current.get('eventId') === variables.eventId && latestParams.current.get('participantId') === variables.id) setMessage(requestError(error, 'We could not confirm the saved Participant state. The latest record has been requested; review it before retrying.')); await Promise.all([queryClient.invalidateQueries({ queryKey: detailKey(user.id, variables.eventId, variables.id) }), queryClient.invalidateQueries({ queryKey: ['admin-participants', user.id, variables.eventId] })]); },
   });
   const pending = create.isPending || update.isPending;
   const selected = detail.data?.eventId === eventId && detail.data.id === participantId && participants.data?.data.some((person) => person.id === participantId && person.eventId === eventId) ? detail.data : undefined;
@@ -92,11 +97,11 @@ export function AdminParticipants() {
   }
   function submitSearch(event: React.FormEvent<HTMLFormElement>) { event.preventDefault(); changeParam('search', searchDraft.trim(), true); }
   function submitCreate(event: React.FormEvent<HTMLFormElement>) { event.preventDefault(); if (!eventId) return; setMessage(''); create.mutate({ eventId, email: form.email, name: form.name, externalId: form.externalId || null }); }
-  function submitUpdate(event: React.FormEvent<HTMLFormElement>) { event.preventDefault(); if (!selected) return; setMessage(''); update.mutate({ id: selected.id, input: { name: editForm.name, externalId: editForm.externalId || null } }); }
+  function submitUpdate(event: React.FormEvent<HTMLFormElement>) { event.preventDefault(); if (!selected) return; setMessage(''); update.mutate({ eventId, id: selected.id, input: { name: editForm.name, externalId: editForm.externalId || null } }); }
   function changeStatus(nextStatus: AdminParticipant['status']) {
     if (!selected) return;
     if (nextStatus === 'INACTIVE' && !window.confirm(`Deactivate ${selected.name}? Their current sessions will be revoked.`)) return;
-    setMessage(''); update.mutate({ id: selected.id, input: { status: nextStatus } });
+    setMessage(''); update.mutate({ eventId, id: selected.id, input: { status: nextStatus } });
   }
 
   const listError = requestError(participants.error, 'We could not load Participants. Check your connection and try again.');
