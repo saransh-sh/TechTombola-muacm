@@ -10,6 +10,7 @@ import { queryClient } from './lib/queryClient';
 import { ErrorMessage, LoadingMessage } from './components/Feedback';
 import { AdminDashboard } from './features/admin/AdminDashboard';
 import { AdminLayout, AdminSectionPlaceholder } from './features/admin/AdminLayout';
+import { AdminEventManagement } from './features/admin/AdminEventManagement';
 import type { AuthenticatedUser } from './types/auth';
 import './styles/global.css';
 
@@ -71,7 +72,8 @@ function AppRoutes() {
     <Route element={<ProtectedLayout allowed={['ADMIN', 'SUPER_ADMIN']} />}>
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminDashboard />} />
-        <Route path="events" element={<AdminSectionPlaceholder />} />
+        <Route path="event" element={<AdminEventManagement />} />
+        <Route path="events" element={<Navigate to="/admin/event" replace />} />
         <Route path="rounds" element={<AdminSectionPlaceholder />} />
         <Route path="questions" element={<AdminSectionPlaceholder />} />
         <Route path="participants" element={<AdminSectionPlaceholder />} />
