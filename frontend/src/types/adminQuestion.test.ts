@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createAdminKeySchema, createAdminQuestionSchema, adminKeySchema, adminQuestionSchema } from './adminQuestion';
+import { createAdminKeySchema, createAdminQuestionSchema, adminKeyListSchema, adminKeySchema, adminQuestionListSchema, adminQuestionSchema } from './adminQuestion';
 
 const eventId = '91c16f5c-7285-4fc2-9954-7043a0d6e5b4';
 const roundId = '0d3aa3e6-4c58-4c36-b363-d5f11640ba52';
@@ -11,6 +11,13 @@ describe('admin Question and Key contracts', () => {
     expect(adminKeySchema.parse({ id: keyId, eventId, value: 'DOCKER', normalizedValue: 'DOCKER', ...dates }).value).toBe('DOCKER');
     expect(adminQuestionSchema.parse({ id: 'a4a85404-a3d6-4da6-9b21-ccfc6a11e713', roundId, keyId, keyValue: 'DOCKER', questionText: '<script>clue</script>', ...dates }).questionText).toContain('<script>');
     expect(() => adminKeySchema.parse({ id: keyId, eventId, value: 'DOCKER', normalizedValue: 'DOCKER', ...dates, createdAt: 'bad' })).toThrow();
+  });
+
+  it('accepts server-owned usage, editability, and applied-filter evidence', () => {
+    const key = { id: keyId, eventId, value: 'DOCKER', normalizedValue: 'DOCKER', used: true, canEdit: false, ...dates };
+    const question = { id: 'a4a85404-a3d6-4da6-9b21-ccfc6a11e713', roundId, keyId, keyValue: 'DOCKER', questionText: 'What runs containers?', used: false, canEdit: true, ...dates };
+    expect(adminKeyListSchema.parse({ data: [key], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 }, filters: { search: 'docker', used: true } }).data[0].canEdit).toBe(false);
+    expect(adminQuestionListSchema.parse({ data: [question], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 }, filters: { search: null, used: false } }).data[0].used).toBe(false);
   });
 
   it('trims inputs and enforces backend Key and Question bounds', () => {

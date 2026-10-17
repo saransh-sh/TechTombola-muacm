@@ -21,6 +21,14 @@ describe('admin Question and Key API', () => {
     await listAdminQuestions({ roundId });
     expect(apiRequest).toHaveBeenLastCalledWith(`/admin/questions?roundId=${roundId}&page=1&limit=20`, { signal: undefined });
   });
+  it('sends global search and authoritative usage filters to the server before pagination', async () => {
+    vi.mocked(apiRequest).mockResolvedValue({ data: [key], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 }, filters: { search: 'DOCKER', used: false } });
+    await listAdminKeys({ eventId, page: 1, limit: 20, search: 'DOCKER', used: false });
+    expect(apiRequest).toHaveBeenCalledWith(`/admin/keys?eventId=${eventId}&page=1&limit=20&search=DOCKER&used=false`, { signal: undefined });
+    vi.mocked(apiRequest).mockResolvedValue({ data: [question], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 }, filters: { search: 'container', used: true } });
+    await listAdminQuestions({ roundId, search: 'container', used: true });
+    expect(apiRequest).toHaveBeenLastCalledWith(`/admin/questions?roundId=${roundId}&page=1&limit=20&search=container&used=true`, { signal: undefined });
+  });
   it('uses documented create, update, and delete contracts', async () => {
     vi.mocked(apiRequest).mockResolvedValue({ key });
     await createAdminKey({ eventId, value: 'DOCKER' });

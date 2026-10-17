@@ -2,8 +2,10 @@ import { apiRequest } from './client';
 import { adminKeyListSchema, adminKeySchema, adminQuestionListSchema, adminQuestionSchema, createAdminKeySchema, createAdminQuestionSchema, updateAdminKeySchema, updateAdminQuestionSchema } from '../../types/adminQuestion';
 import type { CreateAdminKey, CreateAdminQuestion, UpdateAdminKey, UpdateAdminQuestion } from '../../types/adminQuestion';
 
-export async function listAdminKeys({ eventId, page = 1, limit = 20, signal }: { eventId: string; page?: number; limit?: number; signal?: AbortSignal }) {
+export async function listAdminKeys({ eventId, page = 1, limit = 20, search, used, signal }: { eventId: string; page?: number; limit?: number; search?: string; used?: boolean; signal?: AbortSignal }) {
   const query = new URLSearchParams({ eventId, page: String(page), limit: String(limit) });
+  if (search) query.set('search', search);
+  if (used !== undefined) query.set('used', String(used));
   return adminKeyListSchema.parse(await apiRequest(`/admin/keys?${query}`, { signal }));
 }
 
@@ -24,8 +26,10 @@ export async function updateAdminKey(id: string, input: UpdateAdminKey, signal?:
   return adminKeySchema.parse(response?.key);
 }
 
-export async function listAdminQuestions({ roundId, page = 1, limit = 20, signal }: { roundId: string; page?: number; limit?: number; signal?: AbortSignal }) {
+export async function listAdminQuestions({ roundId, page = 1, limit = 20, search, used, signal }: { roundId: string; page?: number; limit?: number; search?: string; used?: boolean; signal?: AbortSignal }) {
   const query = new URLSearchParams({ roundId, page: String(page), limit: String(limit) });
+  if (search) query.set('search', search);
+  if (used !== undefined) query.set('used', String(used));
   return adminQuestionListSchema.parse(await apiRequest(`/admin/questions?${query}`, { signal }));
 }
 

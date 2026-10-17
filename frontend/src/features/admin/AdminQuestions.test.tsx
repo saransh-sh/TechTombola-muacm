@@ -61,6 +61,35 @@ describe('Admin Questions and Keys', () => {
     expect(listAdminKeys).toHaveBeenCalledWith(expect.objectContaining({ eventId, page: 1, limit: 20 }));
     expect(listAdminQuestions).toHaveBeenCalledWith(expect.objectContaining({ roundId, page: 1, limit: 20 }));
   });
+  it('sends full-scope Key and Round Question search filters to the backend and resets pagination', async () => {
+    renderPage(`/admin/questions?eventId=${eventId}&roundId=${roundId}&keyPage=2&questionPage=3`);
+    await screen.findByText('What runs containers?');
+    fireEvent.change(screen.getByLabelText('Search all Event Keys'), { target: { value: 'docker' } });
+    fireEvent.change(within(screen.getByRole('search', { name: 'Search Event Keys' })).getByLabelText('Usage'), { target: { value: 'false' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search Keys' }));
+    await screen.findByText(/The server did not confirm these filters/);
+    expect(listAdminKeys).toHaveBeenLastCalledWith(expect.objectContaining({ eventId, page: 1, search: 'docker', used: false }));
+    fireEvent.change(screen.getByLabelText('Search all Questions in this Round'), { target: { value: 'container clue' } });
+    fireEvent.change(within(screen.getByRole('search', { name: 'Search Round Questions' })).getByLabelText('Usage'), { target: { value: 'true' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Search Questions' }));
+    expect(listAdminQuestions).toHaveBeenLastCalledWith(expect.objectContaining({ roundId, page: 1, search: 'container clue', used: true }));
+  });
+  it('does not claim filtered empty results when the server omits filter confirmation', async () => {
+    vi.mocked(listAdminKeys).mockResolvedValue(page([]));
+    vi.mocked(listAdminQuestions).mockResolvedValue(page([]));
+    renderPage(`/admin/questions?eventId=${eventId}&roundId=${roundId}&keySearch=DOCKER&questionSearch=container`);
+    expect(await screen.findByText('No Keys returned on this page; filter application is unconfirmed.')).toBeInTheDocument();
+    expect(await screen.findByText('No Questions returned on this page; filter application is unconfirmed.')).toBeInTheDocument();
+    expect(screen.queryByText('No Keys match these filters.')).not.toBeInTheDocument();
+    expect(screen.queryByText('No Questions match these filters.')).not.toBeInTheDocument();
+  });
+  it('shows server-confirmed usage and disables edits the backend says are locked', async () => {
+    vi.mocked(listAdminKeys).mockResolvedValue({ data: [{ ...key, used: true, canEdit: false }], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 }, filters: { search: 'DOC', used: true } });
+    renderPage(`/admin/questions?eventId=${eventId}&roundId=${roundId}&keySearch=DOC&keyUsed=true`);
+    await screen.findByText('Used · Locked');
+    expect(screen.getByRole('button', { name: 'Edit Key' })).toBeDisabled();
+    expect(screen.queryByText(/The server did not confirm these filters/)).not.toBeInTheDocument();
+  });
   it('creates and edits a Key through its Event-scoped form', async () => {
     renderPage();
     await screen.findByText('DOCKER');
@@ -195,12 +224,18 @@ describe('Admin Questions and Keys', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
     expect(await screen.findByText('Question is immutable after round start')).toBeInTheDocument();
   });
-  it('keeps Question editing locked when the server Round is no longer DRAFT', async () => {
+  it('lets the backend decide Question permissions after a Round leaves DRAFT', async () => {
     vi.mocked(getAdminRound).mockResolvedValue({ id: roundId, eventId, sequenceNumber: 1, name: 'Opening round', status: 'READY', patterns: [], ...dates });
+    vi.mocked(createAdminQuestion).mockRejectedValue(new ApiError(409, 'Round is not configurable'));
     renderPage();
-    expect(await screen.findByText('Question configuration is locked after the Round reaches READY.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Add Question' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: /^Edit$/ })).not.toBeInTheDocument();
+    await screen.findByText('Round 1: Opening round · READY');
+    expect(screen.getByRole('button', { name: 'Add Question' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Add Question' }));
+    fireEvent.change(screen.getByLabelText('Key'), { target: { value: keyId } });
+    fireEvent.change(screen.getByLabelText('Question text'), { target: { value: 'Which tool packages containers?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save association' }));
+    expect(await screen.findByText('Round is not configurable')).toBeInTheDocument();
+    expect(createAdminQuestion).toHaveBeenCalledWith({ roundId, keyId, questionText: 'Which tool packages containers?' });
   });
   it('does not show cached Questions when the selected Round belongs to another Event', async () => {
     renderPage(`/admin/questions?eventId=${eventB}&roundId=${roundId}`, eventId);
@@ -234,9 +269,5 @@ describe('Admin Questions and Keys', () => {
     expect(await screen.findByText('Your account cannot manage Keys.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Retry Keys' }));
     expect(await screen.findAllByText('DOCKER')).toHaveLength(2);
-  });
-  it('communicates that dataset search and authoritative used state require G02', async () => {
-    renderPage();
-    expect(await screen.findByText(/Dataset-wide search and authoritative used-state filters are pending the G02 contract decision/)).toBeInTheDocument();
   });
 });
