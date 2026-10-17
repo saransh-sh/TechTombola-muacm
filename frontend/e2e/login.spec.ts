@@ -356,3 +356,25 @@ test('Claim review confirms server adjudication and shows persisted status on de
   await expect(page.getByText('VERIFIED').first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Verify Claim' })).toHaveCount(0);
 });
+
+test('Admin Winner history shows server records on desktop and mobile', async ({ page }) => {
+  await mockAuthentication(page, 'ADMIN', true);
+  await page.route('**/api/v1/admin/winners?*', async (route) => {
+    const url = new URL(route.request().url());
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{
+      id: 'd89d76f6-86a3-4ef6-8c4a-fdbbf1319480', claimId: '76ab2634-5973-4bbb-b28d-6c19bcf953a1',
+      participantId: '8d632d5f-16b1-4292-99e5-0d3628914c2c', roundId: '0d3aa3e6-4c58-4c36-b363-d5f11640ba52',
+      eventId: '91c16f5c-7285-4fc2-9954-7043a0d6e5b4', patternType: 'EARLY_5', participantName: 'Sam Rivera',
+      eventTitle: 'Tech Tombola 2026', verifiedAt: '2026-10-17T10:05:00.000Z',
+    }], total: 1, page: Number(url.searchParams.get('page') ?? 1), limit: Number(url.searchParams.get('limit') ?? 20) }) });
+  });
+  await page.goto('/admin/winners');
+  await expect(page.getByRole('heading', { name: 'Winner history' })).toBeVisible();
+  await expect(page.getByRole('table')).toContainText('Sam Rivera');
+  await expect(page.getByRole('table')).toContainText('Tech Tombola 2026');
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: 'design/screenshots/admin-winner-history-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: 'design/screenshots/admin-winner-history-mobile.png', fullPage: true });
+});

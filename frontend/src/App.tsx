@@ -16,6 +16,7 @@ import { AdminQuestions } from './features/admin/AdminQuestions';
 import { AdminParticipants } from './features/admin/AdminParticipants';
 import { AdminDrawControl } from './features/admin/AdminDrawControl';
 import { AdminClaims } from './features/admin/AdminClaims';
+import { AdminWinners } from './features/admin/AdminWinners';
 import type { AuthenticatedUser } from './types/auth';
 import './styles/global.css';
 
@@ -84,7 +85,7 @@ function AppRoutes() {
         <Route path="participants" element={<AdminParticipants />} />
         <Route path="draw-control" element={<AdminDrawControl />} />
         <Route path="claims" element={<AdminClaims />} />
-        <Route path="winners" element={<AdminSectionPlaceholder />} />
+        <Route path="winners" element={<AdminWinners />} />
         <Route path="audit" element={<AdminSectionPlaceholder />} />
         <Route path="system" element={<AdminSectionPlaceholder />} />
       </Route>

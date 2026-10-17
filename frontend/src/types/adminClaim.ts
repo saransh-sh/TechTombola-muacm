@@ -37,6 +37,18 @@ export const adminWinnerSchema = z.object({
   verifiedAt: z.string().datetime({ offset: true }),
 });
 
+export const adminWinnerListRowSchema = adminWinnerSchema.extend({
+  participantName: z.string().min(1),
+  eventTitle: z.string().min(1),
+});
+
+export const adminWinnerListSchema = z.object({
+  data: z.array(adminWinnerListRowSchema),
+  total: z.number().int().nonnegative(),
+  page: z.number().int().positive(),
+  limit: z.number().int().positive(),
+});
+
 export const verifyAdminClaimResponseSchema = z.object({ winner: adminWinnerSchema });
 export const rejectAdminClaimResponseSchema = z.object({
   claim: z.object({ id: z.string().uuid(), status: z.literal('REJECTED'), rejectionReason: z.string().min(1) }),
@@ -44,3 +56,4 @@ export const rejectAdminClaimResponseSchema = z.object({
 
 export type AdminClaim = z.infer<typeof adminClaimSchema>;
 export type AdminClaimList = z.infer<typeof adminClaimListSchema>;
+export type AdminWinner = z.infer<typeof adminWinnerListRowSchema>;
