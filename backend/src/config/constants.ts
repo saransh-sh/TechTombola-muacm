@@ -1,6 +1,7 @@
 export const API_PREFIX = '/api/v1';
 
 export const REQUEST_ID_HEADER = 'x-request-id';
+export const WEBSOCKET_MAX_PAYLOAD_BYTES = 64 * 1024;
 
 export const ERROR_CODES = {
   BAD_REQUEST: 'BAD_REQUEST',

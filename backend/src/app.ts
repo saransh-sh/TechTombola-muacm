@@ -5,7 +5,7 @@ import websocket from '@fastify/websocket';
 import multipart from '@fastify/multipart';
 import { ZodError } from 'zod';
 import { getEnv } from './config/env.ts';
-import { REQUEST_ID_HEADER, ERROR_CODES } from './config/constants.ts';
+import { REQUEST_ID_HEADER, ERROR_CODES, WEBSOCKET_MAX_PAYLOAD_BYTES } from './config/constants.ts';
 import { normalizeRequestId } from './shared/utils/request-id.ts';
 import { AppError } from './shared/errors/app-error.ts';
 import { createAppRoutes } from './routes/index.ts';
@@ -77,7 +77,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     secret: env.SESSION_SECRET,
     hook: 'onRequest',
   });
-  await app.register(websocket);
+  await app.register(websocket, { options: { maxPayload: WEBSOCKET_MAX_PAYLOAD_BYTES } });
 
   // Enable Multipart File Upload
   await app.register(multipart, {

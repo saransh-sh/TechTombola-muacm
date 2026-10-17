@@ -34,7 +34,8 @@ export function verifyMutationOrigin(request: FastifyRequest): void {
       ];
 
       if (!allowed.includes('*') && !allowed.includes(origin)) {
-        throw new ForbiddenError(`Invalid request origin: '${origin}'`);
+        // Do not reflect attacker-controlled Origin values into API responses or logs.
+        throw new ForbiddenError('Invalid request origin');
       }
     }
   }
