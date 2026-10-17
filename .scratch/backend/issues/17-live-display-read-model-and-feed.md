@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_live_display_api`
 
-**Status:** in-progress
+**Status:** done
 
 ## Scope and contracts
 
