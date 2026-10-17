@@ -5,8 +5,16 @@ import { App } from './App';
 import { queryClient } from './lib/queryClient';
 import { ApiError } from './lib/api/client';
 import * as authApi from './lib/api/auth';
+import { getAdminDashboard } from './lib/api/adminDashboard';
+import { useAuthUiStore } from './features/auth/authStore';
 
 vi.mock('./lib/api/auth', () => ({ getMe: vi.fn(), login: vi.fn(), logout: vi.fn() }));
+vi.mock('./lib/api/adminDashboard', () => ({ getAdminDashboard: vi.fn() }));
+
+const emptyDashboard = {
+  event: null, round: null, participants: 0, connectedConnections: 0, drawCount: 0,
+  pendingClaims: 0, verifiedWinners: 0, recoveryRequired: false, systemStatus: 'operational' as const,
+};
 
 describe('application role routes', () => {
   afterEach(cleanup);
@@ -14,13 +22,14 @@ describe('application role routes', () => {
     queryClient.clear();
     window.history.replaceState({}, '', '/login');
     vi.clearAllMocks();
+    vi.mocked(getAdminDashboard).mockResolvedValue(emptyDashboard);
   });
 
   it('restores an admin session before showing the protected surface', async () => {
     vi.mocked(authApi.getMe).mockResolvedValue({ id: 'u1', email: 'a@example.test', name: 'Ari Patel', role: 'ADMIN', status: 'ACTIVE' });
     window.history.replaceState({}, '', '/admin');
     render(<App />);
-    expect(await screen.findByText('Admin access.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Operations dashboard' })).toBeInTheDocument();
     expect(authApi.getMe).toHaveBeenCalledOnce();
   });
 
@@ -36,7 +45,7 @@ describe('application role routes', () => {
     window.history.replaceState({}, '', '/admin/rounds');
     render(<App />);
     expect(await screen.findByRole('button', { name: /sign in/i })).toBeInTheDocument();
-    expect(screen.queryByText('Admin access.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Operations dashboard' })).not.toBeInTheDocument();
     expect(authApi.getMe).toHaveBeenCalled();
   });
 
@@ -62,9 +71,23 @@ describe('application role routes', () => {
     queryClient.setQueryData(['private', 'test'], 'sensitive');
     window.history.replaceState({}, '', '/admin');
     render(<App />);
-    await screen.findByText('Admin access.');
+    await screen.findByRole('heading', { name: 'Operations dashboard' });
     screen.getByRole('button', { name: 'Sign out' }).click();
     await waitFor(() => expect(queryClient.getQueryData(['private', 'test'])).toBeUndefined());
     expect(authApi.logout).toHaveBeenCalledOnce();
+  });
+
+  it('expires an Admin session when the dashboard endpoint returns 401', async () => {
+    const sessionVersion = useAuthUiStore.getState().sessionVersion;
+    vi.mocked(authApi.getMe).mockRejectedValue(new ApiError(401, 'Authentication required')).mockResolvedValueOnce({ id: 'u1', email: 'a@example.test', name: 'Ari Patel', role: 'ADMIN', status: 'ACTIVE' });
+    vi.mocked(getAdminDashboard).mockRejectedValue(new ApiError(401, 'Authentication required'));
+    queryClient.setQueryData(['private', 'admin-dashboard'], 'cached admin data');
+    window.history.replaceState({}, '', '/admin');
+    render(<App />);
+    await waitFor(() => expect(getAdminDashboard).toHaveBeenCalled());
+    await waitFor(() => expect(useAuthUiStore.getState().sessionVersion).toBe(sessionVersion + 1));
+    expect(window.location.pathname).toBe('/login');
+    expect(await screen.findByRole('button', { name: /sign in/i })).toBeInTheDocument();
+    await waitFor(() => expect(queryClient.getQueryData(['private', 'admin-dashboard'])).toBeUndefined());
   });
 });

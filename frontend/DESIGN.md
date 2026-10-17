@@ -6,8 +6,10 @@ Reference inspected on 2026-10-17: [Hacktoberfest](https://hacktoberfest.com/), 
 - Mobile reference: [hacktoberfest-2026-10-17-mobile.png](design/reference/hacktoberfest-2026-10-17-mobile.png)
 - Rendered login, desktop 1440×1000: [login-desktop.png](design/screenshots/login-desktop.png)
 - Rendered login, mobile 390×844: [login-mobile.png](design/screenshots/login-mobile.png)
+- Admin dashboard, desktop 1440×1000: [admin-dashboard-desktop.png](design/screenshots/admin-dashboard-desktop.png)
+- Admin dashboard, tablet 1024×900: [admin-dashboard-tablet.png](design/screenshots/admin-dashboard-tablet.png)
 
-The rendered login captures use a mocked unauthenticated `/me` response; real backend authentication was unavailable on the integration base.
+The rendered login and dashboard captures use mocked API responses; they document browser rendering, not real backend integration.
 
 ## Tokens
 
