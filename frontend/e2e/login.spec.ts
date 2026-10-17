@@ -29,6 +29,22 @@ async function mockAuthentication(page: Page, role?: 'PARTICIPANT' | 'ADMIN' | '
       verifiedWinners: 4, recoveryRequired: false, systemStatus: 'operational',
     }),
   }));
+  const event = {
+    id: '0d3aa3e6-4c58-4c36-b363-d5f11640ba52', title: 'Tech Tombola 2026', description: 'Annual event', status: 'READY',
+    scheduledAt: null, startedAt: null, completedAt: null,
+    createdAt: '2026-10-17T10:00:00.000Z', updatedAt: '2026-10-17T10:00:00.000Z',
+  };
+  await page.route('**/api/v1/admin/events?*', (route) => route.fulfill({
+    status: route.request().method() === 'POST' ? 201 : 200,
+    contentType: 'application/json',
+    body: JSON.stringify(route.request().method() === 'POST'
+      ? { event: { ...event, title: route.request().postDataJSON().title, status: 'DRAFT' } }
+      : { data: [event], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } }),
+  }));
+  await page.route('**/api/v1/admin/events/*', (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ event: route.request().method() === 'PATCH' ? { ...event, ...route.request().postDataJSON() } : event }),
+  }));
 }
 
 test('login screen exposes labelled credentials and accessible validation', async ({ page }) => {
@@ -96,8 +112,14 @@ test('admin dashboard shows operational metrics and keyboard navigation at table
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Dashboard' })).toBeFocused();
   await page.getByRole('link', { name: 'Event' }).click();
-  await expect(page).toHaveURL(/\/admin\/events$/);
+  await expect(page).toHaveURL(/\/admin\/event$/);
   await expect(page.getByRole('heading', { name: 'Event management' })).toBeVisible();
+  await page.getByRole('button', { name: /Tech Tombola 2026/ }).click();
+  await expect(page.getByText('Annual event')).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: 'design/screenshots/admin-event-management-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
 test('an expired session returns to login without showing protected content', async ({ page }) => {

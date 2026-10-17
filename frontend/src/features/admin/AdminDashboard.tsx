@@ -1,4 +1,4 @@
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
 import { ApiError } from '../../lib/api/client';
 import type { AuthenticatedUser } from '../../types/auth';
 import type { AdminDashboardData } from '../../types/adminDashboard';
@@ -13,7 +13,7 @@ function Metric({ label, value }: { label: string; value: number }) {
   return <div className={styles.metric}><dt>{label}</dt><dd>{value.toLocaleString()}</dd></div>;
 }
 
-function DashboardContent({ data }: { data: AdminDashboardData }) {
+function DashboardContent({ data, search }: { data: AdminDashboardData; search: string }) {
   return <>
     {data.recoveryRequired && <p className={styles.recovery} role="alert">Recovery is required for the active Round. Review the Round before resuming operations.</p>}
     <section className={styles.summary} aria-label="Event and active Round">
@@ -39,7 +39,7 @@ function DashboardContent({ data }: { data: AdminDashboardData }) {
       <section className={styles.section} aria-labelledby="round-overview-title">
         <h2 id="round-overview-title">Round overview</h2>
         {data.round ? <div className={styles.round}><div><strong>{data.round.name}</strong><span>Sequence {data.round.sequenceNumber}</span></div><span className={styles.status}>{statusName(data.round.status)}</span></div> : <p>No Round is configured for the live Event.</p>}
-        <div className={styles.actions}><Link className={styles.action} to="/admin/rounds">Open Rounds</Link><Link className={styles.action} to="/admin/claims">Review claims</Link></div>
+        <div className={styles.actions}><Link className={styles.action} to={{ pathname: '/admin/rounds', search }}>Open Rounds</Link><Link className={styles.action} to={{ pathname: '/admin/claims', search }}>Review claims</Link></div>
       </section>
       <section className={styles.section} aria-labelledby="system-status-title">
         <h2 id="system-status-title">System status</h2>
@@ -52,6 +52,8 @@ function DashboardContent({ data }: { data: AdminDashboardData }) {
 
 export function AdminDashboard() {
   const user = useOutletContext<AuthenticatedUser>();
+  const [searchParams] = useSearchParams();
+  const search = searchParams.toString() ? `?${searchParams}` : '';
   const dashboard = useAdminDashboard(user.id);
   const errorText = dashboard.error instanceof ApiError && dashboard.error.status === 403
     ? 'Your account cannot view operational metrics.'
@@ -62,6 +64,6 @@ export function AdminDashboard() {
     <header className={styles.heading}><h1>Operations dashboard</h1><p className={styles.updated}>{dashboard.dataUpdatedAt ? `Updated ${new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(dashboard.dataUpdatedAt)}` : 'Live operational snapshot'}</p></header>
     {dashboard.isPending ? <div className={styles.skeleton} role="status" aria-label="Loading operational dashboard" /> : dashboard.error && !dashboard.data ? <div className={styles.error}><p className={styles.notice} role="alert">{errorText}</p>{!(dashboard.error instanceof ApiError && dashboard.error.status === 403) && <button type="button" onClick={() => void dashboard.refetch()}>Retry dashboard</button>}</div> : null}
     {dashboard.data && dashboard.error && <p className={styles.notice} role="status">Showing the last operational snapshot received from the server.</p>}
-    {dashboard.data && <DashboardContent data={dashboard.data} />}
+    {dashboard.data && <DashboardContent data={dashboard.data} search={search} />}
   </main>;
 }
