@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_backend_e2e`
 
-**Status:** in-progress
+**Status:** done
 
 ## Scope and contracts
 
