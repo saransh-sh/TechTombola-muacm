@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { gsap } from 'gsap';
 import { Link, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { ApiError } from '../../lib/api/client';
 import { getCurrentRound, getParticipantEvent } from '../../lib/api/participant';
@@ -11,13 +12,20 @@ import styles from './ParticipantTicket.module.css';
 
 const refreshableRound = new Set(['DRAFT', 'READY', 'RECOVERY_REQUIRED']);
 
-export function TicketGrid({ ticket }: { ticket: Ticket }) {
+export function TicketGrid({ ticket, revealedKey, animateReveal = false }: { ticket: Ticket; revealedKey?: string; animateReveal?: boolean }) {
+  const matchRef = useRef<HTMLTableCellElement>(null);
   const cells = new Map(ticket.cells.map((cell) => [`${cell.rowIndex}:${cell.colIndex}`, cell]));
+  useEffect(() => {
+    if (!animateReveal || !revealedKey || !matchRef.current || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const tween = gsap.fromTo(matchRef.current, { y: 4 }, { y: 0, duration: 0.2, ease: 'power2.out', clearProps: 'transform' });
+    return () => { tween.kill(); };
+  }, [animateReveal, revealedKey]);
   return <table className={styles.grid} aria-label="Your Tombola ticket">
     <tbody>{Array.from({ length: 3 }, (_, row) => <tr key={row}>
       {Array.from({ length: 9 }, (_, column) => {
         const cell = cells.get(`${row}:${column}`);
-        return <td key={column} aria-label={cell ? `Row ${row + 1}, column ${column + 1}: ${cell.keyValue}, ${cell.marked ? 'marked' : 'not marked'}` : `Row ${row + 1}, column ${column + 1}: empty`} className={cell ? cell.marked ? styles.marked : styles.playable : styles.empty} data-cell-id={cell?.id} data-marked={cell?.marked ?? undefined}>
+        const matched = !!cell && cell.keyValue === revealedKey;
+        return <td key={column} ref={matched ? matchRef : undefined} aria-label={cell ? `Row ${row + 1}, column ${column + 1}: ${cell.keyValue}, ${cell.marked ? 'marked' : 'not marked'}${matched ? ', matches latest revealed key' : ''}` : `Row ${row + 1}, column ${column + 1}: empty`} className={`${cell ? cell.marked ? styles.marked : styles.playable : styles.empty}${matched ? ` ${styles.matched}` : ''}`} data-cell-id={cell?.id} data-marked={cell?.marked ?? undefined}>
           {cell ? <><span className={styles.position}>R{row + 1} · C{column + 1}</span><strong>{cell.keyValue}</strong><span className={styles.cellState}>{cell.marked ? 'Marked' : 'Not marked'}</span><span className={styles.statusIcon} aria-hidden="true">{cell.marked ? '✓' : '○'}</span></> : <span className={styles.emptyLabel}>Empty</span>}
         </td>;
       })}
@@ -25,7 +33,7 @@ export function TicketGrid({ ticket }: { ticket: Ticket }) {
   </table>;
 }
 
-export function ParticipantTicket() {
+export function ParticipantTicket({ revealedKey, animateReveal = false }: { revealedKey?: string; animateReveal?: boolean } = {}) {
   const user = useOutletContext<AuthenticatedUser>();
   const queryClient = useQueryClient();
   const location = useLocation();
@@ -80,7 +88,7 @@ export function ParticipantTicket() {
         {ticket.isPending ? <p className={styles.notice} role="status">Loading your ticket…</p> : noTicket ? <section className={styles.notice}><h2>Your ticket is being prepared</h2><p>This round is available, but its ticket has not arrived yet. This page will update when the host finishes preparing tickets.</p></section> : ticket.error && (!ticket.data || ticketForbidden) ? <TicketError error={ticket.error} retry={retry} /> : null}
         {showTicket && <section className={styles.ticket} aria-label="Ticket details">
           <div className={styles.ticketHead}><div><span className={styles.label}>TICKET</span><h3>{ticket.data.id}</h3></div><span className={styles.serverMark}>MARKS SAVED BY SERVER</span></div>
-          <TicketGrid ticket={ticket.data} />
+          <TicketGrid ticket={ticket.data} revealedKey={revealedKey} animateReveal={animateReveal} />
           {(ticket.error || event.error || round.error) && <p className={styles.stale} role="status">Could not refresh current details. Showing the last ticket received from the server.</p>}
         </section>}
       </>}

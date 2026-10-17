@@ -7,10 +7,13 @@ import { ApiError } from './lib/api/client';
 import * as authApi from './lib/api/auth';
 import * as participantApi from './lib/api/participant';
 import * as ticketApi from './lib/api/ticket';
+import * as drawApi from './lib/api/draws';
 
 vi.mock('./lib/api/auth', () => ({ getMe: vi.fn(), login: vi.fn(), logout: vi.fn() }));
 vi.mock('./lib/api/participant', () => ({ getParticipantEvent: vi.fn(), getCurrentRound: vi.fn() }));
 vi.mock('./lib/api/ticket', () => ({ getParticipantTicket: vi.fn() }));
+vi.mock('./lib/api/draws', () => ({ getParticipantDraws: vi.fn() }));
+vi.mock('./lib/realtime', () => ({ useParticipantRealtime: () => ({ status: 'CONNECTED', warning: '', liveDraws: [], retry: vi.fn() }) }));
 
 describe('application role routes', () => {
   afterEach(cleanup);
@@ -126,6 +129,69 @@ describe('application role routes', () => {
     expect(screen.getByRole('cell', { name: 'Row 1, column 1: A VERY LONG KEY VALUE, marked' })).toHaveAttribute('data-cell-id', 'cell-0');
     expect(queryClient.getQueryData(['participant', 'u1', 'ticket', 'e1', 'r1'])).toMatchObject({ id: 'ticket-7' });
     expect(ticketApi.getParticipantTicket).toHaveBeenCalledWith('r1', 'e1', expect.any(AbortSignal));
+  });
+
+  it('shows chronological draw history, latest question and key, and the matching ticket hint', async () => {
+    vi.mocked(authApi.getMe).mockResolvedValue({ id: 'u1', email: 'p@example.test', name: 'Ari Patel', role: 'PARTICIPANT', status: 'ACTIVE' });
+    vi.mocked(participantApi.getParticipantEvent).mockResolvedValue({ id: 'e1', title: 'Autumn', description: null, status: 'LIVE', scheduledAt: null, startedAt: null, completedAt: null, createdAt: '2026-10-16T00:00:00.000Z', updatedAt: '2026-10-17T00:00:00.000Z' });
+    vi.mocked(participantApi.getCurrentRound).mockResolvedValue({ id: 'r1', eventId: 'e1', sequenceNumber: 1, name: 'Opening', status: 'ACTIVE', patterns: [], createdAt: '2026-10-17T00:00:00.000Z', updatedAt: '2026-10-17T00:00:00.000Z' });
+    vi.mocked(drawApi.getParticipantDraws).mockResolvedValue({ data: [
+      { id: 'd1', roundId: 'r1', sequenceNumber: 1, drawMode: 'RANDOM', questionText: 'First clue?', keyValue: 'KEY 1', drawnAt: '2026-10-17T14:00:00.000Z' },
+      { id: 'd2', roundId: 'r1', sequenceNumber: 2, drawMode: 'RANDOM', questionText: 'Which tool packages apps?', keyValue: 'DOCKER', drawnAt: '2026-10-17T14:01:00.000Z' },
+    ], total: 2, page: 1, limit: 100 });
+    const cells = Array.from({ length: 15 }, (_, index) => ({ id: `cell-${index}`, rowIndex: Math.floor(index / 5), colIndex: index % 5, row: Math.floor(index / 5), column: index % 5, keyId: `key-${index}`, keyValue: index === 0 ? 'DOCKER' : `KEY ${index}`, marked: false }));
+    vi.mocked(ticketApi.getParticipantTicket).mockResolvedValue({ id: 'ticket-7', roundId: 'r1', participantId: 'p1', eventId: 'e1', createdAt: '2026-10-17T00:00:00.000Z', cells });
+    window.history.replaceState({}, '', '/participant/game');
+    render(<App />);
+    expect((await screen.findAllByText('Which tool packages apps?')).length).toBe(2);
+    expect(screen.getAllByText('DOCKER')).toHaveLength(3);
+    const history = screen.getByRole('region', { name: 'Draw history' });
+    expect(history.querySelectorAll('li')).toHaveLength(2);
+    expect(history.querySelectorAll('li')[0]).toHaveTextContent('First clue?');
+    expect(history.querySelectorAll('li')[1]).toHaveTextContent('Which tool packages apps?');
+    expect(screen.getByRole('cell', { name: /DOCKER, not marked, matches latest revealed key/i })).toHaveAttribute('data-cell-id', 'cell-0');
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('shows an honest empty state when the round has no draws', async () => {
+    vi.mocked(authApi.getMe).mockResolvedValue({ id: 'u1', email: 'p@example.test', name: 'Ari Patel', role: 'PARTICIPANT', status: 'ACTIVE' });
+    vi.mocked(participantApi.getParticipantEvent).mockResolvedValue({ id: 'e1', title: 'Autumn', description: null, status: 'LIVE', scheduledAt: null, startedAt: null, completedAt: null, createdAt: '2026-10-16T00:00:00.000Z', updatedAt: '2026-10-17T00:00:00.000Z' });
+    vi.mocked(participantApi.getCurrentRound).mockResolvedValue({ id: 'r1', eventId: 'e1', sequenceNumber: 1, name: 'Opening', status: 'READY', patterns: [], createdAt: '2026-10-17T00:00:00.000Z', updatedAt: '2026-10-17T00:00:00.000Z' });
+    vi.mocked(drawApi.getParticipantDraws).mockResolvedValue({ data: [], total: 0, page: 1, limit: 100 });
+    window.history.replaceState({}, '', '/participant/game');
+    render(<App />);
+    expect(await screen.findByText('No questions have been drawn in this round yet.')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Live updates begin when the round starts.');
+  });
+
+  it('shows event-load failure and retries the server request', async () => {
+    vi.mocked(authApi.getMe).mockResolvedValue({ id: 'u1', email: 'p@example.test', name: 'Ari Patel', role: 'PARTICIPANT', status: 'ACTIVE' });
+    vi.mocked(participantApi.getParticipantEvent)
+      .mockRejectedValueOnce(new Error('private backend details'))
+      .mockResolvedValueOnce({ id: 'e1', title: 'Autumn', description: null, status: 'LIVE', scheduledAt: null, startedAt: null, completedAt: null, createdAt: '2026-10-16T00:00:00.000Z', updatedAt: '2026-10-17T00:00:00.000Z' });
+    vi.mocked(participantApi.getCurrentRound).mockRejectedValue(new ApiError(404, 'No current round'));
+    window.history.replaceState({}, '', '/participant/game');
+    render(<App />);
+    expect(await screen.findByText('We could not load your event.')).toBeInTheDocument();
+    expect(screen.queryByText('private backend details')).not.toBeInTheDocument();
+    screen.getAllByRole('button', { name: 'Retry' })[0]!.click();
+    expect(await screen.findByText('Your host has not made a round available yet.')).toBeInTheDocument();
+    expect(participantApi.getParticipantEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it('announces draw loading and shows a safe error when the snapshot fails', async () => {
+    vi.mocked(authApi.getMe).mockResolvedValue({ id: 'u1', email: 'p@example.test', name: 'Ari Patel', role: 'PARTICIPANT', status: 'ACTIVE' });
+    vi.mocked(participantApi.getParticipantEvent).mockResolvedValue({ id: 'e1', title: 'Autumn', description: null, status: 'LIVE', scheduledAt: null, startedAt: null, completedAt: null, createdAt: '2026-10-16T00:00:00.000Z', updatedAt: '2026-10-17T00:00:00.000Z' });
+    vi.mocked(participantApi.getCurrentRound).mockResolvedValue({ id: 'r1', eventId: 'e1', sequenceNumber: 1, name: 'Opening', status: 'ACTIVE', patterns: [], createdAt: '2026-10-17T00:00:00.000Z', updatedAt: '2026-10-17T00:00:00.000Z' });
+    let rejectDraws!: (error: Error) => void;
+    vi.mocked(drawApi.getParticipantDraws).mockReturnValue(new Promise((_, reject) => { rejectDraws = reject; }));
+    window.history.replaceState({}, '', '/participant/game');
+    render(<App />);
+    expect(await screen.findByText('Loading revealed questions and keys…')).toBeInTheDocument();
+    rejectDraws(new Error('private backend details'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('We could not load the draw history.');
+    expect(screen.queryByText('private backend details')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
   it('shows the honest waiting state when the backend has not allocated a ticket', async () => {

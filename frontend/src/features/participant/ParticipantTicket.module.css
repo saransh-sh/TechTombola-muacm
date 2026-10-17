@@ -23,6 +23,7 @@
 .playable { background:#fff; }
 .marked { color:#fffaf0; background:#315c53; }
 .marked .position { color:#d3e3da; }
+.matched { outline:3px solid #a2483e; outline-offset:2px; position:relative; z-index:1; }
 .empty { color:#626963; background:#eee8dc; border-style:dashed !important; }
 .notice { margin:12px 0; padding:clamp(18px,4vw,28px); border:2px solid var(--ink); background:#fffaf0; box-shadow:4px 4px 0 var(--ink); }
 .notice h2 { margin:0 0 8px; font-size:clamp(21px,4vw,30px); }

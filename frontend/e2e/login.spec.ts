@@ -136,6 +136,29 @@ test('active round renders the server ticket at mobile and desktop widths', asyn
   }
 });
 
+test('a READY round starts its live feed after REST observes the host starting it', async ({ page }) => {
+  await mockAuthentication(page, 'PARTICIPANT', true);
+  const eventId = '22222222-2222-4222-8222-222222222222';
+  const roundId = '33333333-3333-4333-8333-333333333333';
+  const drawnAt = '2026-10-17T14:00:00.000Z';
+  let roundStatus = 'READY';
+  let roundRequests = 0;
+  await page.route('**/api/v1/participant/event', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ event: { id: eventId, title: 'Autumn Tombola', description: null, status: 'LIVE', scheduledAt: null, startedAt: null, completedAt: null, createdAt: drawnAt, updatedAt: drawnAt } }) }));
+  await page.route('**/api/v1/participant/round/current', (route) => {
+    roundRequests += 1;
+    if (roundRequests > 1) roundStatus = 'ACTIVE';
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round: { id: roundId, eventId, sequenceNumber: 1, name: 'Opening Round', status: roundStatus, patterns: [], createdAt: drawnAt, updatedAt: drawnAt } }) });
+  });
+  await page.route('**/api/v1/participant/draws?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], total: 0, page: 1, limit: 100 }) }));
+  await page.route('**/api/v1/participant/ticket?roundId=*', (route) => route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: { code: 'NOT_FOUND', message: 'Ticket not found' } }) }));
+  await page.routeWebSocket('**/api/v1/ws?roundId=*', () => {});
+  await page.goto('/participant/game');
+  await expect(page.getByText('Live updates begin when the round starts.')).toBeVisible();
+  await expect.poll(() => roundRequests).toBeGreaterThan(1);
+  await expect(page.getByText('Live updates connected')).toBeVisible();
+  expect(roundStatus).toBe('ACTIVE');
+});
+
 test('a delayed ticket response from the previous round cannot replace the new round ticket', async ({ page }) => {
   await mockAuthentication(page, 'PARTICIPANT', true);
   let roundId = 'round-1';
@@ -167,6 +190,95 @@ test('a delayed ticket response from the previous round cannot replace the new r
   releaseOldTicket();
   await expect(page.getByText('ticket-1')).toHaveCount(0);
   await expect(page.getByText('ticket-2')).toBeVisible();
+});
+
+test('live Draw events reconcile to chronological REST history and matching ticket hints', async ({ page }) => {
+  await mockAuthentication(page, 'PARTICIPANT', true);
+  const eventId = '22222222-2222-4222-8222-222222222222';
+  const roundId = '33333333-3333-4333-8333-333333333333';
+  let draws: { id: string; roundId: string; sequenceNumber: number; drawMode: string; questionText: string; keyValue: string; drawnAt: string }[] = [];
+  let socket: import('@playwright/test').WebSocketRoute | undefined;
+  const drawnAt = '2026-10-17T14:00:00.000Z';
+  await page.route('**/api/v1/participant/event', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ event: { id: eventId, title: 'Autumn Tombola', description: null, status: 'LIVE', scheduledAt: null, startedAt: null, completedAt: null, createdAt: drawnAt, updatedAt: drawnAt } }) }));
+  await page.route('**/api/v1/participant/round/current', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round: { id: roundId, eventId, sequenceNumber: 1, name: 'Opening Round', status: 'ACTIVE', patterns: [], createdAt: drawnAt, updatedAt: drawnAt } }) }));
+  await page.route('**/api/v1/participant/draws?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: draws, total: draws.length, page: 1, limit: 100 }) }));
+  const cells = Array.from({ length: 15 }, (_, index) => ({ id: `cell-${index}`, rowIndex: Math.floor(index / 5), colIndex: index % 9, row: Math.floor(index / 5), column: index % 9, keyId: `key-${index}`, keyValue: index === 0 ? 'DOCKER' : `KEY ${index}`, marked: false }));
+  await page.route('**/api/v1/participant/ticket?roundId=*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: { id: 'ticket-1', roundId, participantId: 'participant-1', eventId, createdAt: drawnAt, cells } }) }));
+  await page.routeWebSocket('**/api/v1/ws?roundId=*', (route) => { socket = route; });
+  await page.goto('/participant/game');
+  await expect(page.getByText('Live updates connected')).toBeVisible();
+  await expect(page.getByText('No questions have been drawn in this round yet.')).toBeVisible();
+
+  const emitDraw = (sequence: number, key: string) => {
+    draws = Array.from({ length: sequence }, (_, index) => ({ id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`, roundId, sequenceNumber: index + 1, drawMode: 'RANDOM', questionText: `Question ${index + 1}`, keyValue: index === 0 ? 'DOCKER' : `KEY ${index + 1}`, drawnAt }));
+    socket!.send(JSON.stringify({ type: 'DRAW_CREATED', eventId, roundId, occurredAt: drawnAt, payload: { sequence, key, question: `Question ${sequence}`, drawnAt } }));
+  };
+  emitDraw(1, 'DOCKER');
+  await expect(page.getByText('Question 1', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('cell', { name: /DOCKER, not marked, matches latest revealed key/i })).toHaveAttribute('data-cell-id', 'cell-0');
+  emitDraw(3, 'KEY 3');
+  emitDraw(2, 'KEY 2');
+  emitDraw(3, 'KEY 3');
+  await expect(page.getByRole('article', { name: 'Question 3' })).toContainText('KEY 3');
+  const history = page.getByRole('region', { name: 'Draw history' });
+  await expect(history.locator('li')).toHaveCount(3);
+  await expect(history.locator('li').nth(0)).toContainText('Question 1');
+  await expect(history.locator('li').nth(1)).toContainText('Question 2');
+  await expect(history.locator('li').nth(2)).toContainText('Question 3');
+  expect(await page.locator('body').evaluate((element) => element.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('a Draw created during the initial snapshot and subscription gap is recovered from REST', async ({ page }) => {
+  await mockAuthentication(page, 'PARTICIPANT', true);
+  const eventId = '22222222-2222-4222-8222-222222222222';
+  const roundId = '33333333-3333-4333-8333-333333333333';
+  const drawnAt = '2026-10-17T14:00:00.000Z';
+  let roundStatus = 'ACTIVE';
+  let socket: { send: (message: string) => void } | undefined;
+  let draws: { id: string; roundId: string; sequenceNumber: number; drawMode: string; questionText: string; keyValue: string; drawnAt: string }[] = [];
+  let finishOldSnapshot!: () => void;
+  let finishReconcileSnapshot!: () => void;
+  let markFirstSnapshotStarted!: () => void;
+  let markReconcileSnapshotStarted!: () => void;
+  const oldSnapshotGate = new Promise<void>((resolve) => { finishOldSnapshot = resolve; });
+  const reconcileSnapshotGate = new Promise<void>((resolve) => { finishReconcileSnapshot = resolve; });
+  const firstSnapshotStarted = new Promise<void>((resolve) => { markFirstSnapshotStarted = resolve; });
+  const reconcileSnapshotStarted = new Promise<void>((resolve) => { markReconcileSnapshotStarted = resolve; });
+  let drawRequests = 0;
+  await page.route('**/api/v1/participant/event', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ event: { id: eventId, title: 'Autumn Tombola', description: null, status: 'LIVE', scheduledAt: null, startedAt: null, completedAt: null, createdAt: drawnAt, updatedAt: drawnAt } }) }));
+  await page.route('**/api/v1/participant/round/current', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round: { id: roundId, eventId, sequenceNumber: 1, name: 'Opening Round', status: roundStatus, patterns: [], createdAt: drawnAt, updatedAt: drawnAt } }) }));
+  await page.route('**/api/v1/participant/draws?*', async (route) => {
+    drawRequests += 1;
+    if (drawRequests === 1) {
+      markFirstSnapshotStarted();
+      await oldSnapshotGate;
+      try { await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], total: 0, page: 1, limit: 100 }) }); } catch { /* The snapshot may be cancelled by subscription reconciliation. */ }
+      return;
+    }
+    if (drawRequests === 2) {
+      markReconcileSnapshotStarted();
+      await reconcileSnapshotGate;
+      try { await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], total: 0, page: 1, limit: 100 }) }); } catch { /* A lifecycle update may cancel this snapshot. */ }
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: draws, total: draws.length, page: 1, limit: 100 }) });
+  });
+  const cells = Array.from({ length: 15 }, (_, index) => ({ id: `cell-${index}`, rowIndex: Math.floor(index / 5), colIndex: index % 9, row: Math.floor(index / 5), column: index % 9, keyId: `key-${index}`, keyValue: index === 0 ? 'DOCKER' : `KEY ${index}`, marked: false }));
+  await page.route('**/api/v1/participant/ticket?roundId=*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: { id: 'ticket-1', roundId, participantId: 'participant-1', eventId, createdAt: drawnAt, cells } }) }));
+  await page.routeWebSocket('**/api/v1/ws?roundId=*', (ws) => { socket = ws; });
+  await page.goto('/participant/game');
+  await firstSnapshotStarted;
+  draws = [{ id: '00000000-0000-4000-8000-000000000001', roundId, sequenceNumber: 1, drawMode: 'RANDOM', questionText: 'Question between snapshots?', keyValue: 'DOCKER', drawnAt }];
+  await expect(page.getByText('Live updates connected')).toBeVisible();
+  await reconcileSnapshotStarted;
+  roundStatus = 'PAUSED';
+  socket!.send(JSON.stringify({ type: 'ROUND_PAUSED', eventId, roundId, occurredAt: drawnAt, payload: { status: 'PAUSED' } }));
+  await expect(page.getByRole('region', { name: 'Live round updates' }).getByText('PAUSED', { exact: true })).toBeVisible();
+  await expect(page.getByText('Question between snapshots?', { exact: true }).first()).toBeVisible();
+  finishOldSnapshot();
+  finishReconcileSnapshot();
+  await expect(page.getByRole('article', { name: 'Question 1' })).toContainText('DOCKER');
+  await expect(page.getByRole('region', { name: 'Draw history' }).locator('li')).toHaveCount(1);
 });
 
 test('login restores the complete protected path, including query and fragment', async ({ page }) => {

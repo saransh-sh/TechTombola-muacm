@@ -10,6 +10,7 @@ import { queryClient } from './lib/queryClient';
 import { ErrorMessage, LoadingMessage } from './components/Feedback';
 import { ParticipantLobby } from './features/participant/ParticipantLobby';
 import { ParticipantTicket } from './features/participant/ParticipantTicket';
+import { ParticipantGame } from './features/participant/ParticipantGame';
 import type { AuthenticatedUser } from './types/auth';
 import './styles/global.css';
 
@@ -71,7 +72,7 @@ function AppRoutes() {
       <Route path="/participant" element={<Navigate to="/participant/lobby" replace />} />
       <Route path="/participant/lobby" element={<ParticipantLobby />} />
       <Route path="/participant/ticket" element={<ParticipantTicket />} />
-      <Route path="/participant/game" element={<ParticipantTicket />} />
+      <Route path="/participant/game" element={<ParticipantGame />} />
     </Route>
     <Route element={<ProtectedLayout allowed={['ADMIN', 'SUPER_ADMIN']} />}><Route path="/admin/*" element={<div />} /></Route>
     <Route path="/" element={<Navigate to="/login" replace />} />

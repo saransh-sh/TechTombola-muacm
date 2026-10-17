@@ -1,0 +1,90 @@
+import { useEffect, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { gsap } from 'gsap';
+import { useOutletContext } from 'react-router-dom';
+import { ApiError } from '../../lib/api/client';
+import { getParticipantDraws } from '../../lib/api/draws';
+import { getCurrentRound, getParticipantEvent } from '../../lib/api/participant';
+import { useParticipantRealtime, type ConnectionStatus } from '../../lib/realtime';
+import type { AuthenticatedUser } from '../../types/auth';
+import type { ParticipantDraw } from '../../types/draw';
+import { ParticipantTicket } from './ParticipantTicket';
+import styles from './ParticipantGame.module.css';
+
+export type DisplayDraw = Pick<ParticipantDraw, 'roundId' | 'sequenceNumber' | 'questionText' | 'keyValue' | 'drawnAt'> & { id?: string };
+
+export function ParticipantGame() {
+  const user = useOutletContext<AuthenticatedUser>();
+  const queryClient = useQueryClient();
+  const event = useQuery({ queryKey: ['participant', user.id, 'event'], queryFn: ({ signal }) => getParticipantEvent(signal), refetchOnReconnect: 'always' });
+  const round = useQuery({ queryKey: ['participant', user.id, 'round', event.data?.id], queryFn: ({ signal }) => getCurrentRound(signal), enabled: !!event.data, refetchOnReconnect: 'always', refetchInterval: (query) => query.state.data?.status === 'READY' ? 3000 : false });
+  const noRound = round.error instanceof ApiError && round.error.status === 404;
+  const noEvent = event.error instanceof ApiError && event.error.status === 404;
+  const canRead = !!event.data && !!round.data && !noRound && !noEvent;
+  const canConnect = canRead && (round.data?.status === 'ACTIVE' || round.data?.status === 'PAUSED');
+  const realtime = useParticipantRealtime(canConnect, user.id, event.data?.id ?? '', round.data?.id ?? '', queryClient);
+  const draws = useQuery({
+    queryKey: ['participant', user.id, 'draws', event.data?.id, round.data?.id],
+    queryFn: ({ signal }) => getParticipantDraws(round.data!.id, signal),
+    enabled: canRead,
+    refetchOnReconnect: 'always',
+  });
+  const bySequence = new Map<number, DisplayDraw>();
+  for (const draw of draws.data?.data ?? []) bySequence.set(draw.sequenceNumber, draw);
+  for (const draw of realtime.liveDraws) if (!bySequence.has(draw.sequenceNumber)) bySequence.set(draw.sequenceNumber, draw);
+  const history = [...bySequence.values()].sort((a, b) => a.sequenceNumber - b.sequenceNumber);
+  const latest = history.at(-1);
+  const animateSequence = realtime.liveDraws.at(-1)?.sequenceNumber;
+  const retryDraws = () => void draws.refetch();
+
+  return <div className={styles.game}>
+    <section className={styles.live} aria-label="Live round updates">
+      <div className={styles.liveHeader}><div><p className={styles.kicker}>LIVE ROUND</p><h1>{round.data?.name ?? 'Round updates'}</h1></div>{round.data && <RoundStatus status={round.data.status} />}</div>
+      {event.isLoading || (event.data && round.isLoading) ? <p role="status">Checking your current round…</p> : noEvent || noRound ? <p role="status">Your host has not made a round available yet.</p> : event.error && !event.data ? <div className={styles.error}><p role="alert">{event.error instanceof ApiError && event.error.status === 403 ? 'You do not have permission to view this event.' : 'We could not load your event.'}</p><button onClick={() => void event.refetch()}>Retry</button></div> : round.error && !round.data ? <div className={styles.error}><p role="alert">{round.error instanceof ApiError && round.error.status === 403 ? 'You do not have permission to view the current round.' : 'We could not load the current round.'}</p><button onClick={() => void round.refetch()}>Retry</button></div> : null}
+      {canConnect ? <ConnectionIndicator status={realtime.status} warning={realtime.warning} retry={realtime.retry} /> : canRead && <p className={styles.connectionNote} role="status">{roundStatusNote(round.data.status)}</p>}
+      {canRead && draws.isPending ? <p role="status">Loading revealed questions and keys…</p> : null}
+      {canRead && draws.error && !draws.data ? <div className={styles.error}><p role="alert">We could not load the draw history.</p><button onClick={retryDraws}>Retry</button></div> : null}
+      {draws.data && draws.error && <p className={styles.stale} role="status">Showing the last draw history received from the server.</p>}
+      {latest ? <QuestionCard draw={latest} animate={animateSequence === latest.sequenceNumber} /> : draws.data && <p className={styles.empty}>No questions have been drawn in this round yet.</p>}
+      {history.length > 0 && <DrawHistory draws={history} />}
+    </section>
+    <ParticipantTicket revealedKey={latest?.keyValue} animateReveal={animateSequence === latest?.sequenceNumber} />
+  </div>;
+}
+
+function RoundStatus({ status }: { status: string }) {
+  return <span className={styles.roundStatus}>{status.replaceAll('_', ' ')}</span>;
+}
+
+function roundStatusNote(status: string) {
+  return status === 'READY' ? 'Live updates begin when the round starts.' : 'The round is not live. Showing saved draw history.';
+}
+
+function ConnectionIndicator({ status, warning, retry }: { status: ConnectionStatus; warning: string; retry: () => void }) {
+  const labels: Record<ConnectionStatus, string> = { CONNECTING: 'Connecting to live updates', CONNECTED: 'Live updates connected', RECONNECTING: 'Reconnecting to live updates', DISCONNECTED: 'Live updates disconnected' };
+  return <div className={styles.connection}><p role="status" data-connection={status}>{labels[status]}</p>{status === 'DISCONNECTED' && <button onClick={retry}>Reconnect</button>}{warning && <p role="alert">{warning}</p>}</div>;
+}
+
+export function QuestionCard({ draw, animate }: { draw: DisplayDraw; animate: boolean }) {
+  const cardRef = useRef<HTMLElement>(null);
+  const questionRef = useRef<HTMLParagraphElement>(null);
+  const keyRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (!animate || !cardRef.current || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const context = gsap.context(() => {
+      gsap.timeline()
+        .fromTo(questionRef.current, { y: 6 }, { y: 0, duration: 0.18, ease: 'power2.out', clearProps: 'transform' })
+        .fromTo(keyRef.current, { scale: 0.97 }, { scale: 1, duration: 0.2, ease: 'back.out(1.6)', clearProps: 'transform' }, '-=0.04');
+    }, cardRef);
+    return () => context.revert();
+  }, [animate, draw.sequenceNumber]);
+
+  return <article ref={cardRef} className={styles.questionCard} aria-label={`Question ${draw.sequenceNumber}`}>
+    <div><p className={styles.label}>QUESTION {draw.sequenceNumber}</p><p ref={questionRef} className={styles.question} aria-live="polite">{draw.questionText}</p></div>
+    <div className={styles.keyReveal}><p className={styles.label}>ANSWER / KEY</p><p ref={keyRef} className={styles.key} aria-live="polite">{draw.keyValue}</p></div>
+  </article>;
+}
+
+function DrawHistory({ draws }: { draws: DisplayDraw[] }) {
+  return <section className={styles.history} aria-label="Draw history"><h2>Draw history</h2><ol>{draws.map((draw) => <li key={draw.id ?? draw.sequenceNumber}><span>#{draw.sequenceNumber}</span><span>{draw.questionText}</span><strong>{draw.keyValue}</strong><time dateTime={draw.drawnAt}>{new Date(draw.drawnAt).toLocaleTimeString()}</time></li>)}</ol></section>;
+}
