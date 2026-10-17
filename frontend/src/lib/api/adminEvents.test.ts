@@ -28,15 +28,15 @@ describe('admin Events API', () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(`/api/v1/admin/events/${event.id}`);
   });
 
-  it('creates and updates only through the documented routes and parses saved records', async () => {
+  it('creates and updates metadata only through the documented routes', async () => {
     const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(response({ event })));
     vi.stubGlobal('fetch', fetchMock);
     await createAdminEvent({ title: 'Tech Tombola' });
-    await updateAdminEvent(event.id, { status: 'READY' });
+    await updateAdminEvent(event.id, { title: 'Updated event' });
     expect(fetchMock.mock.calls.map(([url, options]) => [url, (options as RequestInit).method])).toEqual([
       ['/api/v1/admin/events', 'POST'], [`/api/v1/admin/events/${event.id}`, 'PATCH'],
     ]);
-    expect(JSON.parse((fetchMock.mock.calls[1]?.[1] as RequestInit).body as string)).toEqual({ status: 'READY' });
+    expect(JSON.parse((fetchMock.mock.calls[1]?.[1] as RequestInit).body as string)).toEqual({ title: 'Updated event' });
   });
 
   it('rejects malformed server Event records', async () => {

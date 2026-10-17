@@ -34,8 +34,7 @@ export const updateAdminEventSchema = z.object({
   title: z.string().trim().min(1).max(255).optional(),
   description: z.string().max(2000).optional().nullable(),
   scheduledAt: z.string().datetime({ offset: true }).optional().nullable(),
-  status: adminEventStatusSchema.optional(),
-}).refine((data) => Object.keys(data).length > 0, { message: 'At least one field to update must be provided' });
+}).strict().refine((data) => Object.keys(data).length > 0, { message: 'At least one metadata field to update must be provided' });
 
 export type AdminEvent = z.infer<typeof adminEventSchema>;
 export type AdminEventList = z.infer<typeof adminEventListSchema>;

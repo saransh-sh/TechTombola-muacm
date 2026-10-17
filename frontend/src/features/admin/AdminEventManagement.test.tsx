@@ -88,65 +88,13 @@ describe('Admin Event management', () => {
     expect(updateAdminEvent).toHaveBeenCalledWith(eventA.id, { title: 'Renamed event', description: 'Annual event', scheduledAt: null });
   });
 
-  it('requires confirmation for irreversible cancellation and keeps the Event when canceled', async () => {
+  it('shows persisted status without offering guessed lifecycle actions', async () => {
     vi.mocked(getAdminEvent).mockResolvedValue({ ...eventA, status: 'READY' });
-    const confirm = vi.fn().mockReturnValue(false);
-    vi.stubGlobal('confirm', confirm);
     renderPage(`/admin/event?eventId=${eventA.id}`);
-    await screen.findByText('Annual event');
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel Event' }));
-    expect(confirm).toHaveBeenCalledOnce();
+    expect(await screen.findByText('Annual event')).toBeInTheDocument();
+    expect(screen.getByText('Lifecycle actions are unavailable until the backend publishes their API contract. Event status remains server-managed.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Mark ready|Return to draft|Start Event|Pause Event|Complete Event|Cancel Event/ })).not.toBeInTheDocument();
     expect(updateAdminEvent).not.toHaveBeenCalled();
-  });
-
-  it('cancels a READY Event only after confirmation', async () => {
-    vi.mocked(getAdminEvent).mockResolvedValue({ ...eventA, status: 'READY' });
-    vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
-    renderPage(`/admin/event?eventId=${eventA.id}`);
-    await screen.findByText('Annual event');
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel Event' }));
-    await screen.findByText('Event changes saved.');
-    expect(updateAdminEvent).toHaveBeenCalledWith(eventA.id, { status: 'CANCELLED' });
-  });
-
-  it('submits a confirmed lifecycle action and relies on the returned status', async () => {
-    vi.mocked(getAdminEvent).mockResolvedValue({ ...eventA, status: 'LIVE' });
-    vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
-    renderPage(`/admin/event?eventId=${eventA.id}`);
-    await screen.findByText('Annual event');
-    fireEvent.click(screen.getByRole('button', { name: 'Complete Event' }));
-    await screen.findByText('Event changes saved.');
-    expect(updateAdminEvent).toHaveBeenCalledWith(eventA.id, { status: 'COMPLETED' });
-  });
-
-  it.each([
-    ['DRAFT', ['Mark ready', 'Cancel Event']],
-    ['READY', ['Return to draft', 'Start Event', 'Cancel Event']],
-    ['LIVE', ['Pause Event', 'Complete Event']],
-    ['PAUSED', ['Start Event', 'Cancel Event']],
-    ['COMPLETED', []],
-    ['CANCELLED', []],
-  ] as const)('offers only the backend-supported lifecycle actions for %s', async (status, actions) => {
-    vi.mocked(getAdminEvent).mockResolvedValue({ ...eventA, status });
-    renderPage(`/admin/event?eventId=${eventA.id}`);
-    await screen.findByText('Annual event');
-    for (const action of actions) expect(screen.getByRole('button', { name: action })).toBeEnabled();
-    expect(screen.getAllByRole('button').filter((button) => ['Mark ready', 'Return to draft', 'Start Event', 'Pause Event', 'Complete Event', 'Cancel Event'].includes(button.textContent ?? ''))).toHaveLength(actions.length);
-  });
-
-  it.each([
-    ['DRAFT', 'Mark ready', 'READY'], ['DRAFT', 'Cancel Event', 'CANCELLED'],
-    ['READY', 'Return to draft', 'DRAFT'], ['READY', 'Start Event', 'LIVE'], ['READY', 'Cancel Event', 'CANCELLED'],
-    ['LIVE', 'Pause Event', 'PAUSED'], ['LIVE', 'Complete Event', 'COMPLETED'],
-    ['PAUSED', 'Start Event', 'LIVE'], ['PAUSED', 'Cancel Event', 'CANCELLED'],
-  ] as const)('submits supported transition %s through %s', async (from, action, to) => {
-    vi.mocked(getAdminEvent).mockResolvedValue({ ...eventA, status: from });
-    vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
-    renderPage(`/admin/event?eventId=${eventA.id}`);
-    await screen.findByText('Annual event');
-    fireEvent.click(screen.getByRole('button', { name: action }));
-    await screen.findByText('Event changes saved.');
-    expect(updateAdminEvent).toHaveBeenCalledWith(eventA.id, { status: to });
   });
 
   it('does not offer lifecycle actions or edits for immutable completed Events', async () => {
@@ -154,8 +102,7 @@ describe('Admin Event management', () => {
     renderPage(`/admin/event?eventId=${eventA.id}`);
     await screen.findByText('Annual event');
     expect(screen.getByRole('button', { name: 'Edit Event' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'Complete Event' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Cancel Event' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Complete Event|Cancel Event/ })).not.toBeInTheDocument();
   });
 
   it('retains unsaved input when a conflicting save reloads the server record', async () => {
@@ -246,13 +193,4 @@ describe('Admin Event management', () => {
     expect(await screen.findByText('Annual event')).toBeInTheDocument();
   });
 
-  it('re-reads after a conflicting lifecycle request and displays server feedback', async () => {
-    vi.mocked(getAdminEvent).mockResolvedValueOnce({ ...eventA, status: 'READY' }).mockResolvedValueOnce({ ...eventA, status: 'LIVE' });
-    vi.mocked(updateAdminEvent).mockRejectedValue(new ApiError(409, 'Another Event is already LIVE'));
-    renderPage(`/admin/event?eventId=${eventA.id}`);
-    await screen.findByText('Annual event');
-    fireEvent.click(screen.getByRole('button', { name: 'Start Event' }));
-    expect(await screen.findByText('Another Event is already LIVE')).toBeInTheDocument();
-    await waitFor(() => expect(getAdminEvent).toHaveBeenCalledTimes(2));
-  });
 });
