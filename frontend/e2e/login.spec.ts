@@ -58,6 +58,10 @@ async function mockAuthentication(page: Page, role?: 'PARTICIPANT' | 'ADMIN' | '
     body: JSON.stringify(route.request().method() === 'POST' ? { round: { ...round, ...route.request().postDataJSON() } } : { data: [round], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } }),
   }));
   await page.route('**/api/v1/admin/rounds/*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round }) }));
+  const key = { id: '7c5e95cf-9a31-4a3c-83cc-a353ccde9fd1', eventId: event.id, value: 'DOCKER', normalizedValue: 'DOCKER', createdAt: event.createdAt, updatedAt: event.updatedAt };
+  const question = { id: 'a4a85404-a3d6-4da6-9b21-ccfc6a11e713', roundId: round.id, keyId: key.id, keyValue: key.value, questionText: 'What runs containers?', createdAt: event.createdAt, updatedAt: event.updatedAt };
+  await page.route('**/api/v1/admin/keys?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [key], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } }) }));
+  await page.route('**/api/v1/admin/questions?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [question], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } }) }));
 }
 
 test('login screen exposes labelled credentials and accessible validation', async ({ page }) => {
@@ -144,6 +148,14 @@ test('admin dashboard shows operational metrics and keyboard navigation at table
   await page.getByRole('button', { name: 'Create Round' }).click();
   await page.getByRole('button', { name: 'Save Round' }).click();
   await expect(page.getByLabel('Round name')).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.getByRole('link', { name: 'Questions & Keys' }).click();
+  await expect(page).toHaveURL(/\/admin\/questions\?eventId=/);
+  await expect(page.getByRole('heading', { name: 'Questions & Keys' })).toBeVisible();
+  await expect(page.getByText('What runs containers?')).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: 'design/screenshots/admin-question-key-management-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
