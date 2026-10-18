@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ZodError, z } from 'zod';
 import { ApiError } from '../../lib/api/client';
 import { login } from '../../lib/api/auth';
@@ -50,8 +50,19 @@ export function LoginPage() {
   return (
     <main className={styles.page}>
       <header className={styles.topbar}>
-        <a className={styles.wordmark} href="/login" aria-label="Tech Tombola home"><span>TECH</span><strong>TOMBOLA</strong></a>
-        <span className={styles.edition}>LIVE EVENT / 2026</span>
+        <Link className={styles.wordmark} to="/" aria-label="Tech Tombola home">
+          <span>TECH</span>
+          <strong>TOMBOLA</strong>
+        </Link>
+        <div className={styles.topActions}>
+          <Link className={styles.navBack} to="/">
+            ← Event Overview
+          </Link>
+          <Link className={styles.navLive} to="/live" target="_blank" rel="noreferrer">
+            Live Board ↗
+          </Link>
+          <span className={styles.edition}>MUACM 2026</span>
+        </div>
       </header>
       <section className={styles.content} aria-labelledby="login-title">
         <div className={styles.intro}>

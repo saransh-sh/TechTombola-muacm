@@ -8,9 +8,12 @@ import { roleHomePath } from './features/auth/routing';
 import { queryClient } from './lib/queryClient';
 import { ErrorMessage, LoadingMessage } from './components/Feedback';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
+import { ParticipantNav } from './components/navigation/ParticipantNav';
+import { AdminTopBar } from './components/navigation/AdminTopBar';
 import type { AuthenticatedUser } from './types/auth';
 import './styles/global.css';
 
+const LandingPage = lazy(() => import('./features/landing/LandingPage').then((module) => ({ default: module.LandingPage })));
 const LoginPage = lazy(() => import('./features/auth/LoginPage').then((module) => ({ default: module.LoginPage })));
 const AdminDashboard = lazy(() => import('./features/admin/AdminDashboard').then((module) => ({ default: module.AdminDashboard })));
 const AdminLayout = lazy(() => import('./features/admin/AdminLayout').then((module) => ({ default: module.AdminLayout })));
@@ -33,11 +36,32 @@ const LiveDisplay = lazy(() => import('./features/live/LiveDisplay').then((modul
 
 function ProtectedLayout({ allowed }: { allowed: AuthenticatedUser['role'][] }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const identityChanged = useAuthUiStore((state) => state.identityChanged);
+  const [logoutError, setLogoutError] = useState('');
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    setLogoutError('');
+    try {
+      await logout();
+      queryClient.clear();
+      identityChanged();
+      navigate('/login', { replace: true });
+    } catch {
+      setLogoutError('We could not end your session. Check your connection and try again.');
+    } finally {
+      setLoggingOut(false);
+    }
+  }
+
   const sessionVersion = useAuthUiStore((state) => state.sessionVersion);
   const session = useQuery({ queryKey: ['auth', 'me', sessionVersion], queryFn: ({ signal }) => getMe(signal) });
   useEffect(() => {
     if (session.error instanceof ApiError && session.error.status === 401) queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== 'auth' });
-  }, [session.error]);
+  }, [session.error, queryClient]);
   if (session.isPending) return <LoadingMessage />;
   if (session.error instanceof ApiError && session.error.status === 401) return <Navigate to="/login" replace state={{ returnTo: location.pathname + location.search + location.hash }} />;
   if (session.error instanceof ApiError && session.error.status === 403) return <ErrorMessage>Access to this account is not permitted.</ErrorMessage>;
@@ -45,7 +69,22 @@ function ProtectedLayout({ allowed }: { allowed: AuthenticatedUser['role'][] }) 
   const user = session.data;
   if (!user || !user.role) return <ErrorMessage>We could not identify this account's role. Contact your event administrator.</ErrorMessage>;
   if (!allowed.includes(user.role)) return <Navigate to={roleHomePath(user.role)} replace />;
-  return <div className="role-page"><header><strong>TECH TOMBOLA</strong><span>{user.name}</span><LogoutButton /></header><Outlet context={user} /></div>;
+
+  return (
+    <div className="role-page">
+      {user.role === 'PARTICIPANT' ? (
+        <ParticipantNav user={user} onLogout={handleLogout} isLoggingOut={loggingOut} />
+      ) : (
+        <AdminTopBar user={user} onLogout={handleLogout} isLoggingOut={loggingOut} />
+      )}
+      {logoutError && (
+        <div role="alert" style={{ padding: '8px 24px', background: '#f9e5df', color: '#842e28', fontFamily: 'var(--mono)', fontSize: '11px', fontWeight: 700 }}>
+          {logoutError}
+        </div>
+      )}
+      <Outlet context={user} />
+    </div>
+  );
 }
 
 function LoginRoute() {
@@ -59,29 +98,6 @@ function LoginRoute() {
   return <LoginPage />;
 }
 
-function LogoutButton() {
-  const navigate = useNavigate();
-  const identityChanged = useAuthUiStore((state) => state.identityChanged);
-  const queryClient = useQueryClient();
-  const [error, setError] = useState('');
-  const [pending, setPending] = useState(false);
-  async function signOut() {
-    setPending(true);
-    setError('');
-    try {
-      await logout();
-      queryClient.clear();
-      identityChanged();
-      navigate('/login', { replace: true });
-    } catch {
-      setError('We could not end your session. Check your connection and try again.');
-    } finally {
-      setPending(false);
-    }
-  }
-  return <><button onClick={signOut} disabled={pending}>{pending ? 'Signing out…' : 'Sign out'}</button>{error && <span role="alert">{error}</span>}</>;
-}
-
 function AdminAdministratorsRoute() {
   const user = useOutletContext<AuthenticatedUser>();
   return user.role === 'SUPER_ADMIN' ? <AdminAdministrators user={user} /> : <Navigate to="/admin" replace />;
@@ -93,41 +109,54 @@ function SuperAdminSystemRoute() {
 }
 
 function AppRoutes() {
-  return <Suspense fallback={<LoadingMessage>Loading page…</LoadingMessage>}><Routes>
-    <Route path="/live" element={<LiveDisplay />} />
-    <Route path="/display" element={<LiveDisplay />} />
-    <Route path="/display/round" element={<LiveDisplay />} />
-    <Route path="/display/winner" element={<LiveDisplay />} />
-    <Route path="/login" element={<LoginRoute />} />
-    <Route element={<ProtectedLayout allowed={['PARTICIPANT']} />}>
-      <Route path="/participant" element={<Navigate to="/participant/lobby" replace />} />
-      <Route path="/participant/lobby" element={<ParticipantLobby />} />
-      <Route path="/participant/ticket" element={<ParticipantTicket />} />
-      <Route path="/participant/game" element={<ParticipantGame />} />
-      <Route path="/participant/claims" element={<ParticipantClaims />} />
-      <Route path="/participant/results" element={<ParticipantResults />} />
-    </Route>
-    <Route element={<ProtectedLayout allowed={['ADMIN', 'SUPER_ADMIN']} />}>
-      <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<AdminDashboard />} />
-        <Route path="event" element={<AdminEventManagement />} />
-        <Route path="events" element={<Navigate to="/admin/event" replace />} />
-        <Route path="rounds" element={<AdminRounds />} />
-        <Route path="questions" element={<AdminQuestions />} />
-        <Route path="participants" element={<AdminParticipants />} />
-        <Route path="draw-control" element={<AdminDrawControl />} />
-        <Route path="claims" element={<AdminClaims />} />
-        <Route path="winners" element={<AdminWinners />} />
-        <Route path="audit" element={<AdminAudit />} />
-        <Route path="administrators" element={<AdminAdministratorsRoute />} />
-        <Route path="system" element={<SuperAdminSystemRoute />} />
-      </Route>
-    </Route>
-    <Route path="/" element={<Navigate to="/login" replace />} />
-    <Route path="*" element={<Navigate to="/login" replace />} />
-  </Routes></Suspense>;
+  return (
+    <Suspense fallback={<LoadingMessage>Loading page…</LoadingMessage>}>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/live" element={<LiveDisplay />} />
+        <Route path="/display" element={<LiveDisplay />} />
+        <Route path="/display/round" element={<LiveDisplay />} />
+        <Route path="/display/winner" element={<LiveDisplay />} />
+        <Route path="/login" element={<LoginRoute />} />
+        <Route element={<ProtectedLayout allowed={['PARTICIPANT']} />}>
+          <Route path="/participant" element={<Navigate to="/participant/lobby" replace />} />
+          <Route path="/participant/lobby" element={<ParticipantLobby />} />
+          <Route path="/participant/ticket" element={<ParticipantTicket />} />
+          <Route path="/participant/game" element={<ParticipantGame />} />
+          <Route path="/participant/claims" element={<ParticipantClaims />} />
+          <Route path="/participant/results" element={<ParticipantResults />} />
+        </Route>
+        <Route element={<ProtectedLayout allowed={['ADMIN', 'SUPER_ADMIN']} />}>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="event" element={<AdminEventManagement />} />
+            <Route path="events" element={<Navigate to="/admin/event" replace />} />
+            <Route path="rounds" element={<AdminRounds />} />
+            <Route path="questions" element={<AdminQuestions />} />
+            <Route path="participants" element={<AdminParticipants />} />
+            <Route path="draw-control" element={<AdminDrawControl />} />
+            <Route path="claims" element={<AdminClaims />} />
+            <Route path="winners" element={<AdminWinners />} />
+            <Route path="audit" element={<AdminAudit />} />
+            <Route path="administrators" element={<AdminAdministratorsRoute />} />
+            <Route path="system" element={<SuperAdminSystemRoute />} />
+          </Route>
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
+  );
 }
 
 export function App() {
-  return <AppErrorBoundary><QueryClientProvider client={queryClient}><BrowserRouter><AppRoutes /></BrowserRouter></QueryClientProvider></AppErrorBoundary>;
+  return (
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </QueryClientProvider>
+    </AppErrorBoundary>
+  );
 }
+
