@@ -17,7 +17,7 @@ export function AdminSystem() {
   return <main className={styles.page}>
     <p className={styles.eyebrow}>SUPER ADMIN / OPERATIONS</p>
     <header className={styles.heading}><div><h1>System health</h1><p>Read-only readiness and recovery information reported by the backend.</p></div><button type="button" onClick={() => void system.refetch()} disabled={system.isFetching}>{system.isFetching ? 'Checking…' : 'Refresh status'}</button></header>
-    {system.isPending && <div className={styles.state} role="status"><LoadingMessage /></div>}
+    {system.isPending && <div className={styles.state}><LoadingMessage inline>Loading system status…</LoadingMessage></div>}
     {system.error && <div className={styles.state}><p role="alert">{errorMessage}</p>{!(system.error instanceof ApiError && system.error.status === 403) && <button type="button" onClick={() => void system.refetch()}>Retry system status</button>}</div>}
     {system.data && system.error && !permissionDenied && <p className={styles.stale} role="status">Showing the last successful health snapshot. Current status is unconfirmed.</p>}
     {system.data && !permissionDenied && <>

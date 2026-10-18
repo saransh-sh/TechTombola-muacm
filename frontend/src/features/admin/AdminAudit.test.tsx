@@ -79,4 +79,18 @@ describe('Admin audit log', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Your account cannot view the audit log.');
     expect(screen.queryByRole('button', { name: 'Retry audit log' })).not.toBeInTheDocument();
   });
+
+  it('keeps the loading state inside the page main landmark', () => {
+    vi.mocked(listAdminAudit).mockImplementation(() => new Promise(() => {}));
+    renderAudit();
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading audit records');
+  });
+
+  it('keeps the error state inside the page main landmark', async () => {
+    vi.mocked(listAdminAudit).mockRejectedValue(new ApiError(503, 'Unavailable'));
+    renderAudit();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unavailable');
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+  });
 });

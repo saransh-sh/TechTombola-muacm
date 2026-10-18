@@ -125,6 +125,19 @@ describe('Super Admin account management', () => {
     expect(screen.queryByText('Internal concurrency detail')).not.toBeInTheDocument();
   });
 
+  it('keeps pending and error feedback inside the account page main landmark', async () => {
+    vi.mocked(listSuperAdminAccounts).mockImplementationOnce(() => new Promise(() => {}));
+    renderPage();
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading Administrator accounts');
+
+    cleanup();
+    vi.mocked(listSuperAdminAccounts).mockRejectedValueOnce(new ApiError(503, 'Unavailable'));
+    renderPage();
+    expect(await screen.findByRole('alert')).toHaveTextContent('We could not load Administrator accounts');
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+  });
+
   it('rechecks the authenticated session when a protected action returns unauthorized', async () => {
     vi.mocked(updateSuperAdminAccount).mockRejectedValueOnce(new ApiError(401, 'Unauthorized'));
     const client = renderPage();

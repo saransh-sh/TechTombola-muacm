@@ -58,8 +58,8 @@ export function LiveDisplay() {
   }, [queryClient]);
   const realtime = useLiveDisplayRealtime(event.data?.id, round.data?.id, round.data?.eventId, round.data?.status, refresh);
 
-  if (event.isPending || round.isPending) return <main className={styles.loading}><LoadingMessage /></main>;
-  if (event.error || round.error) return <main className={styles.loading}><ErrorMessage>Live display could not connect to the event feed. Refresh to try again.</ErrorMessage><button onClick={() => { void event.refetch(); void round.refetch(); }}>Retry</button></main>;
+  if (event.isPending || round.isPending) return <main className={styles.loading}><LoadingMessage inline>Loading the live event feed…</LoadingMessage></main>;
+  if (event.error || round.error) return <main className={styles.loading}><ErrorMessage inline>Live display could not connect to the event feed. Refresh to try again.</ErrorMessage><button type="button" onClick={() => { void event.refetch(); void round.refetch(); }}>Retry</button></main>;
 
   const drawList = activeRoundId && draws.data?.roundId === activeRoundId ? draws.data.data : [];
   const orderedDraws = [...drawList].sort((a, b) => b.sequenceNumber - a.sequenceNumber);

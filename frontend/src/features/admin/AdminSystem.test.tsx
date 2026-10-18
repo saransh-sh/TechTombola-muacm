@@ -83,4 +83,11 @@ describe('Super Admin system health', () => {
     expect(screen.queryByText('database')).not.toBeInTheDocument();
     expect(screen.queryByText('Showing the last successful health snapshot. Current status is unconfirmed.')).not.toBeInTheDocument();
   });
+
+  it('keeps the loading state inside the page main landmark', () => {
+    vi.mocked(getSuperAdminSystem).mockImplementation(() => new Promise(() => {}));
+    renderSystem();
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading system status');
+  });
 });

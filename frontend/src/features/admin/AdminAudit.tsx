@@ -68,8 +68,8 @@ export function AdminAudit() {
     {filterError && <p className={styles.error} role="alert">{filterError}</p>}
     <section className={styles.panel} aria-labelledby="audit-records-title">
       <div className={styles.panelHeader}><div><h2 id="audit-records-title">Audit records</h2><span>Newest first · {PAGE_SIZE} per page</span></div><button type="button" disabled={audit.isFetching} onClick={() => void audit.refetch()}>{audit.isFetching ? 'Refreshing…' : 'Refresh'}</button></div>
-      {audit.isPending && <div className={styles.state} role="status"><LoadingMessage /></div>}
-      {audit.error && <div className={styles.state}><ErrorMessage>{errorMessage}</ErrorMessage>{!(audit.error instanceof ApiError && audit.error.status === 403) && <button type="button" onClick={() => void audit.refetch()}>Retry audit log</button>}</div>}
+      {audit.isPending && <div className={styles.state}><LoadingMessage inline>Loading audit records…</LoadingMessage></div>}
+      {audit.error && <div className={styles.state}><ErrorMessage inline>{errorMessage}</ErrorMessage>{!(audit.error instanceof ApiError && audit.error.status === 403) && <button type="button" onClick={() => void audit.refetch()}>Retry audit log</button>}</div>}
       {audit.data && audit.data.items.length === 0 && <p className={styles.state}>No audit records match these filters.</p>}
       {audit.data && audit.data.items.length > 0 && <div className={styles.tableWrap} role="region" aria-label="Audit record table; scroll horizontally" tabIndex={0}>
         <p className={styles.scrollHint}>Scroll horizontally to read all record fields.</p>

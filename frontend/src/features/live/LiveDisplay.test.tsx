@@ -51,6 +51,21 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 describe('LiveDisplay', () => {
+  it('keeps loading and error feedback inside the display main landmark', async () => {
+    vi.mocked(getLiveEvent).mockImplementationOnce(() => new Promise(() => {}));
+    vi.mocked(getLiveRound).mockImplementationOnce(() => new Promise(() => {}));
+    renderDisplay();
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading the live event feed');
+
+    cleanup();
+    vi.mocked(getLiveEvent).mockRejectedValueOnce(new Error('Unavailable'));
+    vi.mocked(getLiveRound).mockRejectedValueOnce(new Error('Unavailable'));
+    renderDisplay();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Live display could not connect');
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+  });
+
   it('shows the latest server Draw, recent history, and verified Winners', async () => {
     renderDisplay();
     expect(await screen.findByRole('heading', { name: 'Which system runs containers?' })).toBeInTheDocument();
