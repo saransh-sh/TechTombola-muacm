@@ -233,7 +233,8 @@ describe('Live Display read API integration', () => {
     const { winner } = await winnerService.verifyClaim({ claimId: convergenceClaimId, actorId: adminId, actorType: 'ADMIN', idempotencyKey: crypto.randomUUID() });
     const winnerEvent = JSON.parse(messages.at(-1)!);
     const restWinners = (await app.inject({ method: 'GET', url: '/api/v1/live/winners' })).json().data;
-    expect(winnerEvent).toMatchObject({ type: 'WINNER_VERIFIED', payload: { winnerId: winner.id, participantName: participantNames[0], pattern: 'TOP_LINE' } });
+    expect(winnerEvent).toMatchObject({ type: 'WINNER_VERIFIED', payload: { winnerId: winner.id, participantName: participantNames[0], pattern: 'TOP_LINE', eligibleCellIds: winner.eligibleCellIds } });
+    expect(winner.eligibleCellIds).toHaveLength(5);
     expect(restWinners.TOP_LINE[0]).toMatchObject({ id: winner.id, participantName: participantNames[0] });
 
     await roundService.completeRound(adminId, convergenceRoundId);

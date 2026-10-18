@@ -91,7 +91,13 @@ export class QuestionService {
     return key;
   }
 
-  async listKeys(page = 1, limit = 20, eventId?: string): Promise<KeyListResult> {
+  async listKeys(
+    page = 1,
+    limit = 20,
+    eventId?: string,
+    search?: string,
+    used?: boolean
+  ): Promise<KeyListResult> {
     const validPage = Math.max(1, page);
     const validLimit = Math.min(100, Math.max(1, limit));
 
@@ -99,10 +105,13 @@ export class QuestionService {
       page: validPage,
       limit: validLimit,
       eventId,
+      search,
+      used,
     });
 
     return {
       data,
+      filters: { search: search || null, used: used ?? null },
       pagination: {
         page: validPage,
         limit: validLimit,
@@ -249,7 +258,13 @@ export class QuestionService {
     return question;
   }
 
-  async listQuestions(page = 1, limit = 20, roundId?: string): Promise<QuestionListResult> {
+  async listQuestions(
+    page = 1,
+    limit = 20,
+    roundId?: string,
+    search?: string,
+    used?: boolean
+  ): Promise<QuestionListResult> {
     const validPage = Math.max(1, page);
     const validLimit = Math.min(100, Math.max(1, limit));
 
@@ -257,10 +272,13 @@ export class QuestionService {
       page: validPage,
       limit: validLimit,
       roundId,
+      search,
+      used,
     });
 
     return {
       data,
+      filters: { search: search || null, used: used ?? null },
       pagination: {
         page: validPage,
         limit: validLimit,

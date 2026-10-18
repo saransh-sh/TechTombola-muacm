@@ -715,7 +715,10 @@ describe('Winner Evaluation and Claim Submission Integration', () => {
     });
     expect(verified.statusCode).toBe(200);
     expect(broadcastObservedCommittedWinner).toBe(true);
-    expect(Object.keys(winnerEvent.payload).sort()).toEqual(['participantName', 'pattern', 'winnerId']);
+    expect(Object.keys(winnerEvent.payload).sort()).toEqual(['eligibleCellIds', 'participantName', 'pattern', 'winnerId']);
+    expect(winnerEvent.payload.eligibleCellIds).toEqual(verified.json().winner.eligibleCellIds);
+    expect(winnerEvent.payload.eligibleCellIds).toHaveLength(5);
+    expect(new Set(winnerEvent.payload.eligibleCellIds).size).toBe(5);
     expect(winnerEvent.payload.participantName).toBe('Claim Participant One');
     expect(winnerEvent.payload.email).toBeUndefined();
     const [winnerRow] = await getDb().select().from(winners).where(eq(winners.id, verified.json().winner.id));
@@ -727,11 +730,19 @@ describe('Winner Evaluation and Claim Submission Integration', () => {
     const [verifiedClaim] = await getDb().select().from(claims).where(eq(claims.id, firstClaimId));
     expect(verifiedClaim.status).toBe('VERIFIED');
     await expect((async () => {
-      await getDb().update(winners).set({ patternType: 'TOP_LINE' }).where(eq(winners.id, winnerRow.id));
+      try {
+        await getDb().update(winners).set({ patternType: 'TOP_LINE' }).where(eq(winners.id, winnerRow.id));
+      } catch (err: any) {
+        throw new Error(err.cause?.message || err.message);
+      }
     })())
       .rejects.toMatchObject({ cause: { message: 'Winner history is immutable' } });
     await expect((async () => {
-      await getDb().delete(winners).where(eq(winners.id, winnerRow.id));
+      try {
+        await getDb().delete(winners).where(eq(winners.id, winnerRow.id));
+      } catch (err: any) {
+        throw new Error(err.cause?.message || err.message);
+      }
     })())
       .rejects.toMatchObject({ cause: { message: 'Winner history is immutable' } });
     const replay = await app.inject({
@@ -800,8 +811,11 @@ describe('Winner Evaluation and Claim Submission Integration', () => {
       headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
     });
     expect(p1Wins.statusCode).toBe(200);
-    expect(p1Wins.json().data.map((winner: any) => winner.claimId)).toContain(firstClaimId);
+    const p1Winner = p1Wins.json().data.find((winner: any) => winner.claimId === firstClaimId);
+    expect(p1Winner).toBeDefined();
+    expect(p1Winner.eligibleCellIds).toEqual(verified.json().winner.eligibleCellIds);
     expect(p2Wins.json().data.map((winner: any) => winner.claimId)).not.toContain(firstClaimId);
+    expect(p2Wins.json().data.some((winner: any) => winner.eligibleCellIds?.some((cellId: string) => p1Winner.eligibleCellIds.includes(cellId)))).toBe(false);
     expect(adminWinners.json().data.map((winner: any) => winner.claimId)).toContain(firstClaimId);
 
     const event2 = await eventRepository.create({ title: `Claim Event 2 ${Date.now()}`, status: 'READY' });

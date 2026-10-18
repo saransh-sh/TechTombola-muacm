@@ -4,7 +4,7 @@ import type { IIdempotencyRepository } from '../../shared/idempotency/idempotenc
 import type { AuditService } from '../audit/audit.service.ts';
 import type { IDrawRepository } from '../draws/draw.repository.ts';
 import type { ITicketRepository } from '../tickets/ticket.types.ts';
-import { evaluatePattern, evaluateWinnerVerification } from './winner.domain.ts';
+import { evaluatePattern, evaluateWinnerVerification, selectWinningCellIds } from './winner.domain.ts';
 import type { IClaimRepository } from './claim.repository.ts';
 import type { IWinnerRepository, WinnerListOptions } from './winner.repository.ts';
 
@@ -40,6 +40,7 @@ export interface WinnerDto {
   participantName?: string;
   eventTitle?: string;
   verifiedAt: string;
+  eligibleCellIds?: string[];
 }
 
 export class WinnerService {
@@ -94,10 +95,17 @@ export class WinnerService {
       const ticket = await this.ticketRepo.findTicketById(claim.ticketId, tx);
       if (!ticket) throw new ConflictError('Claim ticket is no longer available', 'CLAIM_TICKET_MISSING');
 
-      const drawnKeyIds = await this.drawRepo.getDrawnKeyIds(claim.roundId, tx);
+      const drawnKeys = await this.drawRepo.listDrawnKeysBySequence(claim.roundId, tx);
+      const drawnKeyIds = new Set(drawnKeys.map((draw) => draw.keyId));
+      const ticketCells = ticket.cells.map((cell) => ({
+        cellId: cell.id,
+        rowIndex: cell.rowIndex,
+        colIndex: cell.colIndex,
+        keyId: cell.keyId,
+      }));
       const eligible = evaluatePattern(
         claim.patternType as Parameters<typeof evaluatePattern>[0],
-        ticket.cells.map((cell) => ({ rowIndex: cell.rowIndex, colIndex: cell.colIndex, keyId: cell.keyId })),
+        ticketCells,
         drawnKeyIds
       );
 
@@ -158,7 +166,17 @@ export class WinnerService {
         tx
       );
 
-      const body = { winner: this.toWinnerDto({ ...winner, participantName: context.participantName }) };
+      const eligibleCellIds = selectWinningCellIds(
+        claim.patternType as Parameters<typeof selectWinningCellIds>[0],
+        ticketCells,
+        drawnKeys
+      );
+      const body = {
+        winner: {
+          ...this.toWinnerDto({ ...winner, participantName: context.participantName }),
+          eligibleCellIds,
+        },
+      };
       const outcome: CommandOutcome<{ winner: WinnerDto }> = { kind: 'success', body };
       await this.idempotency.save(storageKey, 'WINNER_VERIFICATION', outcome, tx);
       return {
@@ -169,7 +187,12 @@ export class WinnerService {
           eventId: context.eventId,
           roundId: claim.roundId,
           occurredAt: now.toISOString(),
-          payload: { winnerId: winner.id, participantName: context.participantName, pattern: claim.patternType },
+          payload: {
+            winnerId: winner.id,
+            participantName: context.participantName,
+            pattern: claim.patternType,
+            eligibleCellIds,
+          },
         },
       };
     });
@@ -264,7 +287,24 @@ export class WinnerService {
     const participantId = await this.winnerRepo.findParticipantIdByUserId(userId, eventId);
     if (!participantId) throw new NotFoundError('Participant profile not found');
     const pagination = this.normalizePagination(options);
-    return this.listWinners(this.winnerRepo.listByParticipant(participantId, pagination), pagination);
+    const { data, total } = await this.winnerRepo.listByParticipant(participantId, pagination);
+    const winners = await Promise.all(data.map(async (winner) => {
+      const ticket = await this.ticketRepo.findTicketById(winner.ticketId);
+      if (!ticket) throw new ConflictError('Winner ticket is no longer available', 'WINNER_TICKET_MISSING');
+      const drawnKeys = await this.drawRepo.listDrawnKeysBySequence(winner.roundId);
+      const eligibleCellIds = selectWinningCellIds(
+        winner.patternType as Parameters<typeof selectWinningCellIds>[0],
+        ticket.cells.map((cell) => ({
+          cellId: cell.id,
+          rowIndex: cell.rowIndex,
+          colIndex: cell.colIndex,
+          keyId: cell.keyId,
+        })),
+        drawnKeys
+      );
+      return { ...this.toWinnerDto(winner), eligibleCellIds };
+    }));
+    return { data: winners, total, ...pagination };
   }
 
   private async listWinners(

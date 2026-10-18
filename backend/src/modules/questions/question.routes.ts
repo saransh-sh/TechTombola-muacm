@@ -18,7 +18,13 @@ export const questionRoutes: FastifyPluginAsync = async (fastify) => {
   // --- Keys ---
   fastify.get('/admin/keys', async (request) => {
     const query = keyPaginationSchema.parse(request.query);
-    return questionService.listKeys(query.page, query.limit, query.eventId);
+    return questionService.listKeys(
+      query.page,
+      query.limit,
+      query.eventId,
+      query.search,
+      query.used
+    );
   });
 
   fastify.get('/admin/keys/:id', async (request) => {
@@ -61,7 +67,13 @@ export const questionRoutes: FastifyPluginAsync = async (fastify) => {
   // --- Questions ---
   fastify.get('/admin/questions', async (request) => {
     const query = questionPaginationSchema.parse(request.query);
-    return questionService.listQuestions(query.page, query.limit, query.roundId);
+    return questionService.listQuestions(
+      query.page,
+      query.limit,
+      query.roundId,
+      query.search,
+      query.used
+    );
   });
 
   fastify.get('/admin/questions/:id', async (request) => {

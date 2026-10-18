@@ -13,6 +13,8 @@ export const keyPaginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   eventId: z.string().uuid('Invalid event ID format').optional(),
+  search: z.string().trim().max(100).optional().transform((value) => value || undefined),
+  used: z.enum(['true', 'false']).optional().transform((value) => value === undefined ? undefined : value === 'true'),
 });
 
 export const keyIdParamSchema = z.object({
@@ -33,6 +35,8 @@ export const questionPaginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   roundId: z.string().uuid('Invalid round ID format').optional(),
+  search: z.string().trim().max(100).optional().transform((value) => value || undefined),
+  used: z.enum(['true', 'false']).optional().transform((value) => value === undefined ? undefined : value === 'true'),
 });
 
 export const questionIdParamSchema = z.object({

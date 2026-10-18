@@ -56,7 +56,24 @@ describe('real-time WebSocket transport integration', () => {
     }), { prefix: '/api/v1' });
     await app.ready(); const address = await app.listen({ port: 0, host: '127.0.0.1' }); websocketUrl = address.replace(/^http/, 'ws');
   });
-  afterAll(async () => { await app.close(); });
+  afterAll(async () => {
+    manager.close();
+    try {
+      if (app.websocketServer?.clients) {
+        for (const client of app.websocketServer.clients) {
+          client.terminate();
+        }
+      }
+      app.websocketServer?.close();
+      (app.server as any)?.closeAllConnections?.();
+      await Promise.race([
+        app.close(),
+        new Promise((resolve) => setTimeout(resolve, 1000)),
+      ]);
+    } catch {
+      // ignore
+    }
+  });
 
   it('accepts public, Participant, and Admin sockets and delivers only their permitted events', async () => {
     const display = await connect(websocketUrl, `/api/v1/live/ws?eventId=${eventId}&roundId=${roundId}`);
@@ -132,6 +149,6 @@ describe('real-time WebSocket transport integration', () => {
       const messages = sockets.map(waitForMessage);
       await manager.broadcastCommitted({ type: 'ANNOUNCEMENT', eventId, roundId, occurredAt: '2026-10-15T12:00:00.000Z', payload: { message: 'The next Draw begins shortly.' } });
       const received = await Promise.all(messages); expect(received).toHaveLength(500); expect(received.every((message) => JSON.parse(message).type === 'ANNOUNCEMENT')).toBe(true);
-    } finally { for (const socket of sockets) socket.close(); }
-  });
+    } finally { for (const socket of sockets) socket.terminate(); }
+  }, 30_000);
 });

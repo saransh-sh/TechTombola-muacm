@@ -13,6 +13,15 @@ export interface TicketCellEvaluationInput {
   keyId: string;
 }
 
+export interface WinningCellSelectionInput extends TicketCellEvaluationInput {
+  cellId: string;
+}
+
+export interface DrawnKeySequenceInput {
+  keyId: string;
+  sequenceNumber: number;
+}
+
 export interface WinnerCapacityDecision {
   canAward: boolean;
   closesPattern: boolean;
@@ -149,6 +158,49 @@ export function evaluatePattern(
     default:
       throw new ConflictError(`Unknown pattern type: ${patternType}`, 'UNKNOWN_PATTERN');
   }
+}
+
+/**
+ * Select the cells that substantiate a verified Pattern. Early 5 uses the five
+ * Ticket cells whose Keys appeared earliest in the official Draw sequence.
+ */
+export function selectWinningCellIds(
+  patternType: WinningPatternType,
+  cells: WinningCellSelectionInput[],
+  drawnKeys: DrawnKeySequenceInput[]
+): string[] {
+  const drawnKeyIds = new Set(drawnKeys.map((draw) => draw.keyId));
+  if (!evaluatePattern(patternType, cells, drawnKeyIds)) return [];
+
+  const cellByKey = new Map(cells.map((cell) => [cell.keyId, cell]));
+  const firstSequenceByKey = new Map<string, number>();
+  for (const draw of [...drawnKeys].sort((a, b) => a.sequenceNumber - b.sequenceNumber)) {
+    if (cellByKey.has(draw.keyId) && !firstSequenceByKey.has(draw.keyId)) {
+      firstSequenceByKey.set(draw.keyId, draw.sequenceNumber);
+    }
+  }
+
+  if (patternType === 'EARLY_5') {
+    return cells
+      .filter((cell) => firstSequenceByKey.has(cell.keyId))
+      .sort((a, b) =>
+        firstSequenceByKey.get(a.keyId)! - firstSequenceByKey.get(b.keyId)! ||
+        a.rowIndex - b.rowIndex || a.colIndex - b.colIndex
+      )
+      .slice(0, 5)
+      .map((cell) => cell.cellId);
+  }
+
+  const rowIndexByPattern: Partial<Record<WinningPatternType, number>> = {
+    TOP_LINE: 0,
+    MIDDLE_LINE: 1,
+    BOTTOM_LINE: 2,
+  };
+  const rowIndex = rowIndexByPattern[patternType];
+  return cells
+    .filter((cell) => rowIndex === undefined || cell.rowIndex === rowIndex)
+    .sort((a, b) => a.rowIndex - b.rowIndex || a.colIndex - b.colIndex)
+    .map((cell) => cell.cellId);
 }
 
 /**

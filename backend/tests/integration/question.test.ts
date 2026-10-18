@@ -10,6 +10,7 @@ import { eventRepository } from '../../src/modules/events/event.repository.ts';
 import { roundRepository } from '../../src/modules/rounds/round.repository.ts';
 import { auditLogs } from '../../src/db/schema/audit.ts';
 import { rounds } from '../../src/db/schema/rounds.ts';
+import { draws } from '../../src/db/schema/draws.ts';
 import { eq } from 'drizzle-orm';
 
 describe('Event Keys and Round Questions Integration', () => {
@@ -74,7 +75,9 @@ describe('Event Keys and Round Questions Integration', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
     await closeDb();
   });
 
@@ -385,6 +388,210 @@ describe('Event Keys and Round Questions Integration', () => {
 
     expect(updateRes.statusCode).toBe(409);
     expect(JSON.parse(updateRes.body).error.code).toBe('KEY_REFERENCED');
+  });
+
+  it('searches Keys and Questions across the complete scope before pagination', async () => {
+    const targetKeyRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/keys',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+      payload: { eventId: eventA.id, value: 'GLOBAL-SEARCH-TARGET' },
+    });
+    const targetKey = JSON.parse(targetKeyRes.body).key;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/keys',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+      payload: { eventId: eventA.id, value: 'NEWER-PAGE-ENTRY' },
+    });
+
+    const keySearch = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/keys?eventId=${eventA.id}&page=1&limit=1&search=%20global-search-target%20`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(keySearch.statusCode).toBe(200);
+    const keyBody = JSON.parse(keySearch.body);
+    expect(keyBody.data.map((row: any) => row.id)).toEqual([targetKey.id]);
+    expect(keyBody.pagination.total).toBe(1);
+    expect(keyBody.data[0]).toMatchObject({ used: false, canEdit: true });
+    expect(keyBody.filters).toEqual({ search: 'global-search-target', used: null });
+
+    const questionRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/questions',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+      payload: {
+        roundId: roundA1.id,
+        keyId: targetKey.id,
+        questionText: 'Which literal marker contains 50%_ and punctuation?',
+      },
+    });
+    const targetQuestion = JSON.parse(questionRes.body).question;
+
+    const questionTextSearch = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/questions?roundId=${roundA1.id}&page=1&limit=1&search=${encodeURIComponent('LITERAL MARKER')}`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(questionTextSearch.statusCode).toBe(200);
+    const questionBody = JSON.parse(questionTextSearch.body);
+    expect(questionBody.data.map((row: any) => row.id)).toContain(targetQuestion.id);
+    expect(questionBody.data[0]).toMatchObject({ used: false, canEdit: true });
+    expect(questionBody.filters).toEqual({ search: 'LITERAL MARKER', used: null });
+
+    const associatedKeySearch = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/questions?roundId=${roundA1.id}&search=global-search-target`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(JSON.parse(associatedKeySearch.body).data.map((row: any) => row.id)).toContain(
+      targetQuestion.id
+    );
+
+    const literalSearch = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/questions?roundId=${roundA1.id}&search=${encodeURIComponent('%_')}`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(JSON.parse(literalSearch.body).data.map((row: any) => row.id)).toContain(
+      targetQuestion.id
+    );
+  });
+
+  it('filters persisted Draw usage and reports mutation-aligned editability', async () => {
+    const usedRound = await roundRepository.create(
+      { eventId: eventA.id, sequenceNumber: 98, name: 'Used Search Round', status: 'DRAFT' },
+      []
+    );
+    const usedKeyRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/keys',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+      payload: { eventId: eventA.id, value: 'PERSISTED-DRAW-KEY' },
+    });
+    const usedKey = JSON.parse(usedKeyRes.body).key;
+    const usedQuestionRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/questions',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+      payload: {
+        roundId: usedRound.id,
+        keyId: usedKey.id,
+        questionText: 'Which Key should have a persisted Draw reference?',
+      },
+    });
+    const usedQuestion = JSON.parse(usedQuestionRes.body).question;
+
+    await getDb().update(rounds).set({ status: 'ACTIVE' }).where(eq(rounds.id, usedRound.id));
+    await getDb().insert(draws).values({
+      roundId: usedRound.id,
+      questionId: usedQuestion.id,
+      keyId: usedKey.id,
+      sequenceNumber: 1,
+      drawMode: 'RANDOM',
+      questionText: usedQuestion.questionText,
+      keyValue: usedQuestion.keyValue,
+      drawnBy: adminUser.id,
+    });
+
+    const usedQuestions = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/questions?roundId=${usedRound.id}&used=true`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(usedQuestions.statusCode).toBe(200);
+    const usedQuestionBody = JSON.parse(usedQuestions.body);
+    expect(usedQuestionBody.data).toHaveLength(1);
+    expect(usedQuestionBody.data[0]).toMatchObject({
+      id: usedQuestion.id,
+      used: true,
+      canEdit: false,
+    });
+    expect(usedQuestionBody.filters).toEqual({ search: null, used: true });
+
+    const staleQuestionEdit = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/questions/${usedQuestion.id}`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+      payload: { questionText: 'Attempt to rewrite an already drawn question?' },
+    });
+    expect(staleQuestionEdit.statusCode).toBe(409);
+
+    const unusedQuestions = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/questions?roundId=${roundA1.id}&used=false`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(unusedQuestions.statusCode).toBe(200);
+    expect(JSON.parse(unusedQuestions.body).data.every((row: any) => !row.used)).toBe(true);
+
+    const usedKeys = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/keys?eventId=${eventA.id}&search=PERSISTED-DRAW-KEY&used=true`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(usedKeys.statusCode).toBe(200);
+    const usedKeyBody = JSON.parse(usedKeys.body);
+    expect(usedKeyBody.data).toHaveLength(1);
+    expect(usedKeyBody.data[0]).toMatchObject({ id: usedKey.id, used: true, canEdit: false });
+    expect(usedKeyBody.filters).toEqual({ search: 'PERSISTED-DRAW-KEY', used: true });
+
+    const unreferencedOnly = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/keys?eventId=${eventA.id}&search=NEWER-PAGE-ENTRY`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(JSON.parse(unreferencedOnly.body).data[0]).toMatchObject({ used: false, canEdit: true });
+
+    const referencedButUnused = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/keys?eventId=${eventA.id}&search=GLOBAL-SEARCH-TARGET`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(JSON.parse(referencedButUnused.body).data[0]).toMatchObject({
+      used: false,
+      canEdit: false,
+    });
+  });
+
+  it('echoes empty omitted filters, preserves scope, and rejects invalid search parameters', async () => {
+    const oldStyleKeys = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/keys?eventId=${eventB.id}`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(oldStyleKeys.statusCode).toBe(200);
+    expect(JSON.parse(oldStyleKeys.body).filters).toEqual({ search: null, used: null });
+    expect(JSON.parse(oldStyleKeys.body).data.every((row: any) => row.eventId === eventB.id)).toBe(
+      true
+    );
+
+    for (const query of [
+      `eventId=not-a-uuid`,
+      `eventId=${eventA.id}&page=0`,
+      `eventId=${eventA.id}&limit=101`,
+      `eventId=${eventA.id}&search=${'x'.repeat(101)}`,
+      `eventId=${eventA.id}&used=maybe`,
+    ]) {
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/v1/admin/keys?${query}`,
+        headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+      });
+      expect(response.statusCode).toBe(400);
+    }
+
+    const questionsInOtherRound = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/questions?roundId=${roundA2.id}`,
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+    });
+    expect(JSON.parse(questionsInOtherRound.body).data.every((row: any) => row.roundId === roundA2.id)).toBe(
+      true
+    );
   });
 
   it('denies unauthenticated requests with 401', async () => {

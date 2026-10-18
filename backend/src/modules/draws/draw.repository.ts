@@ -13,6 +13,7 @@ export interface IDrawRepository {
   getLastDraw(roundId: string, tx?: any): Promise<DrawRecord | null>;
   getDrawnQuestionIds(roundId: string, tx?: any): Promise<Set<string>>;
   getDrawnKeyIds(roundId: string, tx?: any): Promise<Set<string>>;
+  listDrawnKeysBySequence(roundId: string, tx?: any): Promise<Array<{ keyId: string; sequenceNumber: number }>>;
   getCandidateQuestions(roundId: string, tx?: any): Promise<CandidateQuestion[]>;
   listByRound(
     roundId: string,
@@ -74,6 +75,18 @@ export class DrawRepository implements IDrawRepository {
       .from(draws)
       .where(eq(draws.roundId, roundId));
     return new Set(rows.map((r: { keyId: string }) => r.keyId));
+  }
+
+  async listDrawnKeysBySequence(
+    roundId: string,
+    tx?: any
+  ): Promise<Array<{ keyId: string; sequenceNumber: number }>> {
+    const db = this.getDbInstance(tx);
+    return db
+      .select({ keyId: draws.keyId, sequenceNumber: draws.sequenceNumber })
+      .from(draws)
+      .where(eq(draws.roundId, roundId))
+      .orderBy(asc(draws.sequenceNumber));
   }
 
   async getCandidateQuestions(roundId: string, tx?: any): Promise<CandidateQuestion[]> {

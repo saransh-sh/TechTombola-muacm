@@ -36,7 +36,7 @@ function makeHarness(options: { drawn?: boolean; capacity?: number; count?: numb
     closePattern: async () => { pattern.status = 'CLOSED'; },
     listAll: async () => ({ data: [], total: 0 }),
   };
-  const winnerRepo = {
+  const winnerRepo: any = {
     countByRoundPattern: async () => options.count ?? 0,
     create: async (data: any) => {
       const winner = { id: '70000000-0000-4000-8000-000000000001', ...data };
@@ -48,10 +48,11 @@ function makeHarness(options: { drawn?: boolean; capacity?: number; count?: numb
     listByParticipant: async () => ({ data: [], total: 0 }),
   };
   const ticketRepo = {
-    findTicketById: async () => ({ cells: keys.map((keyId, index) => ({ rowIndex: 0, colIndex: index, keyId })) }),
+    findTicketById: async () => ({ cells: keys.map((keyId, index) => ({ id: `cell-${index}`, rowIndex: 0, colIndex: index, keyId })) }),
   };
   const drawRepo = {
     getDrawnKeyIds: async () => new Set(options.drawn === false ? [] : keys),
+    listDrawnKeysBySequence: async () => (options.drawn === false ? [] : keys.map((keyId, index) => ({ keyId, sequenceNumber: index + 1 }))),
   };
   const audit = {
     record: async (input: any) => {
@@ -94,7 +95,7 @@ function makeHarness(options: { drawn?: boolean; capacity?: number; count?: numb
     idempotency: idem as any,
     transactionRunner: transactionRunner as any,
   });
-  return { service, claim, pattern, winners, auditRecords, get committed() { return committed; } };
+  return { service, claim, pattern, winners, winnerRepo, auditRecords, get committed() { return committed; } };
 }
 
 const verify = (overrides: Partial<{ claimId: string; actorId: string; actorType: 'ADMIN' | 'SUPER_ADMIN'; idempotencyKey: string }> = {}) => ({
@@ -114,6 +115,7 @@ describe('WinnerService verification and rejection', () => {
     const result = await h.service.verifyClaim(verify());
 
     expect(result.winner.claimId).toBe(ids.claim);
+    expect(result.winner.eligibleCellIds).toEqual(['cell-0', 'cell-1', 'cell-2', 'cell-3', 'cell-4']);
     expect(h.claim.status).toBe('VERIFIED');
     expect(h.winners).toHaveLength(1);
     expect(h.pattern.status).toBe('CLOSED');
@@ -181,5 +183,30 @@ describe('WinnerService verification and rejection', () => {
     expect(h.claim.status).toBe('PENDING_VERIFICATION');
     expect(h.winners).toHaveLength(0);
     expect(h.pattern.status).toBe('OPEN');
+  });
+
+  it('returns the same deterministic winning-cell evidence from participant wins and remains participant-scoped', async () => {
+    const h = makeHarness();
+    h.winnerRepo.listByParticipant = async (participantId: string) => ({
+      data: [{
+        id: '70000000-0000-4000-8000-000000000001',
+        claimId: ids.claim,
+        participantId,
+        roundId: ids.round,
+        eventId: ids.event,
+        patternType: 'EARLY_5',
+        verifiedBy: ids.admin,
+        verifiedAt: new Date('2026-10-15T12:00:00.000Z'),
+        participantName: 'Tombola Player',
+        eventTitle: 'Tech Tombola',
+        ticketId: '60000000-0000-4000-8000-000000000001',
+      }],
+      total: 1,
+    });
+
+    const result = await h.service.listParticipantWins('user-1');
+
+    expect(result.data[0]?.eligibleCellIds).toEqual(['cell-0', 'cell-1', 'cell-2', 'cell-3', 'cell-4']);
+    expect(result.data[0]?.participantId).toBe(ids.participant);
   });
 });
