@@ -29,6 +29,7 @@ describe('Event Keys and Round Questions Integration', () => {
     process.env.DATABASE_URL = testDbUrl;
     process.env.JWT_SECRET = 'test-jwt-secret-min-length-sufficient';
     process.env.SESSION_SECRET = 'test-session-secret-min-length-sufficient';
+    process.env.CORS_ORIGIN = 'https://frontend.example.test';
 
     resetCachedEnv();
     await closeDb();
@@ -286,7 +287,10 @@ describe('Event Keys and Round Questions Integration', () => {
     const updateQ = await app.inject({
       method: 'PATCH',
       url: `/api/v1/admin/questions/${questionId}`,
-      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+      headers: {
+        origin: 'https://frontend.example.test',
+        cookie: `${SESSION_COOKIE_NAME}=${adminCookie}`,
+      },
       payload: {
         questionText: 'Advanced open source object-relational database management system?',
       },
@@ -297,9 +301,11 @@ describe('Event Keys and Round Questions Integration', () => {
     const deleteQ = await app.inject({
       method: 'DELETE',
       url: `/api/v1/admin/questions/${questionId}`,
-      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+      headers: { origin: 'https://frontend.example.test', cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
     });
     expect(deleteQ.statusCode).toBe(204);
+    expect(deleteQ.headers['access-control-allow-origin']).toBe('https://frontend.example.test');
+    expect(deleteQ.headers['access-control-allow-credentials']).toBe('true');
 
     // Verify deletion
     const getDeleted = await app.inject({

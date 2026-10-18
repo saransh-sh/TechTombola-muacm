@@ -1144,6 +1144,13 @@ requests validate both artifacts. Logout revokes the Session
 immediately, and WebSocket authentication uses the same cookie rather
 than a token in a query string.
 
+For browser clients, `CORS_ORIGIN` is a comma-separated exact allowlist.
+Credentialed responses must echo only a configured origin; wildcard
+origins are not permitted. Preflight must allow the API's supported
+methods (`GET`, `HEAD`, `POST`, `PATCH`, and `DELETE`) and the request
+headers used by the client (`Content-Type` and `Idempotency-Key`). Keep
+the method list aligned with registered routes when the API changes.
+
 ------------------------------------------------------------------------
 
 # 40. Authorization Matrix

@@ -25,6 +25,7 @@ describe('Event Lifecycle Integration', () => {
     process.env.DATABASE_URL = testDbUrl;
     process.env.JWT_SECRET = 'test-jwt-secret-min-length-sufficient';
     process.env.SESSION_SECRET = 'test-session-secret-min-length-sufficient';
+    process.env.CORS_ORIGIN = 'https://frontend.example.test';
 
     resetCachedEnv();
     await closeDb();
@@ -176,10 +177,16 @@ describe('Event Lifecycle Integration', () => {
     const patchMeta = await app.inject({
       method: 'PATCH',
       url: `/api/v1/admin/events/${eventId}`,
-      headers: { cookie: `${SESSION_COOKIE_NAME}=${adminCookie}` },
+      headers: {
+        origin: 'https://frontend.example.test',
+        cookie: `${SESSION_COOKIE_NAME}=${adminCookie}`,
+        'idempotency-key': 'event-metadata-update-001',
+      },
       payload: { description: 'Updated Draft Description' },
     });
     expect(patchMeta.statusCode).toBe(200);
+    expect(patchMeta.headers['access-control-allow-origin']).toBe('https://frontend.example.test');
+    expect(patchMeta.headers['access-control-allow-credentials']).toBe('true');
     expect(JSON.parse(patchMeta.body).event.description).toBe('Updated Draft Description');
 
     // 3. Transition DRAFT -> READY
