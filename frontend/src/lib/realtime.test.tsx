@@ -34,7 +34,7 @@ describe('participant realtime connection', () => {
     queryClient.refetchQueries = vi.fn().mockResolvedValue(undefined);
     queryClient.getQueryState = vi.fn().mockReturnValue(undefined);
   });
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.useRealTimers(); });
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.useRealTimers(); });
 
   it('keeps an in-flight live Draw ahead of an older REST snapshot', () => {
     const merged = mergeParticipantDraws(
@@ -49,6 +49,15 @@ describe('participant realtime connection', () => {
     const url = new URL(participantSocketUrl(ids.round));
     expect(url.protocol).toBe('ws:');
     expect(url.pathname).toBe('/api/v1/ws');
+    expect(url.searchParams.get('roundId')).toBe(ids.round);
+  });
+
+  it('uses the configured WebSocket origin for the Participant feed', () => {
+    vi.stubEnv('VITE_API_BASE_URL', 'https://api.example.test');
+    vi.stubEnv('VITE_WS_BASE_URL', 'wss://socket.example.test');
+    const url = new URL(participantSocketUrl(ids.round));
+    expect(url.protocol).toBe('wss:');
+    expect(url.host).toBe('socket.example.test');
     expect(url.searchParams.get('roundId')).toBe(ids.round);
   });
 

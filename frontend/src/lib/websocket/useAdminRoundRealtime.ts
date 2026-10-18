@@ -1,16 +1,12 @@
 import { useEffect, useState } from 'react';
 import { adminRoundRealtimeEventSchema } from '../../types/adminDraw';
 import type { AdminRound } from '../../types/adminRound';
+import { socketUrl } from './socketUrl';
 
 type Connection = 'inactive' | 'connecting' | 'connected' | 'reconnecting' | 'unavailable';
 
 function websocketUrl(eventId: string, roundId: string) {
-  const base = import.meta.env.VITE_WS_BASE_URL || import.meta.env.VITE_API_BASE_URL || window.location.origin;
-  const url = new URL(base, window.location.origin);
-  url.protocol = url.protocol === 'https:' || url.protocol === 'wss:' ? 'wss:' : 'ws:';
-  url.pathname = '/api/v1/ws';
-  url.search = new URLSearchParams({ eventId, roundId }).toString();
-  return url.toString();
+  return socketUrl('/api/v1/ws', new URLSearchParams({ eventId, roundId }));
 }
 
 export function useAdminRoundRealtime({

@@ -22,7 +22,7 @@ describe('useAdminRoundRealtime', () => {
     TestWebSocket.instances = [];
     vi.stubGlobal('WebSocket', TestWebSocket);
   });
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.useRealTimers(); });
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.useRealTimers(); });
 
   function subscribe() {
     const onOpen = vi.fn();
@@ -33,6 +33,16 @@ describe('useAdminRoundRealtime', () => {
     }));
     return { ...hook, onOpen, onDrawCreated, onRoundChanged };
   }
+
+  it('uses the configured WebSocket origin ahead of the API origin', () => {
+    vi.stubEnv('VITE_API_BASE_URL', 'https://api.example.test');
+    vi.stubEnv('VITE_WS_BASE_URL', 'wss://socket.example.test');
+    subscribe();
+    const url = new URL(TestWebSocket.instances[0]!.url);
+    expect(url.protocol).toBe('wss:');
+    expect(url.host).toBe('socket.example.test');
+    expect(url.pathname).toBe('/api/v1/ws');
+  });
 
   it('reconnects with exponential delays capped at 30 seconds and refreshes on open', () => {
     vi.useFakeTimers();

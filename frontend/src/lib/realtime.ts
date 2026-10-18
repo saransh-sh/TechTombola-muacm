@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
 import { ApiError } from './api/client';
 import { reportDiagnostic } from './diagnostics';
+import { socketUrl } from './websocket/socketUrl';
 import { realtimeEventSchema, type ParticipantDraw, type RealtimeEvent } from '../types/draw';
 
 const MAX_RETRIES = 5;
@@ -20,11 +21,7 @@ export function mergeParticipantDraws(serverDraws: DisplayDraw[], liveDraws: Liv
 }
 
 export function participantSocketUrl(roundId: string) {
-  const base = import.meta.env.VITE_API_BASE_URL || window.location.origin;
-  const url = new URL('/api/v1/ws', base);
-  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-  url.searchParams.set('roundId', roundId);
-  return url.toString();
+  return socketUrl('/api/v1/ws', new URLSearchParams({ roundId }));
 }
 
 export function useParticipantRealtime(enabled: boolean, userId: string, eventId: string, roundId: string, queryClient: QueryClient) {
