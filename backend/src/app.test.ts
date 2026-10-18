@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { buildApp } from '../../src/app.ts';
-import { resetCachedEnv } from '../../src/config/env.ts';
-import { verifyMutationOrigin } from '../../src/middleware/auth.ts';
-import type { RecoveryService } from '../../src/modules/recovery/recovery.service.ts';
+import { buildApp } from './app.ts';
+import { resetCachedEnv } from './config/env.ts';
+import { verifyMutationOrigin } from './middleware/auth.ts';
+import { SESSION_COOKIE_NAME } from './modules/auth/auth.domain.ts';
+import type { RecoveryService } from './modules/recovery/recovery.service.ts';
 
 describe('credentialed CORS preflight', () => {
   let app: FastifyInstance;
@@ -25,6 +26,16 @@ describe('credentialed CORS preflight', () => {
 
     const recoveryService = { markInterruptedRounds: async () => undefined } as unknown as RecoveryService;
     app = await buildApp({ enableLogging: false, recoveryService });
+    const mutationOriginGuard = async (request: FastifyRequest): Promise<void> => verifyMutationOrigin(request);
+    app.patch('/test/cors-mutation', { preHandler: [mutationOriginGuard] }, async (request) => ({
+      method: request.method,
+      cookie: request.headers.cookie,
+      idempotencyKey: request.headers['idempotency-key'],
+    }));
+    app.delete('/test/cors-mutation', { preHandler: [mutationOriginGuard] }, async (request) => ({
+      method: request.method,
+      cookie: request.headers.cookie,
+    }));
   });
 
   afterAll(async () => {
@@ -53,6 +64,27 @@ describe('credentialed CORS preflight', () => {
     expect(response.headers['access-control-allow-methods']).toContain('PATCH');
     expect(response.headers['access-control-allow-headers']?.toLowerCase()).toContain('content-type');
     expect(response.headers['access-control-allow-headers']?.toLowerCase()).toContain('idempotency-key');
+
+    const mutation = await app.inject({
+      method: 'PATCH',
+      url: '/test/cors-mutation',
+      headers: {
+        origin: 'https://frontend.example.test',
+        cookie: `${SESSION_COOKIE_NAME}=test-session`,
+        'content-type': 'application/json',
+        'idempotency-key': 'retry-patch-001',
+      },
+      payload: { enabled: true },
+    });
+
+    expect(mutation.statusCode).toBe(200);
+    expect(mutation.headers['access-control-allow-origin']).toBe('https://frontend.example.test');
+    expect(mutation.headers['access-control-allow-credentials']).toBe('true');
+    expect(mutation.json()).toEqual({
+      method: 'PATCH',
+      cookie: `${SESSION_COOKIE_NAME}=test-session`,
+      idempotencyKey: 'retry-patch-001',
+    });
   });
 
   it('allows the supported DELETE mutation method', async () => {
@@ -70,6 +102,36 @@ describe('credentialed CORS preflight', () => {
     expect(response.headers['access-control-allow-origin']).toBe('http://localhost:5173');
     expect(response.headers['access-control-allow-credentials']).toBe('true');
     expect(response.headers['access-control-allow-methods']).toContain('DELETE');
+
+    const mutation = await app.inject({
+      method: 'DELETE',
+      url: '/test/cors-mutation',
+      headers: {
+        origin: 'http://localhost:5173',
+        cookie: `${SESSION_COOKIE_NAME}=test-session`,
+      },
+    });
+
+    expect(mutation.statusCode).toBe(200);
+    expect(mutation.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+    expect(mutation.headers['access-control-allow-credentials']).toBe('true');
+    expect(mutation.json()).toEqual({ method: 'DELETE', cookie: `${SESSION_COOKIE_NAME}=test-session` });
+  });
+
+  it('rejects an actual mutation request from an unconfigured origin', async () => {
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/test/cors-mutation',
+      headers: {
+        origin: 'https://malicious.example.test',
+        cookie: `${SESSION_COOKIE_NAME}=test-session`,
+        'content-type': 'application/json',
+      },
+      payload: { enabled: true },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.headers['access-control-allow-origin']).toBeUndefined();
   });
 
   it('rejects unconfigured origins on preflight without reflecting them', async () => {
