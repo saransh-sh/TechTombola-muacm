@@ -277,7 +277,7 @@ test('Draw control confirms random and manual draws and reconciles persisted his
   expect(savedDraws).toHaveLength(3);
 });
 
-test('Admin route navigation closes and recreates the Draw WebSocket without accumulating connections', async ({ page }) => {
+test('Admin route navigation records heap and DOM stability across fifty cycles', async ({ page }) => {
   await mockAuthentication(page, 'ADMIN', true, 'ACTIVE');
   const eventId = '0d3aa3e6-4c58-4c36-b363-d5f11640ba52';
   const roundId = '5c15e548-2bf0-4b12-8e8b-7d2c7cd91872';
@@ -294,7 +294,17 @@ test('Admin route navigation closes and recreates the Draw WebSocket without acc
   await expect.poll(() => opened).toBe(1);
   await expect.poll(() => opened - closed).toBe(1);
 
-  for (let cycle = 0; cycle < 10; cycle += 1) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('HeapProfiler.enable');
+  // The aggregate DOM counter includes Playwright's per-socket onClose handlers; inspect the page's own targets instead.
+  const getListenerCounts = async () => Object.fromEntries(await Promise.all(
+    ['window', "document.getElementById('root')"].map(async (expression) => {
+      const { result } = await cdp.send('Runtime.evaluate', { expression });
+      const { listeners } = await cdp.send('DOMDebugger.getEventListeners', { objectId: result.objectId!, depth: -1, pierce: true });
+      return [expression, listeners.length];
+    }),
+  ));
+  const navigateCycle = async () => {
     await page.getByRole('link', { name: 'Dashboard' }).click();
     await expect(page.getByRole('heading', { name: 'Operations dashboard' })).toBeVisible();
     await expect.poll(() => opened - closed).toBe(0);
@@ -302,9 +312,40 @@ test('Admin route navigation closes and recreates the Draw WebSocket without acc
     await expect(page.getByRole('heading', { name: 'Draw control' })).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'WebSocket connected' })).toBeVisible();
     await expect.poll(() => opened - closed).toBe(1);
-  }
+  };
 
-  await expect.poll(() => opened - closed).toBe(1);
+  for (let cycle = 0; cycle < 10; cycle += 1) await navigateCycle();
+
+  await cdp.send('HeapProfiler.collectGarbage');
+  const warmHeap = await cdp.send('Runtime.getHeapUsage');
+  const warmDom = await cdp.send('Memory.getDOMCounters');
+  const warmListeners = await getListenerCounts();
+
+  for (let cycle = 0; cycle < 40; cycle += 1) await navigateCycle();
+
+  await cdp.send('HeapProfiler.collectGarbage');
+  const finalHeap = await cdp.send('Runtime.getHeapUsage');
+  const finalDom = await cdp.send('Memory.getDOMCounters');
+  const finalListeners = await getListenerCounts();
+  await cdp.detach();
+
+  console.info('Admin route cycle profile', JSON.stringify({
+    additionalCycles: 40,
+    heapDeltaBytes: finalHeap.usedSize - warmHeap.usedSize,
+    dom: {
+      documentsBefore: warmDom.documents,
+      documentsAfter: finalDom.documents,
+      nodesBefore: warmDom.nodes,
+      nodesAfter: finalDom.nodes,
+    },
+    listeners: { before: warmListeners, after: finalListeners },
+    activeSockets: opened - closed,
+  }));
+  expect(finalDom.documents).toBeLessThanOrEqual(warmDom.documents + 1);
+  expect(finalDom.nodes).toBeLessThanOrEqual(warmDom.nodes + 20);
+  expect(finalListeners['window']).toBeLessThanOrEqual(warmListeners['window'] + 1);
+  expect(finalListeners["document.getElementById('root')"]).toBeLessThanOrEqual(warmListeners["document.getElementById('root')"] + 1);
+  expect(opened - closed).toBe(1);
 });
 
 test('participant management scopes and searches safely on mobile', async ({ page }) => {
