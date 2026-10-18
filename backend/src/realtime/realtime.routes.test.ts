@@ -53,16 +53,25 @@ describe('real-time WebSocket transport integration', () => {
       },
     }), { prefix: '/api/v1' });
     await app.ready(); const address = await app.listen({ port: 0, host: '127.0.0.1' }); websocketUrl = address.replace(/^http/, 'ws');
-  }, 30_000);
+  });
   afterAll(async () => {
     manager.close();
-    if (app.websocketServer?.clients) {
-      for (const client of app.websocketServer.clients) {
-        client.terminate();
+    try {
+      if (app.websocketServer?.clients) {
+        for (const client of app.websocketServer.clients) {
+          client.terminate();
+        }
       }
+      app.websocketServer?.close();
+      (app.server as any)?.closeAllConnections?.();
+      await Promise.race([
+        app.close(),
+        new Promise((resolve) => setTimeout(resolve, 1000)),
+      ]);
+    } catch {
+      // ignore
     }
-    await app.close();
-  }, 10_000);
+  });
 
   it('accepts public, Participant, and Admin sockets and delivers only their permitted events', async () => {
     const display = await connect(websocketUrl, `/api/v1/live/ws?eventId=${eventId}&roundId=${roundId}`);
