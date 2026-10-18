@@ -294,7 +294,7 @@ test('Admin route navigation closes and recreates the Draw WebSocket without acc
   await expect.poll(() => opened).toBe(1);
   await expect.poll(() => opened - closed).toBe(1);
 
-  for (let cycle = 0; cycle < 3; cycle += 1) {
+  for (let cycle = 0; cycle < 10; cycle += 1) {
     await page.getByRole('link', { name: 'Dashboard' }).click();
     await expect(page.getByRole('heading', { name: 'Operations dashboard' })).toBeVisible();
     await expect.poll(() => opened - closed).toBe(0);
