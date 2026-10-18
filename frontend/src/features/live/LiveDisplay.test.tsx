@@ -9,6 +9,8 @@ import { LiveDisplay } from './LiveDisplay';
 
 vi.mock('../../lib/api/liveDisplay', () => ({ getLiveDraws: vi.fn(), getLiveEvent: vi.fn(), getLiveRound: vi.fn() }));
 vi.mock('../../lib/api/winners', () => ({ getLiveWinners: vi.fn() }));
+const animation = vi.hoisted(() => ({ revert: vi.fn(), fromTo: vi.fn() }));
+vi.mock('gsap', () => ({ default: { context: vi.fn((callback: () => void) => { callback(); return { revert: animation.revert }; }), fromTo: animation.fromTo } }));
 
 class TestSocket {
   static instances: TestSocket[] = [];
@@ -40,6 +42,8 @@ function renderDisplay() {
 }
 
 beforeEach(() => {
+  animation.revert.mockClear();
+  animation.fromTo.mockClear();
   TestSocket.instances = [];
   vi.stubGlobal('WebSocket', TestSocket);
   vi.stubGlobal('matchMedia', () => ({ matches: true }));
@@ -74,6 +78,18 @@ describe('LiveDisplay', () => {
     act(() => TestSocket.instances[0]?.open());
     expect(screen.getByText('LIVE FEED CONNECTED')).toBeInTheDocument();
     expect(TestSocket.instances[0]?.url).toContain(`/api/v1/live/ws?eventId=${eventId}&roundId=${roundId}`);
+  });
+
+  it('reverts the active public Draw reveal when reduced motion is enabled', async () => {
+    let listener: ((event: { matches: boolean }) => void) | undefined;
+    vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: (_type: string, callback: (event: { matches: boolean }) => void) => { listener = callback; }, removeEventListener: () => { listener = undefined; } }));
+    const view = renderDisplay();
+    expect(await screen.findByRole('heading', { name: 'Which system runs containers?' })).toBeInTheDocument();
+    expect(animation.fromTo).toHaveBeenCalledOnce();
+    act(() => listener?.({ matches: true }));
+    expect(animation.revert).toHaveBeenCalledOnce();
+    view.unmount();
+    expect(animation.revert).toHaveBeenCalledOnce();
   });
 
   it('shows the empty Event and Round state without opening a socket', async () => {

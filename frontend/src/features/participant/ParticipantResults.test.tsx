@@ -11,7 +11,10 @@ import { WinnerBanner } from './WinnerBanner';
 vi.mock('../../lib/api/claims', () => ({ getParticipantClaims: vi.fn(), submitParticipantClaim: vi.fn() }));
 vi.mock('../../lib/api/winners', () => ({ getLiveWinners: vi.fn(), getParticipantWins: vi.fn() }));
 const animation = vi.hoisted(() => ({ kill: vi.fn(), fromTo: vi.fn() }));
-vi.mock('gsap', () => ({ gsap: { fromTo: animation.fromTo.mockImplementation(() => ({ kill: animation.kill })) } }));
+vi.mock('gsap', () => ({ gsap: {
+  context: vi.fn((callback: () => void) => { callback(); return { revert: animation.kill }; }),
+  fromTo: animation.fromTo.mockImplementation(() => ({ kill: animation.kill })),
+} }));
 
 const user: AuthenticatedUser = { id: 'user-1', email: 'ari@example.test', name: 'Ari Patel', role: 'PARTICIPANT', status: 'ACTIVE' };
 const ownWins = { data: [] as { id: string; claimId: string; participantId: string; roundId: string; eventId: string; patternType: 'EARLY_5'; verifiedAt: string }[], total: 0, page: 1, limit: 50 };
@@ -56,6 +59,19 @@ describe('participant winner results', () => {
     expect(await screen.findByText('Your win is verified')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Verified winners' })).not.toHaveAttribute('style');
     expect(animation.fromTo).not.toHaveBeenCalled();
+  });
+
+  it('reverts the active win celebration when reduced motion is enabled', async () => {
+    let listener: ((event: { matches: boolean }) => void) | undefined;
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: vi.fn().mockReturnValue({ matches: false, addEventListener: (_type: string, callback: (event: { matches: boolean }) => void) => { listener = callback; }, removeEventListener: () => { listener = undefined; } }) });
+    vi.mocked(getParticipantWins).mockResolvedValue({ ...ownWins, data: [{ id: 'win-1', claimId: 'claim-1', participantId: 'profile-9', roundId: 'round-1', eventId: 'event-1', patternType: 'EARLY_5', verifiedAt: '2026-10-17T14:00:00.000Z' }], total: 1 });
+    const view = renderAt('/participant/game', <WinnerBanner userId={user.id} roundId="round-1" roundStatus="ACTIVE" />);
+    expect(await screen.findByText('Your win is verified')).toBeInTheDocument();
+    expect(animation.fromTo).toHaveBeenCalledOnce();
+    listener?.({ matches: true });
+    expect(animation.kill).toHaveBeenCalledOnce();
+    view.unmount();
+    expect(animation.kill).toHaveBeenCalledOnce();
   });
 
   it('kills the celebration when the round completes', async () => {

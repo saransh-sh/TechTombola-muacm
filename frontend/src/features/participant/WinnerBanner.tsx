@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { gsap } from 'gsap';
+import { cancelOnReducedMotion } from '../../lib/reducedMotion';
 import type { ParticipantRound } from '../../types/participant';
 import { patternNames } from './useParticipantClaims';
 import { useLiveWinners, useParticipantWins } from './useParticipantWins';
@@ -17,9 +18,12 @@ export function WinnerBanner({ userId, roundId, roundStatus }: { userId: string;
   const ownIds = ownWins.map((winner) => winner.id).join(',');
 
   useEffect(() => {
-    if (!ownIds || roundStatus === 'COMPLETED' || roundStatus === 'CANCELLED' || !bannerRef.current || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    const tween = gsap.fromTo(bannerRef.current, { scale: 0.98 }, { scale: 1, duration: 0.3, ease: 'power2.out', clearProps: 'transform' });
-    return () => { tween.kill(); };
+    const preference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!ownIds || roundStatus === 'COMPLETED' || roundStatus === 'CANCELLED' || !bannerRef.current || preference?.matches) return;
+    const context = gsap.context(() => {
+      gsap.fromTo(bannerRef.current, { scale: 0.98 }, { scale: 1, duration: 0.3, ease: 'power2.out', clearProps: 'transform' });
+    }, bannerRef);
+    return cancelOnReducedMotion(preference, () => context.revert());
   }, [ownIds, roundStatus]);
 
   if (own.isPending && live.isPending) return null;

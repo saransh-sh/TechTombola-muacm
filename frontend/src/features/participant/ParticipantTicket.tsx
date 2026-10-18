@@ -6,6 +6,7 @@ import { ApiError } from '../../lib/api/client';
 import { getCurrentRound, getParticipantEvent } from '../../lib/api/participant';
 import { getParticipantTicket } from '../../lib/api/ticket';
 import { markTicketCell } from '../../lib/api/marks';
+import { cancelOnReducedMotion } from '../../lib/reducedMotion';
 import { useAuthUiStore } from '../auth/authStore';
 import { useParticipantWins } from './useParticipantWins';
 import type { AuthenticatedUser } from '../../types/auth';
@@ -19,9 +20,12 @@ export function TicketGrid({ ticket, revealedKey, animateReveal = false, drawnKe
   const scrollHintId = useId();
   const cells = new Map(ticket.cells.map((cell) => [`${cell.rowIndex}:${cell.colIndex}`, cell]));
   useEffect(() => {
-    if (!animateReveal || !revealedKey || !matchRef.current || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    const tween = gsap.fromTo(matchRef.current, { y: 4 }, { y: 0, duration: 0.2, ease: 'power2.out', clearProps: 'transform' });
-    return () => { tween.kill(); };
+    const preference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!animateReveal || !revealedKey || !matchRef.current || preference?.matches) return;
+    const context = gsap.context(() => {
+      gsap.fromTo(matchRef.current, { y: 4 }, { y: 0, duration: 0.2, ease: 'power2.out', clearProps: 'transform' });
+    }, matchRef);
+    return cancelOnReducedMotion(preference, () => context.revert());
   }, [animateReveal, revealedKey]);
   return <>
     <p className={styles.gridScrollHint} id={scrollHintId}>If needed, scroll horizontally to see all nine columns.</p>

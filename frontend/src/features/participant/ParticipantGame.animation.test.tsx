@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, render } from '@testing-library/react';
 import { QuestionCard } from './ParticipantGame';
 import { TicketGrid } from './ParticipantTicket';
 
@@ -15,12 +15,14 @@ const ticket = { id: 't1', roundId: 'r1', participantId: 'p1', eventId: 'e1', cr
 
 describe('game reveal animations', () => {
   const originalMatchMedia = window.matchMedia;
+  let motionListeners: ((event: { matches: boolean }) => void)[];
   beforeEach(() => {
     animation.revert.mockClear();
     animation.kill.mockClear();
     animation.fromTo.mockClear();
     animation.timelineFromTo.mockClear();
-    Object.defineProperty(window, 'matchMedia', { configurable: true, value: vi.fn().mockReturnValue({ matches: false }) });
+    motionListeners = [];
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: vi.fn().mockReturnValue({ matches: false, addEventListener: (_type: string, listener: (event: { matches: boolean }) => void) => { motionListeners.push(listener); }, removeEventListener: (_type: string, listener: (event: { matches: boolean }) => void) => { motionListeners = motionListeners.filter((candidate) => candidate !== listener); } }) });
   });
   afterEach(() => {
     cleanup();
@@ -37,7 +39,7 @@ describe('game reveal animations', () => {
   });
 
   it('skips both reveal and ticket hint animation when reduced motion is preferred', () => {
-    Object.defineProperty(window, 'matchMedia', { configurable: true, value: vi.fn().mockReturnValue({ matches: true }) });
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }) });
     const view = render(<><QuestionCard draw={draw} animate /><TicketGrid ticket={ticket} revealedKey="DOCKER" animateReveal /></>);
     expect(animation.fromTo).not.toHaveBeenCalled();
     view.unmount();
@@ -45,10 +47,28 @@ describe('game reveal animations', () => {
     expect(animation.kill).not.toHaveBeenCalled();
   });
 
-  it('kills the matching ticket hint tween on unmount', () => {
+  it('reverts an active reveal when reduced motion is enabled', () => {
+    const view = render(<QuestionCard draw={draw} animate />);
+    expect(animation.timelineFromTo).toHaveBeenCalledTimes(2);
+    act(() => motionListeners[0]?.({ matches: true }));
+    expect(animation.revert).toHaveBeenCalledOnce();
+    view.unmount();
+    expect(animation.revert).toHaveBeenCalledOnce();
+  });
+
+  it('reverts the matching ticket hint tween on unmount', () => {
     const view = render(<TicketGrid ticket={ticket} revealedKey="DOCKER" animateReveal />);
     expect(animation.fromTo).toHaveBeenCalledOnce();
     view.unmount();
-    expect(animation.kill).toHaveBeenCalledOnce();
+    expect(animation.revert).toHaveBeenCalledOnce();
+  });
+
+  it('reverts the active ticket hint when reduced motion is enabled', () => {
+    const view = render(<TicketGrid ticket={ticket} revealedKey="DOCKER" animateReveal />);
+    expect(animation.fromTo).toHaveBeenCalledOnce();
+    act(() => motionListeners[0]?.({ matches: true }));
+    expect(animation.revert).toHaveBeenCalledOnce();
+    view.unmount();
+    expect(animation.revert).toHaveBeenCalledOnce();
   });
 });

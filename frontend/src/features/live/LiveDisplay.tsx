@@ -4,6 +4,7 @@ import gsap from 'gsap';
 import { ErrorMessage, LoadingMessage } from '../../components/Feedback';
 import { getLiveDraws, getLiveEvent, getLiveRound } from '../../lib/api/liveDisplay';
 import { getLiveWinners } from '../../lib/api/winners';
+import { cancelOnReducedMotion } from '../../lib/reducedMotion';
 import { useLiveDisplayRealtime } from '../../lib/websocket/useLiveDisplayRealtime';
 import type { LiveDraw } from '../../types/liveDisplay';
 import type { LiveWinners, WinnerPattern } from '../../types/winners';
@@ -23,11 +24,12 @@ function Reveal({ draw }: { draw: LiveDraw | undefined }) {
   const panel = useRef<HTMLElement>(null);
   const sequenceNumber = draw?.sequenceNumber;
   useEffect(() => {
-    if (!sequenceNumber || !panel.current || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const preference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!sequenceNumber || !panel.current || preference?.matches) return;
     const context = gsap.context(() => {
       gsap.fromTo(panel.current, { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 0.45, ease: 'power2.out' });
     }, panel);
-    return () => context.revert();
+    return cancelOnReducedMotion(preference, () => context.revert());
   }, [sequenceNumber]);
 
   return <section className={styles.reveal} ref={panel} aria-label={draw ? `Latest question, draw ${draw.sequenceNumber}` : 'Latest question'}>

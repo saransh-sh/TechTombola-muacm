@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { gsap } from 'gsap';
 import { useOutletContext } from 'react-router-dom';
 import { ApiError } from '../../lib/api/client';
+import { cancelOnReducedMotion } from '../../lib/reducedMotion';
 import { getParticipantDraws } from '../../lib/api/draws';
 import { getCurrentRound, getParticipantEvent } from '../../lib/api/participant';
 import { mergeParticipantDraws, useParticipantRealtime, type ConnectionStatus, type DisplayDraw } from '../../lib/realtime';
@@ -95,13 +96,14 @@ export function QuestionCard({ draw, animate }: { draw: DisplayDraw; animate: bo
   const questionRef = useRef<HTMLParagraphElement>(null);
   const keyRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
-    if (!animate || !cardRef.current || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const preference = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!animate || !cardRef.current || preference?.matches) return;
     const context = gsap.context(() => {
       gsap.timeline()
         .fromTo(questionRef.current, { y: 6 }, { y: 0, duration: 0.18, ease: 'power2.out', clearProps: 'transform' })
         .fromTo(keyRef.current, { scale: 0.97 }, { scale: 1, duration: 0.2, ease: 'back.out(1.6)', clearProps: 'transform' }, '-=0.04');
     }, cardRef);
-    return () => context.revert();
+    return cancelOnReducedMotion(preference, () => context.revert());
   }, [animate, draw.sequenceNumber]);
 
   return <article ref={cardRef} className={styles.questionCard} aria-label={`Question ${draw.sequenceNumber}`}>
