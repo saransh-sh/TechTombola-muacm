@@ -80,4 +80,44 @@ describe('useAdminRoundRealtime', () => {
     expect(onDrawCreated).toHaveBeenCalledOnce();
     expect(onRoundChanged).not.toHaveBeenCalled();
   });
+
+  it('ignores callbacks from a replaced socket', () => {
+    vi.useFakeTimers();
+    const { result, onOpen, onDrawCreated } = subscribe();
+    const stale = TestWebSocket.instances[0]!;
+    act(() => stale.disconnect(1006));
+    act(() => { vi.advanceTimersByTime(1_000); });
+    const current = TestWebSocket.instances[1]!;
+    const message = JSON.stringify({ type: 'DRAW_CREATED', eventId, roundId, occurredAt: '2026-10-17T10:00:00.000Z', payload: { sequence: 2, key: 'DOCKER', question: 'Which tool?', drawnAt: '2026-10-17T10:00:00.000Z' } });
+    act(() => current.onopen?.());
+    const timersBeforeStaleEvents = vi.getTimerCount();
+
+    act(() => {
+      stale.onopen?.();
+      stale.onmessage?.({ data: message } as MessageEvent);
+      stale.onclose?.({ code: 1006 } as CloseEvent);
+      stale.onerror?.();
+    });
+    expect(onOpen).toHaveBeenCalledOnce();
+    expect(onDrawCreated).not.toHaveBeenCalled();
+    expect(result.current).toBe('connected');
+    expect(vi.getTimerCount()).toBe(timersBeforeStaleEvents);
+    current.receive(message);
+    expect(onDrawCreated).toHaveBeenCalledOnce();
+  });
+
+  it('does not accumulate sockets or reconnect timers across repeated unmounts', () => {
+    vi.useFakeTimers();
+    for (let index = 0; index < 10; index += 1) {
+      const { unmount } = subscribe();
+      const socket = TestWebSocket.instances.at(-1)!;
+      act(() => socket.disconnect(1006));
+
+      unmount();
+      expect(socket.close).toHaveBeenCalledOnce();
+      expect(vi.getTimerCount()).toBe(0);
+      act(() => { vi.advanceTimersByTime(60_000); });
+      expect(TestWebSocket.instances).toHaveLength(index + 1);
+    }
+  });
 });

@@ -48,13 +48,15 @@ export function useAdminRoundRealtime({
         setConnection('unavailable');
         return;
       }
-      socket.onopen = () => {
-        if (disposed) return;
+      const current = socket;
+      current.onopen = () => {
+        if (disposed || socket !== current) return;
         attempts = 0;
         setConnection('connected');
         onOpen();
       };
-      socket.onmessage = (messageEvent) => {
+      current.onmessage = (messageEvent) => {
+        if (disposed || socket !== current) return;
         let payload: unknown;
         try { payload = JSON.parse(String(messageEvent.data)); } catch { return; }
         const parsed = adminRoundRealtimeEventSchema.safeParse(payload);
@@ -62,14 +64,16 @@ export function useAdminRoundRealtime({
         if (parsed.data.type === 'DRAW_CREATED') onDrawCreated();
         else onRoundChanged();
       };
-      socket.onclose = (event) => {
-        if (disposed) return;
+      current.onclose = (event) => {
+        if (disposed || socket !== current) return;
         if (event.code === 1008) { setConnection('unavailable'); return; }
         attempts += 1;
         setConnection('reconnecting');
         reconnectTimer = setTimeout(connect, Math.min(30_000, 1000 * (2 ** Math.min(attempts - 1, 5))));
       };
-      socket.onerror = () => setConnection('reconnecting');
+      current.onerror = () => {
+        if (!disposed && socket === current) setConnection('reconnecting');
+      };
     };
     connect();
     return () => {
