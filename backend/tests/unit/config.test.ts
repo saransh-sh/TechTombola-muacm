@@ -28,6 +28,19 @@ describe('Configuration parsing & validation', () => {
     expect(parseEnv(env as unknown as NodeJS.ProcessEnv).EMAIL_PROVIDER_API_KEY).toBeUndefined();
   });
 
+  it('normalizes empty string optional variables to undefined', () => {
+    const envWithEmptyOptionals = {
+      ...baseValidEnv,
+      EMAIL_PROVIDER_API_KEY: '',
+      EMAIL_PROVIDER_URL: '',
+      SUPER_ADMIN_BOOTSTRAP_SECRET: '',
+    };
+    const parsed = parseEnv(envWithEmptyOptionals as unknown as NodeJS.ProcessEnv);
+    expect(parsed.EMAIL_PROVIDER_API_KEY).toBeUndefined();
+    expect(parsed.EMAIL_PROVIDER_URL).toBeUndefined();
+    expect(parsed.SUPER_ADMIN_BOOTSTRAP_SECRET).toBeUndefined();
+  });
+
   it('fails when DATABASE_URL is missing or invalid', () => {
     const envMissingDb = { ...baseValidEnv, DATABASE_URL: '' };
     expect(() => parseEnv(envMissingDb as unknown as NodeJS.ProcessEnv)).toThrow(/DATABASE_URL/);
