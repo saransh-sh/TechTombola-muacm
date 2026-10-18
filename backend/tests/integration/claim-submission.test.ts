@@ -736,7 +736,7 @@ describe('Winner Evaluation and Claim Submission Integration', () => {
         throw new Error(err.cause?.message || err.message);
       }
     })())
-      .rejects.toMatchObject({ cause: { message: 'Winner history is immutable' } });
+      .rejects.toThrow('Winner history is immutable');
     await expect((async () => {
       try {
         await getDb().delete(winners).where(eq(winners.id, winnerRow.id));
@@ -744,7 +744,7 @@ describe('Winner Evaluation and Claim Submission Integration', () => {
         throw new Error(err.cause?.message || err.message);
       }
     })())
-      .rejects.toMatchObject({ cause: { message: 'Winner history is immutable' } });
+      .rejects.toThrow('Winner history is immutable');
     const replay = await app.inject({
       method: 'POST',
       url: `/api/v1/admin/claims/${firstClaimId}/verify`,
