@@ -26,5 +26,6 @@
 .roundsLink:focus-visible { outline: 3px solid #ef8076; outline-offset: 3px; }
 .section time { display: inline-block; margin-left: 16px; color: #46504b; }
 .state { padding: 20px 0; }
+.stale { padding: 12px 16px; border-left: 4px solid #ef8076; background: #f4ecd6; line-height: 1.5; }
 .state button { margin-top: 10px; }
 @media (max-width: 620px) { .page { padding-top: 30px; } .heading { align-items: start; flex-direction: column; } .readiness { align-items: start; flex-direction: column; } .section time { display: block; margin: 8px 0 0; } }

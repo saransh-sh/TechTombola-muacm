@@ -58,4 +58,29 @@ describe('Super Admin system health', () => {
     expect(await screen.findByRole('heading', { name: 'Ready to serve' })).toBeInTheDocument();
     expect(getSuperAdminSystem).toHaveBeenCalledTimes(2);
   });
+
+  it('labels the retained health response as stale after a refresh failure', async () => {
+    renderSystem();
+    expect(await screen.findByRole('heading', { name: 'Ready to serve' })).toBeInTheDocument();
+    vi.mocked(getSuperAdminSystem).mockRejectedValueOnce(new ApiError(503, 'Unavailable'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh status' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unavailable');
+    expect(await screen.findByRole('status')).toHaveTextContent('Showing the last successful health snapshot. Current status is unconfirmed.');
+    expect(screen.getByRole('heading', { name: 'Ready to serve' })).toBeInTheDocument();
+  });
+
+  it('hides cached system details when a refresh loses authorization', async () => {
+    renderSystem();
+    expect(await screen.findByRole('heading', { name: 'Ready to serve' })).toBeInTheDocument();
+    vi.mocked(getSuperAdminSystem).mockRejectedValueOnce(new ApiError(403, 'Forbidden'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh status' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your account cannot view system health.');
+    expect(screen.queryByRole('heading', { name: 'Ready to serve' })).not.toBeInTheDocument();
+    expect(screen.queryByText('database')).not.toBeInTheDocument();
+    expect(screen.queryByText('Showing the last successful health snapshot. Current status is unconfirmed.')).not.toBeInTheDocument();
+  });
 });
