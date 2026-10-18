@@ -17,6 +17,7 @@ pids
 lib-cov
 coverage
 *.lcov
+test-results/
 
 # Build & Dist
 dist
