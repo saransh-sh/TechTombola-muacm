@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
-    "test": "vitest run",
+    "test": "vitest run && bun run test:deployment-config",
+    "test:deployment-config": "bash scripts/test-deployment-config.sh",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test"
   },

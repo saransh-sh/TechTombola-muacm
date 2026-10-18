@@ -12,6 +12,9 @@ describe('Vite deployment origin validation', () => {
     ['VITE_API_BASE_URL', 'ftp://api.example.test', 'VITE_API_BASE_URL must use http or https'],
     ['VITE_WS_BASE_URL', 'ftp://socket.example.test', 'WebSocket base URL must use http, https, ws, or wss'],
     ['VITE_WS_BASE_URL', 'not an absolute URL', 'Invalid URL'],
+    ['VITE_API_BASE_URL', 'https://user:secret@api.example.test', 'VITE_API_BASE_URL must be an origin without credentials, path, query, or fragment'],
+    ['VITE_WS_BASE_URL', 'wss://socket.example.test/api', 'VITE_WS_BASE_URL must be an origin without credentials, path, query, or fragment'],
+    ['VITE_WS_BASE_URL', 'wss://socket.example.test?token=secret', 'VITE_WS_BASE_URL must be an origin without credentials, path, query, or fragment'],
   ])('rejects invalid %s value %s', (name, value, message) => {
     expect(() => validateDeploymentOrigins({ [name]: value })).toThrow(message);
   });
