@@ -46,6 +46,8 @@ export const realtimeEventSchema = z.discriminatedUnion('type', [
       winnerId: z.string().uuid(),
       participantName: z.string().min(1),
       pattern: z.enum(['EARLY_5', 'TOP_LINE', 'MIDDLE_LINE', 'BOTTOM_LINE', 'FULL_HOUSE']),
+      eligibleCellIds: z.array(z.string().uuid()).min(5).max(15)
+        .refine((cellIds) => new Set(cellIds).size === cellIds.length, 'Winning cell IDs must be unique'),
     }).strict(),
   }),
   envelopeSchema.extend({

@@ -1,13 +1,14 @@
 import { and, count, desc, eq } from 'drizzle-orm';
 import { getDb } from '../../db/client.ts';
 import { events } from '../../db/schema/events.ts';
-import { winners, type InsertWinner, type WinnerRecord } from '../../db/schema/claims.ts';
+import { claims, winners, type InsertWinner, type WinnerRecord } from '../../db/schema/claims.ts';
 import { rounds } from '../../db/schema/rounds.ts';
 import { participantProfiles, users } from '../../db/schema/users.ts';
 
 export interface WinnerListRow extends WinnerRecord {
   participantName: string;
   eventTitle: string;
+  ticketId: string;
 }
 
 export interface WinnerListOptions {
@@ -79,10 +80,12 @@ export class WinnerRepository implements IWinnerRepository {
         patternType: winners.patternType,
         verifiedBy: winners.verifiedBy,
         verifiedAt: winners.verifiedAt,
+        ticketId: claims.ticketId,
         participantName: users.name,
         eventTitle: events.title,
       })
       .from(winners)
+      .innerJoin(claims, eq(winners.claimId, claims.id))
       .innerJoin(participantProfiles, eq(winners.participantId, participantProfiles.id))
       .innerJoin(users, eq(participantProfiles.userId, users.id))
       .innerJoin(events, eq(winners.eventId, events.id))

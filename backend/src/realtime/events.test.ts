@@ -22,6 +22,9 @@ describe('realtime event schemas', () => {
 
   it('rejects payloads with private participant data and documents REST recovery after reconnect', () => {
     expect(() => serializeRealtimeEvent({ type: 'WINNER_VERIFIED', eventId: ids.eventId, roundId: ids.roundId, occurredAt: '2026-10-15T12:00:00.000Z', payload: { winnerId: ids.claimId, participantName: 'Asha', pattern: 'FULL_HOUSE', email: 'asha@example.test' } })).toThrow();
+    expect(() => serializeRealtimeEvent({ type: 'WINNER_VERIFIED', eventId: ids.eventId, roundId: ids.roundId, occurredAt: '2026-10-15T12:00:00.000Z', payload: { winnerId: ids.claimId, participantName: 'Asha', pattern: 'EARLY_5' } })).toThrow();
+    const winner = realtimeEventSchema.parse({ type: 'WINNER_VERIFIED', eventId: ids.eventId, roundId: ids.roundId, occurredAt: '2026-10-15T12:00:00.000Z', payload: { winnerId: ids.claimId, participantName: 'Asha', pattern: 'EARLY_5', eligibleCellIds: ['33333333-3333-4333-8333-333333333331', '33333333-3333-4333-8333-333333333332', '33333333-3333-4333-8333-333333333333', '33333333-3333-4333-8333-333333333334', '33333333-3333-4333-8333-333333333335'] } });
+    expect(winner).toMatchObject({ type: 'WINNER_VERIFIED', payload: { eligibleCellIds: expect.arrayContaining(['33333333-3333-4333-8333-333333333331']) } });
     expect(realtimeReconnectProtocol).toContain('REST');
   });
 

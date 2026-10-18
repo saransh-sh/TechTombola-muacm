@@ -4,6 +4,7 @@ import {
   isEarly5,
   isLineCompleted,
   isFullHouse,
+  selectWinningCellIds,
   validatePatternEligibility,
   validateRoundActiveForClaim,
   type TicketCellEvaluationInput,
@@ -108,6 +109,40 @@ describe('Winner Evaluation and Pattern Domain Logic (Pure Unit Tests)', () => {
       expect(() =>
         evaluatePattern('FOUR_CORNERS' as any, sampleTicketCells, new Set())
       ).toThrow(ConflictError);
+    });
+  });
+
+  describe('selectWinningCellIds', () => {
+    const cells = sampleTicketCells.map((cell, index) => ({ ...cell, cellId: `cell-${index}` }));
+    const drawSequence = sampleTicketCells.map((cell, index) => ({ keyId: cell.keyId, sequenceNumber: index + 1 }));
+
+    it('selects exactly the five earliest drawn ticket cells for Early 5, ignoring off-ticket draws', () => {
+      const drawn = [
+        { keyId: 'off-ticket', sequenceNumber: 1 },
+        ...drawSequence.slice(0, 6).map((draw, index) => ({ ...draw, sequenceNumber: index + 2 })),
+      ];
+      expect(selectWinningCellIds('EARLY_5', cells, drawn)).toEqual([
+        'cell-0', 'cell-1', 'cell-2', 'cell-3', 'cell-4',
+      ]);
+    });
+
+    it('returns no evidence when the requested pattern is not eligible', () => {
+      expect(selectWinningCellIds('EARLY_5', cells, drawSequence.slice(0, 4))).toEqual([]);
+      expect(selectWinningCellIds('TOP_LINE', cells, drawSequence.slice(0, 4))).toEqual([]);
+      expect(selectWinningCellIds('FULL_HOUSE', cells, drawSequence.slice(0, 14))).toEqual([]);
+    });
+
+    it('returns every cell in the verified row for each line and all 15 for Full House', () => {
+      expect(selectWinningCellIds('TOP_LINE', cells, drawSequence)).toEqual([
+        'cell-0', 'cell-1', 'cell-2', 'cell-3', 'cell-4',
+      ]);
+      expect(selectWinningCellIds('MIDDLE_LINE', cells, drawSequence)).toEqual([
+        'cell-5', 'cell-6', 'cell-7', 'cell-8', 'cell-9',
+      ]);
+      expect(selectWinningCellIds('BOTTOM_LINE', cells, drawSequence)).toEqual([
+        'cell-10', 'cell-11', 'cell-12', 'cell-13', 'cell-14',
+      ]);
+      expect(selectWinningCellIds('FULL_HOUSE', cells, drawSequence)).toEqual(cells.map((cell) => cell.cellId));
     });
   });
 
