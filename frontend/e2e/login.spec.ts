@@ -289,6 +289,27 @@ test('Admin navigation and reconnects record heap and DOM stability', async ({ p
     sockets.push(socket);
     socket.onClose(() => { closed += 1; });
   });
+  await page.addInitScript(() => {
+    const activeTimers = new Set<number>();
+    const nativeSetTimeout = window.setTimeout.bind(window);
+    const nativeClearTimeout = window.clearTimeout.bind(window);
+    // shortcut: tracks zero-argument function timers; upgrade if app code uses string timers or callback arguments.
+    window.setTimeout = ((handler: TimerHandler, timeout?: number) => {
+      if (typeof handler !== 'function') return nativeSetTimeout(handler, timeout);
+      let timerId = 0;
+      timerId = nativeSetTimeout(() => {
+        activeTimers.delete(timerId);
+        handler();
+      }, timeout);
+      activeTimers.add(timerId);
+      return timerId;
+    }) as typeof window.setTimeout;
+    window.clearTimeout = ((timerId?: number) => {
+      if (timerId !== undefined) activeTimers.delete(timerId);
+      nativeClearTimeout(timerId);
+    }) as typeof window.clearTimeout;
+    Object.defineProperty(window, '__profileActiveTimerCount', { get: () => activeTimers.size });
+  });
 
   await page.goto(`/admin/draw-control?eventId=${eventId}&roundId=${roundId}`);
   await expect(page.getByRole('heading', { name: 'Draw control' })).toBeVisible();
@@ -322,6 +343,7 @@ test('Admin navigation and reconnects record heap and DOM stability', async ({ p
   const warmHeap = await cdp.send('Runtime.getHeapUsage');
   const warmDom = await cdp.send('Memory.getDOMCounters');
   const warmListeners = await getListenerCounts();
+  const warmTimers = await page.evaluate(() => (window as Window & { __profileActiveTimerCount: number }).__profileActiveTimerCount);
 
   for (let cycle = 0; cycle < 40; cycle += 1) await navigateCycle();
 
@@ -338,6 +360,7 @@ test('Admin navigation and reconnects record heap and DOM stability', async ({ p
   const finalHeap = await cdp.send('Runtime.getHeapUsage');
   const finalDom = await cdp.send('Memory.getDOMCounters');
   const finalListeners = await getListenerCounts();
+  const finalTimers = await page.evaluate(() => (window as Window & { __profileActiveTimerCount: number }).__profileActiveTimerCount);
   await cdp.detach();
 
   console.info('Admin route cycle profile', JSON.stringify({
@@ -351,6 +374,7 @@ test('Admin navigation and reconnects record heap and DOM stability', async ({ p
       nodesAfter: finalDom.nodes,
     },
     listeners: { before: warmListeners, after: finalListeners },
+    activeTimers: { before: warmTimers, after: finalTimers },
     activeSockets: opened - closed,
   }));
   // Regression tripwire for retained route state; this is not a product memory budget.
@@ -359,6 +383,7 @@ test('Admin navigation and reconnects record heap and DOM stability', async ({ p
   expect(finalDom.nodes).toBeLessThanOrEqual(warmDom.nodes + 20);
   expect(finalListeners['window']).toBeLessThanOrEqual(warmListeners['window'] + 1);
   expect(finalListeners["document.getElementById('root')"]).toBeLessThanOrEqual(warmListeners["document.getElementById('root')"] + 1);
+  expect(finalTimers).toBeLessThanOrEqual(warmTimers + 1);
   expect(opened - closed).toBe(1);
 });
 
