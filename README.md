@@ -188,6 +188,31 @@ These invariants are enforced server-side and tested at all layer boundaries:
 
 ---
 
+## 🚀 Deployment (Docker Compose on VPS)
+
+The complete application (Frontend, Backend, and PostgreSQL) can be deployed to any Linux VPS using Docker Compose in a few minutes:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/saransh-sh/TechTombola-muacm.git
+cd TechTombola-muacm
+
+# 2. Configure environment
+cp .env.example .env
+nano .env   # Generate secrets with: openssl rand -hex 24
+
+# 3. Launch all services
+docker compose up -d --build
+
+# 4. Check status & readiness
+docker compose ps
+curl http://localhost/ready
+```
+
+See the full [VPS Deployment & Operations Guide](docs/vps-deployment-guide.md) for SSL setup, database backup/restore, and Super Admin account bootstrapping instructions.
+
+---
+
 ## 🚦 Engineering Execution Workflow
 
 Contributors and AI assistants follow a disciplined 16-step development process outlined in [`AGENTS.md`](./AGENTS.md):

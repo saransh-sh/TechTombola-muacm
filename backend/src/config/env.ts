@@ -17,7 +17,7 @@ const envSchema = z
     SESSION_SECRET: z.string({ required_error: 'SESSION_SECRET is required' }).min(1, 'SESSION_SECRET is required'),
     EMAIL_PROVIDER_API_KEY: z.string().optional(),
     EMAIL_PROVIDER_URL: z.string().url().optional(),
-    SUPER_ADMIN_BOOTSTRAP_SECRET: z.string().min(32).optional(),
+    SUPER_ADMIN_BOOTSTRAP_SECRET: z.string().min(32).optional().or(z.literal('')).transform((val) => (val === '' ? undefined : val)),
     EMAIL_FROM: z.string().email('EMAIL_FROM must be a valid email address').default('noreply@techtombola.internal'),
     APP_URL: z.string().url('APP_URL must be a valid URL').default('http://localhost:5173'),
     CORS_ORIGIN: z.string().default('http://localhost:5173'),
