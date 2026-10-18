@@ -33,4 +33,10 @@ describe('socketUrl', () => {
     vi.stubEnv('VITE_WS_BASE_URL', 'ftp://socket.example.test');
     expect(() => socketUrl('/api/v1/ws', new URLSearchParams())).toThrow('WebSocket base URL must use http, https, ws, or wss');
   });
+
+  it('rejects an unsupported API origin protocol when used as the socket fallback', () => {
+    vi.stubEnv('VITE_API_BASE_URL', 'ftp://api.example.test');
+    vi.stubEnv('VITE_WS_BASE_URL', '');
+    expect(() => socketUrl('/api/v1/ws', new URLSearchParams())).toThrow('WebSocket base URL must use http, https, ws, or wss');
+  });
 });
