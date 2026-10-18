@@ -30,6 +30,7 @@ describe('Super Admin system health', () => {
     expect(screen.getByText('database')).toBeInTheDocument();
     expect(screen.getByText('2', { selector: 'p' })).toBeInTheDocument();
     expect(screen.getByText('0012_winners.sql')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Review Rounds' })).toHaveAttribute('href', '/admin/rounds');
     expect(getSuperAdminSystem).toHaveBeenCalledWith(expect.any(AbortSignal));
   });
 

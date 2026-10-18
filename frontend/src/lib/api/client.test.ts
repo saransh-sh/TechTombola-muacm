@@ -34,6 +34,21 @@ describe('apiRequest', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('sensitive upstream details', { status: 503 })));
     await expect(apiRequest('/me')).rejects.toMatchObject({ status: 503, message: 'Request failed (503)' });
   });
+  it('logs a safe correlation record for a failed mutation without request or response data', async () => {
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { code: 'FAILED', message: 'secret response' } }), { status: 500, headers: { 'content-type': 'application/json' } })));
+    await expect(apiRequest('/participants/import', { method: 'POST', body: JSON.stringify({ password: 'secret request' }) })).rejects.toMatchObject({ status: 500 });
+    const safeLog = errorLog.mock.calls.find(([label]) => label === 'Tech Tombola diagnostic');
+    expect(safeLog?.[1]).toMatchObject({ type: 'api', method: 'POST', status: 500 });
+    expect(safeLog?.[1]).toHaveProperty('correlationId');
+    expect(JSON.stringify(safeLog?.[1])).not.toMatch(/secret response|secret request|participants\/import/);
+  });
+  it('does not log expected client errors as console errors', async () => {
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { code: 'INVALID_CREDENTIALS', message: 'Invalid credentials' } }), { status: 401, headers: { 'content-type': 'application/json' } })));
+    await expect(apiRequest('/auth/login', { method: 'POST' })).rejects.toMatchObject({ status: 401 });
+    expect(errorLog).not.toHaveBeenCalled();
+  });
   it('reports network failures without exposing request data', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')));
     await expect(apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ password: 'secret' }) })).rejects.toThrow('Unable to reach Tech Tombola');

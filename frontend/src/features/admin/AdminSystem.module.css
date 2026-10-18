@@ -22,6 +22,8 @@
 .section dd { margin: 0; }
 .recoveryCount { margin: 14px 0 0; font: 700 clamp(34px, 6vw, 60px)/1 ui-monospace, monospace; }
 .section > p:last-child { line-height: 1.5; }
+.roundsLink { display: inline-block; margin-top: 10px; padding: 9px 12px; border: 2px solid #1d2421; background: #d0dfbd; color: #1d2421; font-weight: 700; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.roundsLink:focus-visible { outline: 3px solid #ef8076; outline-offset: 3px; }
 .section time { display: inline-block; margin-left: 16px; color: #46504b; }
 .state { padding: 20px 0; }
 .state button { margin-top: 10px; }

@@ -1,33 +1,35 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { getMe, logout } from './lib/api/auth';
 import { ApiError } from './lib/api/client';
-import { LoginPage } from './features/auth/LoginPage';
 import { useAuthUiStore } from './features/auth/authStore';
 import { roleHomePath } from './features/auth/routing';
 import { queryClient } from './lib/queryClient';
 import { ErrorMessage, LoadingMessage } from './components/Feedback';
-import { AdminDashboard } from './features/admin/AdminDashboard';
-import { AdminLayout } from './features/admin/AdminLayout';
-import { AdminEventManagement } from './features/admin/AdminEventManagement';
-import { AdminRounds } from './features/admin/AdminRounds';
-import { AdminQuestions } from './features/admin/AdminQuestions';
-import { AdminParticipants } from './features/admin/AdminParticipants';
-import { AdminDrawControl } from './features/admin/AdminDrawControl';
-import { AdminClaims } from './features/admin/AdminClaims';
-import { AdminWinners } from './features/admin/AdminWinners';
-import { AdminAdministrators } from './features/admin/AdminAdministrators';
-import { AdminAudit } from './features/admin/AdminAudit';
-import { AdminSystem } from './features/admin/AdminSystem';
-import { ParticipantLobby } from './features/participant/ParticipantLobby';
-import { ParticipantTicket } from './features/participant/ParticipantTicket';
-import { ParticipantGame } from './features/participant/ParticipantGame';
-import { ParticipantClaims } from './features/participant/ParticipantClaims';
-import { ParticipantResults } from './features/participant/ParticipantResults';
-import { LiveDisplay } from './features/live/LiveDisplay';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
 import type { AuthenticatedUser } from './types/auth';
 import './styles/global.css';
+
+const LoginPage = lazy(() => import('./features/auth/LoginPage').then((module) => ({ default: module.LoginPage })));
+const AdminDashboard = lazy(() => import('./features/admin/AdminDashboard').then((module) => ({ default: module.AdminDashboard })));
+const AdminLayout = lazy(() => import('./features/admin/AdminLayout').then((module) => ({ default: module.AdminLayout })));
+const AdminEventManagement = lazy(() => import('./features/admin/AdminEventManagement').then((module) => ({ default: module.AdminEventManagement })));
+const AdminRounds = lazy(() => import('./features/admin/AdminRounds').then((module) => ({ default: module.AdminRounds })));
+const AdminQuestions = lazy(() => import('./features/admin/AdminQuestions').then((module) => ({ default: module.AdminQuestions })));
+const AdminParticipants = lazy(() => import('./features/admin/AdminParticipants').then((module) => ({ default: module.AdminParticipants })));
+const AdminDrawControl = lazy(() => import('./features/admin/AdminDrawControl').then((module) => ({ default: module.AdminDrawControl })));
+const AdminClaims = lazy(() => import('./features/admin/AdminClaims').then((module) => ({ default: module.AdminClaims })));
+const AdminWinners = lazy(() => import('./features/admin/AdminWinners').then((module) => ({ default: module.AdminWinners })));
+const AdminAdministrators = lazy(() => import('./features/admin/AdminAdministrators').then((module) => ({ default: module.AdminAdministrators })));
+const AdminAudit = lazy(() => import('./features/admin/AdminAudit').then((module) => ({ default: module.AdminAudit })));
+const AdminSystem = lazy(() => import('./features/admin/AdminSystem').then((module) => ({ default: module.AdminSystem })));
+const ParticipantLobby = lazy(() => import('./features/participant/ParticipantLobby').then((module) => ({ default: module.ParticipantLobby })));
+const ParticipantTicket = lazy(() => import('./features/participant/ParticipantTicket').then((module) => ({ default: module.ParticipantTicket })));
+const ParticipantGame = lazy(() => import('./features/participant/ParticipantGame').then((module) => ({ default: module.ParticipantGame })));
+const ParticipantClaims = lazy(() => import('./features/participant/ParticipantClaims').then((module) => ({ default: module.ParticipantClaims })));
+const ParticipantResults = lazy(() => import('./features/participant/ParticipantResults').then((module) => ({ default: module.ParticipantResults })));
+const LiveDisplay = lazy(() => import('./features/live/LiveDisplay').then((module) => ({ default: module.LiveDisplay })));
 
 function ProtectedLayout({ allowed }: { allowed: AuthenticatedUser['role'][] }) {
   const location = useLocation();
@@ -91,7 +93,7 @@ function SuperAdminSystemRoute() {
 }
 
 function AppRoutes() {
-  return <Routes>
+  return <Suspense fallback={<LoadingMessage>Loading page…</LoadingMessage>}><Routes>
     <Route path="/live" element={<LiveDisplay />} />
     <Route path="/display" element={<LiveDisplay />} />
     <Route path="/display/round" element={<LiveDisplay />} />
@@ -123,9 +125,9 @@ function AppRoutes() {
     </Route>
     <Route path="/" element={<Navigate to="/login" replace />} />
     <Route path="*" element={<Navigate to="/login" replace />} />
-  </Routes>;
+  </Routes></Suspense>;
 }
 
 export function App() {
-  return <QueryClientProvider client={queryClient}><BrowserRouter><AppRoutes /></BrowserRouter></QueryClientProvider>;
+  return <AppErrorBoundary><QueryClientProvider client={queryClient}><BrowserRouter><AppRoutes /></BrowserRouter></QueryClientProvider></AppErrorBoundary>;
 }

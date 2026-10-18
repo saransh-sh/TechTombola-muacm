@@ -182,6 +182,7 @@ describe('participant realtime connection', () => {
   });
 
   it('backs off reconnect attempts, stops after the retry limit, and lets the user retry', async () => {
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.useFakeTimers();
     const { result } = renderHook(() => useParticipantRealtime(true, 'user-1', ids.event, ids.round, queryClient));
     act(() => FakeWebSocket.instances[0]!.close());
@@ -194,6 +195,7 @@ describe('participant realtime connection', () => {
     }
     act(() => FakeWebSocket.instances.at(-1)!.close());
     expect(result.current.status).toBe('DISCONNECTED');
+    expect(errorLog).toHaveBeenCalledWith('Tech Tombola diagnostic', expect.objectContaining({ type: 'websocket', correlationId: expect.any(String) }));
     act(() => result.current.retry());
     expect(FakeWebSocket.instances).toHaveLength(7);
   });

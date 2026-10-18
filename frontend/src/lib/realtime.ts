@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
 import { ApiError } from './api/client';
+import { reportDiagnostic } from './diagnostics';
 import { realtimeEventSchema, type ParticipantDraw, type RealtimeEvent } from '../types/draw';
 
 const MAX_RETRIES = 5;
@@ -161,6 +162,7 @@ export function useParticipantRealtime(enabled: boolean, userId: string, eventId
           return;
         }
         if (retries > MAX_RETRIES) {
+          reportDiagnostic('websocket');
           setConnection({ scope, status: 'DISCONNECTED', warning: '' });
           return;
         }
