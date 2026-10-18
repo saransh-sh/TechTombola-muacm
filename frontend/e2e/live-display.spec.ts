@@ -58,6 +58,18 @@ test('public projector display stays scoped to backend state and fits projector 
   }
 });
 
+test('public Draw reveal cleans up when reduced motion is enabled in the browser', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await mockLiveFeed(page);
+  await page.routeWebSocket(`**/api/v1/live/ws?eventId=${eventId}&roundId=${roundId}`, () => {});
+  await page.goto('/live');
+  const reveal = page.getByRole('region', { name: 'Latest question, draw 2' });
+  await expect(reveal).toBeVisible();
+  await expect(reveal).toHaveAttribute('style', /opacity/);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(reveal).toHaveAttribute('style', '');
+});
+
 test('projector display provides an explicit no-Event and no-Round state', async ({ page }) => {
   await page.route('**/api/v1/live/event', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ event: null }) }));
   await page.route('**/api/v1/live/round', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round: null }) }));
