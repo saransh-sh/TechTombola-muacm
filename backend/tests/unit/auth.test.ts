@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { beforeAll, describe, expect, it } from 'bun:test';
 import jwt from 'jsonwebtoken';
 import {
   hashPassword,
@@ -12,6 +12,13 @@ import { LoginRateLimiter } from '../../src/modules/auth/auth.rate-limiter.ts';
 import { ForbiddenError, NotFoundError, RateLimitError, UnauthorizedError } from '../../src/shared/errors/app-error.ts';
 import { getSessionCookieOptions } from '../../src/modules/auth/auth.domain.ts';
 import { getEnv, resetCachedEnv } from '../../src/config/env.ts';
+
+beforeAll(() => {
+  process.env.DATABASE_URL = process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5433/techtombola_test';
+  process.env.JWT_SECRET = process.env.JWT_SECRET ?? 'test-jwt-secret-at-least-32-chars-long';
+  process.env.SESSION_SECRET = process.env.SESSION_SECRET ?? 'test-session-secret-at-least-32-chars-long';
+  resetCachedEnv();
+});
 
 describe('Password hashing & verification', () => {
   it('hashes and verifies passwords using Argon2id', async () => {

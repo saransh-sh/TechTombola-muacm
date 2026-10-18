@@ -204,7 +204,7 @@ describe('WinnerService verification and rejection', () => {
       total: 1,
     });
 
-    const result = await h.service.listParticipantWins('user-1');
+    const result = await h.service.listParticipantWins('user-1', ids.event);
 
     expect(result.data[0]?.eligibleCellIds).toEqual(['cell-0', 'cell-1', 'cell-2', 'cell-3', 'cell-4']);
     expect(result.data[0]?.participantId).toBe(ids.participant);

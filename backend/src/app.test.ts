@@ -24,7 +24,7 @@ describe('credentialed CORS preflight', () => {
     process.env.CORS_ORIGIN = 'https://frontend.example.test,http://localhost:5173';
     resetCachedEnv();
 
-    const recoveryService = { markInterruptedRounds: async () => undefined } as unknown as RecoveryService;
+    const recoveryService = { markInterruptedRounds: async () => [] } as unknown as RecoveryService;
     app = await buildApp({ enableLogging: false, recoveryService });
     const mutationOriginGuard = async (request: FastifyRequest): Promise<void> => verifyMutationOrigin(request);
     app.patch('/test/cors-mutation', { preHandler: [mutationOriginGuard] }, async (request) => ({
@@ -41,8 +41,7 @@ describe('credentialed CORS preflight', () => {
   afterAll(async () => {
     await app.close();
     for (const [key, value] of Object.entries(originalEnv)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
+      if (value !== undefined) process.env[key] = value;
     }
     resetCachedEnv();
   });
@@ -154,7 +153,7 @@ describe('credentialed CORS preflight', () => {
     const configuredOrigins = process.env.CORS_ORIGIN;
     process.env.CORS_ORIGIN = '*';
     resetCachedEnv();
-    const recoveryService = { markInterruptedRounds: async () => undefined } as unknown as RecoveryService;
+    const recoveryService = { markInterruptedRounds: async () => [] } as unknown as RecoveryService;
     const wildcardApp = await buildApp({ enableLogging: false, recoveryService });
 
     try {

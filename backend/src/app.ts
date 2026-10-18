@@ -220,7 +220,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   const recoveryService = options.recoveryService ?? new RecoveryService(undefined, undefined, undefined, undefined, realtimeConnectionManager);
   const operationsService = new OperationsService(new OperationsRepository(), realtimeConnectionManager);
   app.addHook('onReady', async () => {
-    const roundIds = await recoveryService.markInterruptedRounds();
+    const roundIds = (await recoveryService.markInterruptedRounds()) ?? [];
     app.log.info({ event: 'recovery_state', roundIds, recoveryRequired: roundIds.length }, 'Startup recovery check complete');
   });
   const liveReadService = options.liveReadService ?? new LiveReadService(new LiveReadRepository());
