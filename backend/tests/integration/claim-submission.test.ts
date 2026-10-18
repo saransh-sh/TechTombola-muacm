@@ -730,11 +730,19 @@ describe('Winner Evaluation and Claim Submission Integration', () => {
     const [verifiedClaim] = await getDb().select().from(claims).where(eq(claims.id, firstClaimId));
     expect(verifiedClaim.status).toBe('VERIFIED');
     await expect((async () => {
-      await getDb().update(winners).set({ patternType: 'TOP_LINE' }).where(eq(winners.id, winnerRow.id));
+      try {
+        await getDb().update(winners).set({ patternType: 'TOP_LINE' }).where(eq(winners.id, winnerRow.id));
+      } catch (err: any) {
+        throw new Error(err.cause?.message || err.message);
+      }
     })())
       .rejects.toThrow('Winner history is immutable');
     await expect((async () => {
-      await getDb().delete(winners).where(eq(winners.id, winnerRow.id));
+      try {
+        await getDb().delete(winners).where(eq(winners.id, winnerRow.id));
+      } catch (err: any) {
+        throw new Error(err.cause?.message || err.message);
+      }
     })())
       .rejects.toThrow('Winner history is immutable');
     const replay = await app.inject({

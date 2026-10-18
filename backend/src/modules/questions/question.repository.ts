@@ -1,24 +1,31 @@
-import { and, count, desc, eq } from 'drizzle-orm';
+import { and, asc, count, desc, eq, sql } from 'drizzle-orm';
 import { getDb } from '../../db/client.ts';
+import { draws } from '../../db/schema/draws.ts';
+import { rounds } from '../../db/schema/rounds.ts';
 import {
   eventKeys,
   roundQuestions,
   type EventKeyRecord,
   type RoundQuestionRecord,
 } from '../../db/schema/questions.ts';
-import type { KeySummary, QuestionSummary } from './question.types.ts';
+import type {
+  KeyListRow,
+  KeySummary,
+  QuestionListRow,
+  QuestionSummary,
+} from './question.types.ts';
 
 export interface IQuestionRepository {
   createKey(eventId: string, value: string, normalizedValue: string, tx?: any): Promise<KeySummary>;
   findKeyById(id: string, tx?: any): Promise<KeySummary | null>;
   findKeyByEventAndNormalized(eventId: string, normalizedValue: string, tx?: any): Promise<KeySummary | null>;
-  listKeys(options: { page: number; limit: number; eventId?: string }, tx?: any): Promise<{ data: KeySummary[]; total: number }>;
+  listKeys(options: { page: number; limit: number; eventId?: string; search?: string; used?: boolean }, tx?: any): Promise<{ data: KeyListRow[]; total: number }>;
   updateKey(id: string, value: string, normalizedValue: string, tx?: any): Promise<KeySummary>;
 
   createQuestion(roundId: string, keyId: string, questionText: string, tx?: any): Promise<QuestionSummary>;
   findQuestionById(id: string, tx?: any): Promise<QuestionSummary | null>;
   findQuestionByRoundAndKey(roundId: string, keyId: string, tx?: any): Promise<QuestionSummary | null>;
-  listQuestions(options: { page: number; limit: number; roundId?: string }, tx?: any): Promise<{ data: QuestionSummary[]; total: number }>;
+  listQuestions(options: { page: number; limit: number; roundId?: string; search?: string; used?: boolean }, tx?: any): Promise<{ data: QuestionListRow[]; total: number }>;
   updateQuestion(id: string, questionText: string, tx?: any): Promise<QuestionSummary>;
   deleteQuestion(id: string, tx?: any): Promise<void>;
   isKeyReferencedInQuestions(keyId: string, tx?: any): Promise<boolean>;
@@ -76,13 +83,34 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   async listKeys(
-    options: { page: number; limit: number; eventId?: string },
+    options: { page: number; limit: number; eventId?: string; search?: string; used?: boolean },
     tx?: any
-  ): Promise<{ data: KeySummary[]; total: number }> {
+  ): Promise<{ data: KeyListRow[]; total: number }> {
     const client = this.getClient(tx);
     const offset = (options.page - 1) * options.limit;
 
-    const whereClause = options.eventId ? eq(eventKeys.eventId, options.eventId) : undefined;
+    const usedExpression = sql<boolean>`EXISTS (
+      SELECT 1
+      FROM draws
+      INNER JOIN round_questions ON draws.question_id = round_questions.id
+      WHERE round_questions.key_id = event_keys.id
+    )`;
+    const canEditExpression = sql<boolean>`NOT EXISTS (
+      SELECT 1 FROM round_questions
+      WHERE round_questions.key_id = event_keys.id
+    )`;
+    const conditions = [
+      options.eventId ? eq(eventKeys.eventId, options.eventId) : undefined,
+      options.search
+        ? sql`strpos(lower(${eventKeys.normalizedValue}), lower(${options.search})) > 0`
+        : undefined,
+      options.used === undefined
+        ? undefined
+        : options.used
+          ? usedExpression
+          : sql`not ${usedExpression}`,
+    ].filter(Boolean);
+    const whereClause = conditions.length ? and(...conditions) : undefined;
 
     const [totalRow] = await client
       .select({ count: count() })
@@ -92,15 +120,19 @@ export class QuestionRepository implements IQuestionRepository {
     const total = Number(totalRow?.count || 0);
 
     const rows = await client
-      .select()
+      .select({ key: eventKeys, used: usedExpression, canEdit: canEditExpression })
       .from(eventKeys)
       .where(whereClause)
-      .orderBy(desc(eventKeys.createdAt))
+      .orderBy(desc(eventKeys.createdAt), asc(eventKeys.id))
       .limit(options.limit)
       .offset(offset);
 
     return {
-      data: rows.map((r: EventKeyRecord) => this.mapKey(r)),
+      data: rows.map(({ key, used, canEdit }: any) => ({
+        ...this.mapKey(key),
+        used,
+        canEdit,
+      })),
       total,
     };
   }
@@ -211,17 +243,37 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   async listQuestions(
-    options: { page: number; limit: number; roundId?: string },
+    options: { page: number; limit: number; roundId?: string; search?: string; used?: boolean },
     tx?: any
-  ): Promise<{ data: QuestionSummary[]; total: number }> {
+  ): Promise<{ data: QuestionListRow[]; total: number }> {
     const client = this.getClient(tx);
     const offset = (options.page - 1) * options.limit;
 
-    const whereClause = options.roundId ? eq(roundQuestions.roundId, options.roundId) : undefined;
+    const usedExpression = sql<boolean>`EXISTS (
+      SELECT 1 FROM draws
+      WHERE draws.question_id = round_questions.id
+    )`;
+    const conditions = [
+      options.roundId ? eq(roundQuestions.roundId, options.roundId) : undefined,
+      options.search
+        ? sql`(
+            strpos(lower(${roundQuestions.questionText}), lower(${options.search})) > 0
+            or strpos(lower(${eventKeys.value}), lower(${options.search})) > 0
+          )`
+        : undefined,
+      options.used === undefined
+        ? undefined
+        : options.used
+          ? usedExpression
+          : sql`not ${usedExpression}`,
+    ].filter(Boolean);
+    const whereClause = conditions.length ? and(...conditions) : undefined;
 
     const [totalRow] = await client
       .select({ count: count() })
       .from(roundQuestions)
+      .innerJoin(eventKeys, eq(roundQuestions.keyId, eventKeys.id))
+      .innerJoin(rounds, eq(roundQuestions.roundId, rounds.id))
       .where(whereClause);
 
     const total = Number(totalRow?.count || 0);
@@ -230,16 +282,19 @@ export class QuestionRepository implements IQuestionRepository {
       .select({
         question: roundQuestions,
         key: eventKeys,
+        round: rounds,
+        used: usedExpression,
       })
       .from(roundQuestions)
       .innerJoin(eventKeys, eq(roundQuestions.keyId, eventKeys.id))
+      .innerJoin(rounds, eq(roundQuestions.roundId, rounds.id))
       .where(whereClause)
-      .orderBy(desc(roundQuestions.createdAt))
+      .orderBy(desc(roundQuestions.createdAt), asc(roundQuestions.id))
       .limit(options.limit)
       .offset(offset);
 
     return {
-      data: rows.map(({ question, key }: any) => ({
+      data: rows.map(({ question, key, round, used }: any) => ({
         id: question.id,
         roundId: question.roundId,
         keyId: question.keyId,
@@ -247,6 +302,8 @@ export class QuestionRepository implements IQuestionRepository {
         questionText: question.questionText,
         createdAt: question.createdAt,
         updatedAt: question.updatedAt,
+        used,
+        canEdit: round.status === 'DRAFT',
       })),
       total,
     };

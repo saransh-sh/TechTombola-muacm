@@ -371,7 +371,7 @@ describe('Ticket Generation, Allocation, and Retrieval Integration', () => {
         eventId: event.id,
       });
     } catch (err: any) {
-      caughtParticipantDup = err.code === '23505';
+      caughtParticipantDup = err.code === '23505' || err.cause?.code === '23505';
     }
     expect(caughtParticipantDup).toBe(true);
 
@@ -390,7 +390,7 @@ describe('Ticket Generation, Allocation, and Retrieval Integration', () => {
         colIndex: 0,
       });
     } catch (err: any) {
-      caughtCellKeyDup = err.code === '23505';
+      caughtCellKeyDup = err.code === '23505' || err.cause?.code === '23505';
     }
     expect(caughtCellKeyDup).toBe(true);
   });

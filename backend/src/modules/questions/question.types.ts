@@ -7,6 +7,16 @@ export interface KeySummary {
   updatedAt: Date;
 }
 
+export interface KeyListRow extends KeySummary {
+  used: boolean;
+  canEdit: boolean;
+}
+
+export interface AppliedQuestionKeyFilters {
+  search: string | null;
+  used: boolean | null;
+}
+
 export interface CreateKeyInput {
   eventId: string;
   value: string;
@@ -17,7 +27,8 @@ export interface UpdateKeyInput {
 }
 
 export interface KeyListResult {
-  data: KeySummary[];
+  data: KeyListRow[];
+  filters: AppliedQuestionKeyFilters;
   pagination: {
     page: number;
     limit: number;
@@ -36,6 +47,11 @@ export interface QuestionSummary {
   updatedAt: Date;
 }
 
+export interface QuestionListRow extends QuestionSummary {
+  used: boolean;
+  canEdit: boolean;
+}
+
 export interface CreateQuestionInput {
   roundId: string;
   keyId: string;
@@ -47,7 +63,8 @@ export interface UpdateQuestionInput {
 }
 
 export interface QuestionListResult {
-  data: QuestionSummary[];
+  data: QuestionListRow[];
+  filters: AppliedQuestionKeyFilters;
   pagination: {
     page: number;
     limit: number;
