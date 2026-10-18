@@ -33,7 +33,7 @@ export function verifyMutationOrigin(request: FastifyRequest): void {
         env.APP_URL.trim(),
       ];
 
-      if (!allowed.includes('*') && !allowed.includes(origin)) {
+      if (!allowed.includes(origin)) {
         throw new ForbiddenError(`Invalid request origin: '${origin}'`);
       }
     }

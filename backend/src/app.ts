@@ -57,13 +57,15 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   const allowedOrigins = env.CORS_ORIGIN.split(',').map((o) => o.trim());
   await app.register(cors, {
     origin: (origin, cb) => {
-      if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.includes(origin)) {
         cb(null, true);
       } else {
         cb(new AppError('CORS origin not allowed', ERROR_CODES.FORBIDDEN, 403), false);
       }
     },
     credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Idempotency-Key'],
   });
 
   // Enable Cookies
