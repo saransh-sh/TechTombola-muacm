@@ -13,7 +13,9 @@
 .ticketHead { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
 .ticketHead h3 { margin:7px 0 0; font:700 14px var(--mono); overflow-wrap:anywhere; }
 .serverMark { color:#315c53; text-align:right; font:700 9px/1.4 var(--mono); letter-spacing:.04em; }
-.grid { width:100%; min-width:0; max-width:100%; table-layout:fixed; border-collapse:separate; border-spacing:4px; }
+.gridViewport { max-width:100%; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-color:#315c53 #eee8dc; }
+.gridScrollHint { display:none; margin:0 0 8px; color:#52635d; font:700 10px/1.4 var(--mono); }
+.grid { width:100%; min-width:720px; table-layout:fixed; border-collapse:separate; border-spacing:4px; }
 .grid td { max-width:0; height:clamp(56px,8vw,82px); padding:5px 2px; border:1px solid var(--ink); text-align:center; vertical-align:middle; overflow-wrap:anywhere; }
 .grid td strong { display:block; font-size:clamp(9px,1.7vw,17px); line-height:1.1; overflow-wrap:anywhere; }
 .position,.cellState,.emptyLabel { display:block; font:700 clamp(7px,1vw,9px)/1.2 var(--mono); }
@@ -42,5 +44,5 @@
 .notice button { margin-top:8px; padding:10px 16px; border:2px solid var(--ink); background:var(--coral); font-weight:800; cursor:pointer; }
 .notice button:focus-visible,.back:focus-visible { outline:3px solid #315c53; outline-offset:4px; }
 .stale { font:700 11px/1.5 var(--mono); }
-@media(max-width:430px) { .grid { border-spacing:2px; } .grid td { height:66px; padding:4px 1px; } .position,.cellState { display:none; } .statusIcon { display:block; margin-top:5px; font-size:14px; line-height:1; } .grid td strong { font-size:clamp(10px,3vw,12px); } .winningState { font-size:7px; } .emptyLabel { font-size:8px; } }
+@media(max-width:430px) { .gridViewport { padding-bottom:4px; } .gridScrollHint { display:block; } .grid { border-spacing:2px; } .grid td { height:66px; padding:4px 1px; } .position,.cellState { display:none; } .statusIcon { display:block; margin-top:5px; font-size:14px; line-height:1; } .grid td strong { font-size:clamp(10px,3vw,12px); } .winningState { font-size:7px; } .emptyLabel { font-size:8px; } }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; animation-duration:.01ms !important; transition-duration:.01ms !important; } }

@@ -57,6 +57,30 @@ test('active round renders the server ticket at mobile and desktop widths', asyn
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.screenshot({ path: 'design/screenshots/ticket-winning-cell-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
+  const ticketGrid = page.getByRole('region', { name: 'Ticket grid' });
+  await expect(ticketGrid).toHaveAttribute('tabindex', '0');
+  await expect(page.getByText('Scroll horizontally to see all nine columns.')).toBeVisible();
+  expect(await ticketGrid.evaluate((element) => element.scrollWidth > element.clientWidth), 'narrow Ticket should scroll inside its own grid viewport').toBe(true);
+  const longKeyLines = await markedCell.locator('strong').evaluate((element) => {
+    const text = document.createRange();
+    text.selectNodeContents(element);
+    return text.getClientRects().length;
+  });
+  expect(longKeyLines, 'a long key should remain compact enough to recognize in its Ticket cell').toBeLessThanOrEqual(3);
+  await ticketGrid.focus();
+  const scrollBeforeKey = await ticketGrid.evaluate((element) => element.scrollLeft);
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(() => ticketGrid.evaluate((element) => element.scrollLeft)).toBeGreaterThan(scrollBeforeKey);
+  const lastColumn = page.getByRole('cell', { name: /Row 1, column 9:/ });
+  await ticketGrid.evaluate((element) => { element.scrollLeft = element.scrollWidth; });
+  const lastColumnIsReachable = await lastColumn.evaluate((element) => {
+    const cell = element.getBoundingClientRect();
+    const viewport = element.closest('[role="region"]')!.getBoundingClientRect();
+    return cell.left >= viewport.left && cell.right <= viewport.right;
+  });
+  expect(lastColumnIsReachable, 'the final Ticket column should be visible at the end of horizontal scrolling').toBe(true);
+  await expect(page.getByText('Scroll horizontally to see all nine columns.')).toBeVisible();
+  await ticketGrid.evaluate((element) => { element.scrollLeft = 0; });
   await page.screenshot({ path: 'design/screenshots/ticket-winning-cell-mobile.png', fullPage: true });
   await page.getByRole('link', { name: /lobby/i }).focus();
   await expect(page.getByRole('link', { name: /lobby/i })).toBeFocused();

@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom';
 import { useState } from 'react';
-import { ParticipantTicket } from './ParticipantTicket';
+import { ParticipantTicket, TicketGrid } from './ParticipantTicket';
 import { getCurrentRound, getParticipantEvent } from '../../lib/api/participant';
 import { markTicketCell } from '../../lib/api/marks';
 import { getParticipantTicket } from '../../lib/api/ticket';
@@ -41,6 +41,20 @@ describe('ParticipantTicket marking', () => {
     vi.mocked(getParticipantTicket).mockReset().mockResolvedValue(makeTicket());
     vi.mocked(markTicketCell).mockReset().mockResolvedValue({ id: 'mark-1', ticketId: 'ticket-7', cellId: 'cell-0', markedAt: '2026-10-17T14:01:00.000Z' });
     vi.mocked(getParticipantWins).mockReset().mockResolvedValue({ data: [], total: 0, page: 1, limit: 50 });
+  });
+
+  it('keeps long Ticket keys readable in a keyboard-scrollable nine-column grid', () => {
+    const ticket = makeTicket();
+    ticket.cells[0]!.keyValue = 'ALONGTECHNOLOGYKEY';
+    render(<TicketGrid ticket={ticket} />);
+
+    const grid = screen.getByRole('region', { name: 'Ticket grid' });
+    expect(grid).toHaveAttribute('tabindex', '0');
+    expect(screen.getByText('Scroll horizontally to see all nine columns.')).toBeInTheDocument();
+    expect(screen.getByRole('table', { name: 'Your Tombola ticket' })).toBeInTheDocument();
+    expect(screen.getByText('ALONGTECHNOLOGYKEY')).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(3);
+    expect(screen.getAllByRole('cell')).toHaveLength(27);
   });
 
   it('highlights only cell IDs supplied by this participant wins response for the current Round', async () => {

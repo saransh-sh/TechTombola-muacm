@@ -22,7 +22,10 @@ export function TicketGrid({ ticket, revealedKey, animateReveal = false, drawnKe
     const tween = gsap.fromTo(matchRef.current, { y: 4 }, { y: 0, duration: 0.2, ease: 'power2.out', clearProps: 'transform' });
     return () => { tween.kill(); };
   }, [animateReveal, revealedKey]);
-  return <table className={styles.grid} aria-label="Your Tombola ticket">
+  return <>
+    <p className={styles.gridScrollHint}>Scroll horizontally to see all nine columns.</p>
+    <div className={styles.gridViewport} role="region" aria-label="Ticket grid" tabIndex={0}>
+    <table className={styles.grid} aria-label="Your Tombola ticket">
     <tbody>{Array.from({ length: 3 }, (_, row) => <tr key={row}>
       {Array.from({ length: 9 }, (_, column) => {
         const cell = cells.get(`${row}:${column}`);
@@ -36,7 +39,9 @@ export function TicketGrid({ ticket, revealedKey, animateReveal = false, drawnKe
         </td>;
       })}
     </tr>)}</tbody>
-  </table>;
+    </table>
+    </div>
+  </>;
 }
 
 export function ParticipantTicket({ revealedKey, animateReveal = false, drawnKeys = new Set<string>(), canMark = false }: { revealedKey?: string; animateReveal?: boolean; drawnKeys?: ReadonlySet<string>; canMark?: boolean } = {}) {
