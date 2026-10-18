@@ -70,8 +70,8 @@ describe('ParticipantLobby', () => {
       vi.mocked(participantApi.getCurrentRound).mockResolvedValue({ ...round, status });
       mount();
       expect(await screen.findByText(status.replaceAll('_', ' '))).toBeInTheDocument();
-      if (status === 'ACTIVE') expect(screen.getByRole('link', { name: /open your ticket/i })).toBeInTheDocument();
-      else expect(screen.queryByRole('link', { name: /open your ticket/i })).not.toBeInTheDocument();
+      if (status === 'ACTIVE') expect(screen.getByRole('link', { name: /open live game/i })).toHaveAttribute('href', '/participant/game');
+      else expect(screen.queryByRole('link', { name: /open live game/i })).not.toBeInTheDocument();
     },
   );
 

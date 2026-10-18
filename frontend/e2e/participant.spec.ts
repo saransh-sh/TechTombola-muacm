@@ -34,7 +34,7 @@ async function mockAuthentication(page: Page, role?: 'PARTICIPANT' | 'ADMIN' | '
   await page.route('**/api/v1/live/winners', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ roundId: null, data: [] }) }));
 }
 
-test('active round renders the server ticket at mobile and desktop widths', async ({ page }) => {
+test('active round renders the server ticket within the live game at mobile and desktop widths', async ({ page }) => {
   await mockAuthentication(page, 'PARTICIPANT', true);
   await page.route('**/api/v1/participant/wins?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: 'winner-1', claimId: 'claim-1', participantId: 'participant-1', roundId: 'round-1', eventId: 'event-1', patternType: 'EARLY_5', verifiedAt: '2026-10-17T14:00:00.000Z', eligibleCellIds: ['cell-0'] }], total: 1, page: 1, limit: 50 }) }));
   let roundId = 'round-1';
@@ -43,9 +43,7 @@ test('active round renders the server ticket at mobile and desktop widths', asyn
   const cells = Array.from({ length: 15 }, (_, index) => ({ id: `cell-${index}`, rowIndex: Math.floor(index / 5), colIndex: (index * 2) % 9, row: Math.floor(index / 5), column: (index * 2) % 9, keyId: `key-${index}`, keyValue: index === 0 ? 'A LONG TECHNOLOGY KEY' : `KEY ${index}`, marked: index === 0 }));
   await page.route('**/api/v1/participant/round/current', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round: { id: roundId, eventId: 'event-1', sequenceNumber: roundId === 'round-1' ? 1 : 2, name: roundName, status: 'ACTIVE', patterns: [], createdAt: '2026-10-17T14:00:00.000Z', updatedAt: '2026-10-17T14:00:00.000Z' } }) }));
   await page.route('**/api/v1/participant/ticket?roundId=*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: { id: ticketId, roundId, participantId: 'participant-1', eventId: 'event-1', createdAt: '2026-10-17T14:00:00.000Z', cells } }) }));
-  await page.goto('/participant/lobby');
-  await expect(page.getByRole('link', { name: /open your ticket/i })).toBeVisible();
-  await page.getByRole('link', { name: /open your ticket/i }).click();
+  await page.goto('/participant/ticket');
   await expect(page.getByRole('table', { name: 'Your Tombola ticket' })).toBeVisible();
   await expect(page.getByText('A LONG TECHNOLOGY KEY')).toBeVisible();
   await expect(page.getByText('Marked', { exact: true })).toBeVisible();
@@ -154,8 +152,7 @@ test('a delayed ticket response from the previous round cannot replace the new r
     }
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: { id: requestedRoundId === 'round-1' ? 'ticket-1' : 'ticket-2', roundId: requestedRoundId, participantId: 'participant-1', eventId: 'event-1', createdAt: '2026-10-17T14:00:00.000Z', cells } }) });
   });
-  await page.goto('/participant/lobby');
-  await page.getByRole('link', { name: /open your ticket/i }).click();
+  await page.goto('/participant/ticket');
   await oldTicketStarted;
 
   roundId = 'round-2';
@@ -341,4 +338,51 @@ test('a Draw created during the initial snapshot and subscription gap is recover
   finishReconcileSnapshot();
   await expect(page.getByRole('article', { name: 'Question 1' })).toContainText('DOCKER');
   await expect(page.getByRole('region', { name: 'Draw history' }).locator('li')).toHaveCount(1);
+});
+
+test('keyboard users can open the live game from the lobby and mark a drawn Ticket cell', async ({ page }) => {
+  await mockAuthentication(page, 'PARTICIPANT', true);
+  const eventId = '22222222-2222-4222-8222-222222222222';
+  const roundId = '33333333-3333-4333-8333-333333333333';
+  const ticketId = '44444444-4444-4444-8444-444444444444';
+  const cellIds = Array.from({ length: 15 }, (_, index) => `55555555-5555-4555-8555-${String(index + 1).padStart(12, '0')}`);
+  const drawnAt = '2026-10-17T14:00:00.000Z';
+  let marked = false;
+  const cells = Array.from({ length: 15 }, (_, index) => ({
+    id: cellIds[index]!, rowIndex: Math.floor(index / 5), colIndex: index % 5,
+    row: Math.floor(index / 5), column: index % 5, keyId: `key-${index}`,
+    keyValue: index === 0 ? 'DOCKER' : `KEY ${index}`, marked: marked && index === 0,
+  }));
+  await page.route('**/api/v1/participant/event', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ event: { id: eventId, title: 'Autumn Tombola', description: null, status: 'LIVE', scheduledAt: null, startedAt: drawnAt, completedAt: null, createdAt: drawnAt, updatedAt: drawnAt } }) }));
+  await page.route('**/api/v1/participant/round/current', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round: { id: roundId, eventId, sequenceNumber: 1, name: 'Opening Round', status: 'ACTIVE', patterns: [], createdAt: drawnAt, updatedAt: drawnAt } }) }));
+  await page.route('**/api/v1/participant/draws?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: '66666666-6666-4666-8666-666666666666', roundId, sequenceNumber: 1, drawMode: 'RANDOM', questionText: 'Which tool packages apps?', keyValue: 'DOCKER', drawnAt }], total: 1, page: 1, limit: 100 }) }));
+  await page.route('**/api/v1/participant/ticket?roundId=*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: { id: ticketId, roundId, participantId: 'participant-1', eventId, createdAt: drawnAt, cells: cells.map((cell) => ({ ...cell, marked: marked && cell.id === cellIds[0] })) } }) }));
+  await page.route('**/api/v1/participant/tickets/*/marks', async (route) => {
+    expect(route.request().postDataJSON()).toEqual({ cellId: cellIds[0] });
+    marked = true;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ mark: { id: '77777777-7777-4777-8777-777777777777', ticketId, cellId: cellIds[0], markedAt: drawnAt } }) });
+  });
+  await page.routeWebSocket('**/api/v1/ws?roundId=*', () => {});
+
+  await page.goto('/participant/lobby');
+  const liveGameLink = page.getByRole('link', { name: /open live game/i });
+  await expect(liveGameLink).toBeVisible();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Sign out' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(liveGameLink).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/participant\/game$/);
+
+  await expect(page.getByText('Live updates connected')).toBeVisible();
+  const markButton = page.getByRole('button', { name: 'Mark DOCKER, row 1, column 1' });
+  await expect(markButton).toBeEnabled();
+  for (let tab = 0; tab < 20 && !(await markButton.evaluate((element) => element === document.activeElement)); tab += 1) {
+    await page.keyboard.press('Tab');
+  }
+  await expect(markButton).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('status').filter({ hasText: 'Mark confirmed by the server.' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: /DOCKER, marked, matches latest revealed key/i })).toHaveAttribute('data-marked', 'true');
+  expect(marked).toBe(true);
 });
