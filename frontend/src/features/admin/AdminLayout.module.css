@@ -6,10 +6,6 @@
 .navLink:hover,.navLink:focus-visible { border-color:var(--ink); outline:2px solid var(--coral); outline-offset:2px; }
 .active { border-color:var(--ink); background:var(--cream); box-shadow:3px 3px 0 var(--ink); }
 .content { min-width:0; padding:clamp(24px,4vw,56px); }
-.placeholder { max-width:700px; padding:22px 0; border-top:2px solid var(--ink); }
-.placeholder h1 { margin:0 0 12px; font-size:clamp(32px,5vw,52px); line-height:1; }
-.placeholder p { max-width:60ch; line-height:1.6; }
-.placeholder a { color:var(--ink); font-weight:700; }
 @media (max-width:760px) {
   .layout { display:block; }
   .nav { padding:12px 16px; border-right:0; border-bottom:2px solid var(--ink); }

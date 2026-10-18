@@ -25,8 +25,18 @@ Reference inspected on 2026-10-17: [Hacktoberfest](https://hacktoberfest.com/), 
 - Participant lobby, mobile: [lobby-mobile.png](design/screenshots/lobby-mobile.png)
 - Participant Ticket, desktop: [ticket-desktop.png](design/screenshots/ticket-desktop.png)
 - Participant Ticket, mobile: [ticket-mobile.png](design/screenshots/ticket-mobile.png)
+- Participant Ticket with backend-selected winning cell, desktop: [ticket-winning-cell-desktop.png](design/screenshots/ticket-winning-cell-desktop.png)
+- Participant Ticket with backend-selected winning cell, mobile: [ticket-winning-cell-mobile.png](design/screenshots/ticket-winning-cell-mobile.png)
+- Public Live Display, projector 1440×900: [live-display-desktop.png](design/screenshots/live-display-desktop.png)
+- Public Live Display, mobile 390×844: [live-display-mobile.png](design/screenshots/live-display-mobile.png)
+- Admin audit log, desktop 1440×1000: [admin-audit-desktop.png](design/screenshots/admin-audit-desktop.png)
+- Admin audit log, mobile 390×844: [admin-audit-mobile.png](design/screenshots/admin-audit-mobile.png)
+- Super Admin accounts, desktop 1440×1000: [admin-administrators-desktop.png](design/screenshots/admin-administrators-desktop.png)
+- Super Admin accounts, mobile 390×844: [admin-administrators-mobile.png](design/screenshots/admin-administrators-mobile.png)
+- Super Admin system health, desktop 1440×1000: [admin-system-desktop.png](design/screenshots/admin-system-desktop.png)
+- Super Admin system health, mobile 390×844: [admin-system-mobile.png](design/screenshots/admin-system-mobile.png)
 
-The rendered login, dashboard, Event, Round configuration/operations, Draw control, Claim review, Winner history, Question/Key, Participant and CSV import captures use mocked API responses; they document browser rendering, not real backend integration. Round operations display backend-reported Ticket counts and readiness errors. Recovery remains unavailable until the backend publishes a confirmed recovery command. The CSV import response currently omits per-Participant credential-delivery status; the UI points admins to the refreshed Participant list for that status.
+The rendered login, dashboard, Event, Round configuration/operations, Draw control, Claim review, Winner history, Question/Key, Participant, CSV import, audit, administrator, system, and public Live Display captures use mocked API responses; they document browser rendering, not real backend integration. The public WebSocket requires an ACTIVE or PAUSED Round, so the display discovers a newly active Round through REST polling before it can subscribe. Round operations display backend-reported Ticket counts and readiness errors. Recovery remains unavailable until the backend publishes a confirmed recovery command. The CSV import response currently omits per-Participant credential-delivery status; [backend issue #18](https://github.com/saransh-sh/TechTombola-muacm/issues/18) tracks that API change. [Issue #20](https://github.com/saransh-sh/TechTombola-muacm/issues/20) tracks server-selected winning-cell evidence; the Ticket highlights only IDs present in the authenticated Participant wins response and leaves cells unhighlighted when that evidence is absent. [Issue #21](https://github.com/saransh-sh/TechTombola-muacm/issues/21) tracks complete-dataset Question/Key search and authoritative used-state filters.
 
 ## Tokens
 
@@ -35,6 +45,7 @@ The rendered login, dashboard, Event, Round configuration/operations, Draw contr
 - 20–72px responsive page gutters; login content uses a two-column desktop composition and one column below 700px.
 - Rectangular controls and surfaces, 1–2px dark outlines, hard 4–8px offset shadows, no blur.
 - Focus uses a visible coral outline; active buttons translate with their shadow; pending actions disable the submit control. Reduced motion removes the transition.
+- Ticket states pair color with text; a winning-cell label appears only when the backend supplies eligible cell IDs.
 
 ## Responsive behavior
 

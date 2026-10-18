@@ -7,13 +7,14 @@ import { getCurrentRound, getParticipantEvent } from '../../lib/api/participant'
 import { getParticipantTicket } from '../../lib/api/ticket';
 import { markTicketCell } from '../../lib/api/marks';
 import { useAuthUiStore } from '../auth/authStore';
+import { useParticipantWins } from './useParticipantWins';
 import type { AuthenticatedUser } from '../../types/auth';
 import type { ParticipantTicket as Ticket } from '../../types/ticket';
 import styles from './ParticipantTicket.module.css';
 
 const refreshableRound = new Set(['DRAFT', 'READY', 'RECOVERY_REQUIRED']);
 
-export function TicketGrid({ ticket, revealedKey, animateReveal = false, drawnKeys = new Set<string>(), canMark = false, pendingCellIds = new Set<string>(), uncertainCellIds = new Set<string>(), onMark }: { ticket: Ticket; revealedKey?: string; animateReveal?: boolean; drawnKeys?: ReadonlySet<string>; canMark?: boolean; pendingCellIds?: ReadonlySet<string>; uncertainCellIds?: ReadonlySet<string>; onMark?: (cellId: string) => void }) {
+export function TicketGrid({ ticket, revealedKey, animateReveal = false, drawnKeys = new Set<string>(), canMark = false, pendingCellIds = new Set<string>(), uncertainCellIds = new Set<string>(), winningCellIds = new Set<string>(), onMark }: { ticket: Ticket; revealedKey?: string; animateReveal?: boolean; drawnKeys?: ReadonlySet<string>; canMark?: boolean; pendingCellIds?: ReadonlySet<string>; uncertainCellIds?: ReadonlySet<string>; winningCellIds?: ReadonlySet<string>; onMark?: (cellId: string) => void }) {
   const matchRef = useRef<HTMLTableCellElement>(null);
   const cells = new Map(ticket.cells.map((cell) => [`${cell.rowIndex}:${cell.colIndex}`, cell]));
   useEffect(() => {
@@ -28,9 +29,10 @@ export function TicketGrid({ ticket, revealedKey, animateReveal = false, drawnKe
         const matched = !!cell && cell.keyValue === revealedKey;
         const pending = !!cell && pendingCellIds.has(cell.id);
         const uncertain = !!cell && uncertainCellIds.has(cell.id);
+        const winning = !!cell && winningCellIds.has(cell.id);
         const markable = !!cell && !cell.marked && drawnKeys.has(cell.keyValue);
-        return <td key={column} ref={matched ? matchRef : undefined} aria-label={cell ? `Row ${row + 1}, column ${column + 1}: ${cell.keyValue}, ${cell.marked ? 'marked' : 'not marked'}${matched ? ', matches latest revealed key' : ''}` : `Row ${row + 1}, column ${column + 1}: empty`} className={`${cell ? cell.marked ? styles.marked : styles.playable : styles.empty}${matched ? ` ${styles.matched}` : ''}${pending ? ` ${styles.pending}` : ''}`} data-cell-id={cell?.id} data-marked={cell?.marked ?? undefined}>
-          {cell ? <><span className={styles.position}>R{row + 1} · C{column + 1}</span><strong>{cell.keyValue}</strong>{markable ? <button className={styles.markButton} type="button" aria-label={`Mark ${cell.keyValue}, row ${row + 1}, column ${column + 1}`} aria-busy={pending || undefined} disabled={!canMark || pending || uncertain} onClick={() => onMark?.(cell.id)}>{pending ? 'Saving…' : uncertain ? 'Status unknown' : 'Mark'}</button> : <span className={styles.cellState}>{cell.marked ? 'Marked' : 'Not marked'}</span>}<span className={styles.statusIcon} aria-hidden="true">{cell.marked ? '✓' : '○'}</span></> : <span className={styles.emptyLabel}>Empty</span>}
+        return <td key={column} ref={matched ? matchRef : undefined} aria-label={cell ? `Row ${row + 1}, column ${column + 1}: ${cell.keyValue}, ${cell.marked ? 'marked' : 'not marked'}${matched ? ', matches latest revealed key' : ''}${winning ? ', verified winning cell' : ''}` : `Row ${row + 1}, column ${column + 1}: empty`} className={`${cell ? cell.marked ? styles.marked : styles.playable : styles.empty}${matched ? ` ${styles.matched}` : ''}${pending ? ` ${styles.pending}` : ''}${winning ? ` ${styles.winning}` : ''}`} data-cell-id={cell?.id} data-marked={cell?.marked ?? undefined} data-winning={winning || undefined}>
+          {cell ? <><span className={styles.position}>R{row + 1} · C{column + 1}</span><strong>{cell.keyValue}</strong>{winning && <span className={styles.winningState}>Verified win cell</span>}{markable ? <button className={styles.markButton} type="button" aria-label={`Mark ${cell.keyValue}, row ${row + 1}, column ${column + 1}`} aria-busy={pending || undefined} disabled={!canMark || pending || uncertain} onClick={() => onMark?.(cell.id)}>{pending ? 'Saving…' : uncertain ? 'Status unknown' : 'Mark'}</button> : <span className={styles.cellState}>{cell.marked ? 'Marked' : 'Not marked'}</span>}<span className={styles.statusIcon} aria-hidden="true">{cell.marked ? '✓' : '○'}</span></> : <span className={styles.emptyLabel}>Empty</span>}
         </td>;
       })}
     </tr>)}</tbody>
@@ -43,6 +45,7 @@ export function ParticipantTicket({ revealedKey, animateReveal = false, drawnKey
   const location = useLocation();
   const navigate = useNavigate();
   const identityChanged = useAuthUiStore((state) => state.identityChanged);
+  const wins = useParticipantWins(user.id);
   const [pendingCellIds, setPendingCellIds] = useState<Set<string>>(() => new Set());
   const [uncertainCellIds, setUncertainCellIds] = useState<Set<string>>(() => new Set());
   const [markFeedback, setMarkFeedback] = useState<{ cellId?: string; kind: 'success' | 'error' | 'uncertain'; message: string }>();
@@ -152,7 +155,8 @@ export function ParticipantTicket({ revealedKey, animateReveal = false, drawnKey
         {ticket.isPending ? <p className={styles.notice} role="status">Loading your ticket…</p> : noTicket ? <section className={styles.notice}><h2>Your ticket is being prepared</h2><p>This round is available, but its ticket has not arrived yet. This page will update when the host finishes preparing tickets.</p></section> : ticket.error && (!ticket.data || ticketForbidden) ? <TicketError error={ticket.error} retry={retry} /> : null}
         {showTicket && <section className={styles.ticket} aria-label="Ticket details">
           <div className={styles.ticketHead}><div><span className={styles.label}>TICKET</span><h3>{ticket.data.id}</h3></div><span className={styles.serverMark}>MARKS SAVED BY SERVER</span></div>
-          <TicketGrid ticket={ticket.data} revealedKey={revealedKey} animateReveal={animateReveal} drawnKeys={drawnKeys} canMark={canMark && round.data.status === 'ACTIVE' && !ticket.isFetching && !ticket.error} pendingCellIds={pendingCellIds} uncertainCellIds={uncertainCellIds} onMark={(cellId) => void (uncertainCellIds.has(cellId) ? checkMark(cellId) : mark(cellId))} />
+          <TicketGrid ticket={ticket.data} revealedKey={revealedKey} animateReveal={animateReveal} drawnKeys={drawnKeys} canMark={canMark && round.data.status === 'ACTIVE' && !ticket.isFetching && !ticket.error} pendingCellIds={pendingCellIds} uncertainCellIds={uncertainCellIds} winningCellIds={new Set(wins.data?.data.filter((win) => win.roundId === ticket.data.roundId).flatMap((win) => win.eligibleCellIds ?? []))} onMark={(cellId) => void (uncertainCellIds.has(cellId) ? checkMark(cellId) : mark(cellId))} />
+          {wins.error && <p className={styles.stale} role="status">Verified winning-cell details could not be checked. Any winner decisions remain with the host.</p>}
           {markFeedback && <p className={markFeedback.kind === 'error' ? styles.markError : markFeedback.kind === 'uncertain' ? styles.markUncertain : styles.markSuccess} role={markFeedback.kind === 'error' || markFeedback.kind === 'uncertain' ? 'alert' : 'status'}>{markFeedback.message}{markFeedback.kind === 'uncertain' && markFeedback.cellId && <button type="button" onClick={() => void checkMark(markFeedback.cellId!)}>Check mark status</button>}</p>}
           {(ticket.error || event.error || round.error) && <p className={styles.stale} role="status">Could not refresh current details. Showing the last ticket received from the server.</p>}
         </section>}

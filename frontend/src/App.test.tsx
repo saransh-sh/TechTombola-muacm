@@ -7,11 +7,15 @@ import { ApiError } from './lib/api/client';
 import * as authApi from './lib/api/auth';
 import * as participantApi from './lib/api/participant';
 import { getAdminDashboard } from './lib/api/adminDashboard';
+import { listSuperAdminAccounts } from './lib/api/adminAccounts';
+import { getSuperAdminSystem, listAdminAudit } from './lib/api/adminOperations';
 import { useAuthUiStore } from './features/auth/authStore';
 
 vi.mock('./lib/api/auth', () => ({ getMe: vi.fn(), login: vi.fn(), logout: vi.fn() }));
 vi.mock('./lib/api/participant', () => ({ getParticipantEvent: vi.fn(), getCurrentRound: vi.fn() }));
 vi.mock('./lib/api/adminDashboard', () => ({ getAdminDashboard: vi.fn() }));
+vi.mock('./lib/api/adminAccounts', () => ({ listSuperAdminAccounts: vi.fn() }));
+vi.mock('./lib/api/adminOperations', () => ({ getSuperAdminSystem: vi.fn(), listAdminAudit: vi.fn() }));
 
 const emptyDashboard = {
   event: null, round: null, participants: 0, connectedConnections: 0, drawCount: 0,
@@ -25,6 +29,9 @@ describe('application role routes', () => {
     window.history.replaceState({}, '', '/login');
     vi.clearAllMocks();
     vi.mocked(getAdminDashboard).mockResolvedValue(emptyDashboard);
+    vi.mocked(listSuperAdminAccounts).mockResolvedValue({ data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 1 } });
+    vi.mocked(getSuperAdminSystem).mockResolvedValue({ version: '1.0.0', readiness: { status: 'ready', dependencies: {} }, recoveryRequiredRounds: 0, latestMigration: null });
+    vi.mocked(listAdminAudit).mockResolvedValue({ items: [], limit: 20, hasMore: false, nextCursor: null });
     vi.mocked(participantApi.getParticipantEvent).mockRejectedValue(new ApiError(404, 'No event associated'));
   });
 
@@ -34,6 +41,25 @@ describe('application role routes', () => {
     render(<App />);
     expect(await screen.findByRole('heading', { name: 'Operations dashboard' })).toBeInTheDocument();
     expect(authApi.getMe).toHaveBeenCalledOnce();
+  });
+
+  it('shows Super Admin account management and navigation only to a Super Admin', async () => {
+    vi.mocked(authApi.getMe).mockResolvedValue({ id: 'u2', email: 'sa@example.test', name: 'Ari Patel', role: 'SUPER_ADMIN', status: 'ACTIVE' });
+    window.history.replaceState({}, '', '/admin/administrators');
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: 'Administrator accounts' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Administrators' })).toHaveAttribute('href', '/admin/administrators');
+    expect(listSuperAdminAccounts).toHaveBeenCalled();
+  });
+
+  it('redirects an Admin away from the Super Admin system route before fetching it', async () => {
+    vi.mocked(authApi.getMe).mockResolvedValue({ id: 'u1', email: 'a@example.test', name: 'Ari Patel', role: 'ADMIN', status: 'ACTIVE' });
+    window.history.replaceState({}, '', '/admin/system');
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: 'Operations dashboard' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'System health' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'System' })).not.toBeInTheDocument();
+    expect(getSuperAdminSystem).not.toHaveBeenCalled();
   });
 
   it('redirects a participant away from an admin route', async () => {

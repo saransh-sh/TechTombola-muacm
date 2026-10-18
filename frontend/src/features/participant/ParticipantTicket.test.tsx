@@ -7,6 +7,7 @@ import { ParticipantTicket } from './ParticipantTicket';
 import { getCurrentRound, getParticipantEvent } from '../../lib/api/participant';
 import { markTicketCell } from '../../lib/api/marks';
 import { getParticipantTicket } from '../../lib/api/ticket';
+import { getParticipantWins } from '../../lib/api/winners';
 import type { AuthenticatedUser } from '../../types/auth';
 import type { ParticipantTicket as Ticket } from '../../types/ticket';
 import { ApiError } from '../../lib/api/client';
@@ -14,6 +15,7 @@ import { ApiError } from '../../lib/api/client';
 vi.mock('../../lib/api/participant', () => ({ getParticipantEvent: vi.fn(), getCurrentRound: vi.fn() }));
 vi.mock('../../lib/api/ticket', () => ({ getParticipantTicket: vi.fn() }));
 vi.mock('../../lib/api/marks', () => ({ markTicketCell: vi.fn() }));
+vi.mock('../../lib/api/winners', () => ({ getParticipantWins: vi.fn(), getLiveWinners: vi.fn() }));
 
 const user: AuthenticatedUser = { id: 'p1', email: 'p@example.test', name: 'Ari Patel', role: 'PARTICIPANT', status: 'ACTIVE' };
 const event = { id: 'e1', title: 'Autumn', description: null, status: 'LIVE' as const, scheduledAt: null, startedAt: null, completedAt: null, createdAt: '2026-10-16T00:00:00.000Z', updatedAt: '2026-10-17T00:00:00.000Z' };
@@ -38,6 +40,18 @@ describe('ParticipantTicket marking', () => {
     vi.mocked(getCurrentRound).mockReset().mockResolvedValue(round);
     vi.mocked(getParticipantTicket).mockReset().mockResolvedValue(makeTicket());
     vi.mocked(markTicketCell).mockReset().mockResolvedValue({ id: 'mark-1', ticketId: 'ticket-7', cellId: 'cell-0', markedAt: '2026-10-17T14:01:00.000Z' });
+    vi.mocked(getParticipantWins).mockReset().mockResolvedValue({ data: [], total: 0, page: 1, limit: 50 });
+  });
+
+  it('highlights only cell IDs supplied by this participant wins response for the current Round', async () => {
+    vi.mocked(getParticipantWins).mockResolvedValue({ data: [
+      { id: 'win-1', claimId: 'claim-1', participantId: 'p1', eventId: 'e1', roundId: 'r1', patternType: 'EARLY_5', verifiedAt: '2026-10-17T14:00:00.000Z', eligibleCellIds: ['cell-0'] },
+      { id: 'win-old', claimId: 'claim-old', participantId: 'p1', eventId: 'e1', roundId: 'old-round', patternType: 'TOP_LINE', verifiedAt: '2026-10-16T14:00:00.000Z', eligibleCellIds: ['cell-1'] },
+    ], total: 2, page: 1, limit: 50 });
+    renderTicket();
+    expect(await screen.findByText('Verified win cell')).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: /DOCKER, not marked, verified winning cell/i })).toHaveAttribute('data-winning', 'true');
+    expect(screen.getByRole('cell', { name: /KEY 1, not marked/i })).not.toHaveAttribute('data-winning');
   });
 
   it('uses the confirmed POST as the persisted mark state without a stale refresh', async () => {

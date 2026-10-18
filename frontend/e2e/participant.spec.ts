@@ -36,6 +36,7 @@ async function mockAuthentication(page: Page, role?: 'PARTICIPANT' | 'ADMIN' | '
 
 test('active round renders the server ticket at mobile and desktop widths', async ({ page }) => {
   await mockAuthentication(page, 'PARTICIPANT', true);
+  await page.route('**/api/v1/participant/wins?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: 'winner-1', claimId: 'claim-1', participantId: 'participant-1', roundId: 'round-1', eventId: 'event-1', patternType: 'EARLY_5', verifiedAt: '2026-10-17T14:00:00.000Z', eligibleCellIds: ['cell-0'] }], total: 1, page: 1, limit: 50 }) }));
   let roundId = 'round-1';
   let roundName = 'Opening Round';
   let ticketId = 'ticket-1';
@@ -50,7 +51,13 @@ test('active round renders the server ticket at mobile and desktop widths', asyn
   await expect(page.getByText('Marked', { exact: true })).toBeVisible();
   const markedCell = page.getByRole('cell', { name: 'Row 1, column 1: A LONG TECHNOLOGY KEY, marked' });
   await expect(markedCell).toHaveAttribute('data-cell-id', 'cell-0');
+  const winningCell = page.getByRole('cell', { name: /A LONG TECHNOLOGY KEY, marked, verified winning cell/ });
+  await expect(winningCell).toHaveAttribute('data-winning', 'true');
   await expect(markedCell).not.toHaveAttribute('tabindex');
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: 'design/screenshots/ticket-winning-cell-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: 'design/screenshots/ticket-winning-cell-mobile.png', fullPage: true });
   await page.getByRole('link', { name: /lobby/i }).focus();
   await expect(page.getByRole('link', { name: /lobby/i })).toBeFocused();
   await page.reload();

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { getMe, logout } from './lib/api/auth';
 import { ApiError } from './lib/api/client';
 import { LoginPage } from './features/auth/LoginPage';
@@ -9,7 +9,7 @@ import { roleHomePath } from './features/auth/routing';
 import { queryClient } from './lib/queryClient';
 import { ErrorMessage, LoadingMessage } from './components/Feedback';
 import { AdminDashboard } from './features/admin/AdminDashboard';
-import { AdminLayout, AdminSectionPlaceholder } from './features/admin/AdminLayout';
+import { AdminLayout } from './features/admin/AdminLayout';
 import { AdminEventManagement } from './features/admin/AdminEventManagement';
 import { AdminRounds } from './features/admin/AdminRounds';
 import { AdminQuestions } from './features/admin/AdminQuestions';
@@ -17,11 +17,15 @@ import { AdminParticipants } from './features/admin/AdminParticipants';
 import { AdminDrawControl } from './features/admin/AdminDrawControl';
 import { AdminClaims } from './features/admin/AdminClaims';
 import { AdminWinners } from './features/admin/AdminWinners';
+import { AdminAdministrators } from './features/admin/AdminAdministrators';
+import { AdminAudit } from './features/admin/AdminAudit';
+import { AdminSystem } from './features/admin/AdminSystem';
 import { ParticipantLobby } from './features/participant/ParticipantLobby';
 import { ParticipantTicket } from './features/participant/ParticipantTicket';
 import { ParticipantGame } from './features/participant/ParticipantGame';
 import { ParticipantClaims } from './features/participant/ParticipantClaims';
 import { ParticipantResults } from './features/participant/ParticipantResults';
+import { LiveDisplay } from './features/live/LiveDisplay';
 import type { AuthenticatedUser } from './types/auth';
 import './styles/global.css';
 
@@ -76,8 +80,22 @@ function LogoutButton() {
   return <><button onClick={signOut} disabled={pending}>{pending ? 'Signing out…' : 'Sign out'}</button>{error && <span role="alert">{error}</span>}</>;
 }
 
+function AdminAdministratorsRoute() {
+  const user = useOutletContext<AuthenticatedUser>();
+  return user.role === 'SUPER_ADMIN' ? <AdminAdministrators user={user} /> : <Navigate to="/admin" replace />;
+}
+
+function SuperAdminSystemRoute() {
+  const user = useOutletContext<AuthenticatedUser>();
+  return user.role === 'SUPER_ADMIN' ? <AdminSystem /> : <Navigate to="/admin" replace />;
+}
+
 function AppRoutes() {
   return <Routes>
+    <Route path="/live" element={<LiveDisplay />} />
+    <Route path="/display" element={<LiveDisplay />} />
+    <Route path="/display/round" element={<LiveDisplay />} />
+    <Route path="/display/winner" element={<LiveDisplay />} />
     <Route path="/login" element={<LoginRoute />} />
     <Route element={<ProtectedLayout allowed={['PARTICIPANT']} />}>
       <Route path="/participant" element={<Navigate to="/participant/lobby" replace />} />
@@ -98,8 +116,9 @@ function AppRoutes() {
         <Route path="draw-control" element={<AdminDrawControl />} />
         <Route path="claims" element={<AdminClaims />} />
         <Route path="winners" element={<AdminWinners />} />
-        <Route path="audit" element={<AdminSectionPlaceholder />} />
-        <Route path="system" element={<AdminSectionPlaceholder />} />
+        <Route path="audit" element={<AdminAudit />} />
+        <Route path="administrators" element={<AdminAdministratorsRoute />} />
+        <Route path="system" element={<SuperAdminSystemRoute />} />
       </Route>
     </Route>
     <Route path="/" element={<Navigate to="/login" replace />} />

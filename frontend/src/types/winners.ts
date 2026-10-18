@@ -6,6 +6,7 @@ const timestamp = z.string().datetime({ offset: true });
 export const participantWinSchema = z.object({
   id: z.string(), claimId: z.string(), participantId: z.string(), roundId: z.string(), eventId: z.string(),
   patternType: winnerPatternSchema, participantName: z.string().optional(), eventTitle: z.string().optional(), verifiedAt: timestamp,
+  eligibleCellIds: z.array(z.string().min(1)).optional(),
 });
 export const participantWinsPageSchema = z.object({ data: z.array(participantWinSchema), total: z.number().int().nonnegative(), page: z.number().int().positive(), limit: z.number().int().positive() });
 export const publicLiveWinnerSchema = z.object({ id: z.string(), roundId: z.string(), pattern: winnerPatternSchema, participantName: z.string(), verifiedAt: timestamp });

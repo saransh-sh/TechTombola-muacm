@@ -14,16 +14,12 @@ const links = [
   ['Audit', '/admin/audit'],
 ] as const;
 
-const sections: Record<string, string> = {
-  events: 'Event management', rounds: 'Round configuration', questions: 'Questions and Keys',
-  participants: 'Participant management', 'draw-control': 'Draw control', claims: 'Claim review',
-  winners: 'Winner history', audit: 'Audit log', system: 'System health and recovery',
-};
-
 export function AdminLayout() {
   const user = useOutletContext<AuthenticatedUser>();
   const location = useLocation();
-  const navigation = user.role === 'SUPER_ADMIN' ? [...links, ['System', '/admin/system'] as const] : links;
+  const navigation = user.role === 'SUPER_ADMIN'
+    ? [...links, ['Administrators', '/admin/administrators'] as const, ['System', '/admin/system'] as const]
+    : links;
   return <div className={styles.layout}>
     <aside className={styles.nav} aria-label="Admin navigation">
       <p className={styles.brand}>EVENT OPERATIONS</p>
@@ -31,17 +27,4 @@ export function AdminLayout() {
     </aside>
     <div className={styles.content}><Outlet context={user} /></div>
   </div>;
-}
-
-export function AdminSectionPlaceholder() {
-  const user = useOutletContext<AuthenticatedUser>();
-  const location = useLocation();
-  const section = location.pathname.split('/').filter(Boolean).at(-1) ?? '';
-  const title = sections[section] ?? 'Admin workspace';
-  return <section className={styles.placeholder} aria-labelledby="admin-section-title">
-    <p className={styles.brand}>{user.role === 'SUPER_ADMIN' ? 'SUPER ADMIN WORKSPACE' : 'ADMIN WORKSPACE'}</p>
-    <h1 id="admin-section-title">{title}</h1>
-    <p>This operational screen is not available in this implementation slice.</p>
-    <NavLink to="/admin">Return to dashboard</NavLink>
-  </section>;
 }
