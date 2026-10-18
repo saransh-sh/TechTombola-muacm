@@ -277,6 +277,36 @@ test('Draw control confirms random and manual draws and reconciles persisted his
   expect(savedDraws).toHaveLength(3);
 });
 
+test('Admin route navigation closes and recreates the Draw WebSocket without accumulating connections', async ({ page }) => {
+  await mockAuthentication(page, 'ADMIN', true, 'ACTIVE');
+  const eventId = '0d3aa3e6-4c58-4c36-b363-d5f11640ba52';
+  const roundId = '5c15e548-2bf0-4b12-8e8b-7d2c7cd91872';
+  let opened = 0;
+  let closed = 0;
+  await page.routeWebSocket('**/api/v1/ws?*', (socket) => {
+    opened += 1;
+    socket.onClose(() => { closed += 1; });
+  });
+
+  await page.goto(`/admin/draw-control?eventId=${eventId}&roundId=${roundId}`);
+  await expect(page.getByRole('heading', { name: 'Draw control' })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'WebSocket connected' })).toBeVisible();
+  await expect.poll(() => opened).toBe(1);
+  await expect.poll(() => opened - closed).toBe(1);
+
+  for (let cycle = 0; cycle < 3; cycle += 1) {
+    await page.getByRole('link', { name: 'Dashboard' }).click();
+    await expect(page.getByRole('heading', { name: 'Operations dashboard' })).toBeVisible();
+    await expect.poll(() => opened - closed).toBe(0);
+    await page.getByRole('link', { name: 'Draw control' }).click();
+    await expect(page.getByRole('heading', { name: 'Draw control' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'WebSocket connected' })).toBeVisible();
+    await expect.poll(() => opened - closed).toBe(1);
+  }
+
+  await expect.poll(() => opened - closed).toBe(1);
+});
+
 test('participant management scopes and searches safely on mobile', async ({ page }) => {
   await mockAuthentication(page, 'ADMIN', true);
   await page.setViewportSize({ width: 390, height: 844 });
