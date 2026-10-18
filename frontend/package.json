@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "test": "vitest run && bun run test:deployment-config",
     "test:deployment-config": "bash scripts/test-deployment-config.sh",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage && bun run test:deployment-config",
     "test:e2e": "playwright test"
   },
   "dependencies": {
