@@ -27,4 +27,10 @@ describe('socketUrl', () => {
     expect(url.protocol).toBe('ws:');
     expect(url.host).toBe(window.location.host);
   });
+
+  it('rejects an unsupported configured origin protocol', () => {
+    vi.stubEnv('VITE_API_BASE_URL', 'https://api.example.test');
+    vi.stubEnv('VITE_WS_BASE_URL', 'ftp://socket.example.test');
+    expect(() => socketUrl('/api/v1/ws', new URLSearchParams())).toThrow('WebSocket base URL must use http, https, ws, or wss');
+  });
 });
