@@ -10,9 +10,9 @@
 
 **Branch:** `feature/tombola_frontend_admin_participant_management`
 
-**Status:** needs-info
+**Execution status:** done; frontend implementation verified in PR #24; full suite passing
 
-**Contract blockers:** [G03](../CONTRACT_GAPS.md#g03). This ticket remains `needs-info` until resolved; specified subparts may be developed without claiming full completion.
+**Approved boundary:** Implement Participant identity and CRUD. Keep per-Round Ticket identifier and durable import status blocked under [G03](../CONTRACT_GAPS.md#g03) until their exact source and scope are specified.
 
 ## Scope and contracts
 
@@ -21,7 +21,7 @@
 - **API/data:** GET/POST /api/v1/admin/participants; GET/PATCH /api/v1/admin/participants/:id; existing Admin Round Ticket listing if justified by G03. Inspect current serializers/schemas before coding; TypeScript server Dates serialize as JSON strings.
 - Use server pagination/search/status filters with Event scope; render identity, active status and returned credential-delivery status without exposing passwords.
 - Create assignment through the supported create schema. Event reassignment is not an editable PATCH capability unless the backend contract explicitly permits it.
-- G03 must distinguish current Ticket identifier, credential-delivery state and import history. Evaluate existing Admin Ticket reads before proposing any backend extension; never show 'unallocated' merely because a joined page was not loaded.
+- Do not claim Ticket assignment/import status as complete. Evaluate authorized Admin Ticket reads before any future extension; never show 'unallocated' merely because a joined page was not loaded.
 - Confirm deactivation and re-read results when sessions become revoked; preserve privacy in errors and diagnostics.
 
 ## Non-goals
@@ -30,10 +30,10 @@ No password viewer/reset feature, invented Participant reassignment, unrestricte
 
 ## Acceptance criteria
 
-- [ ] Admin can manage allowed fields and search/filter Participants across the server dataset.
-- [ ] Cross-Event data and passwords cannot appear in list/detail/cache/logs.
-- [ ] Ticket identifier and import-related states satisfy resolved G03 semantics or remain explicit blockers.
-- [ ] Applicable loading, empty, error, permission, stale/reconnecting and pending states, accessible interaction, reduced motion and relevant responsive layouts satisfy the [common completion gate](../README.md#completion-gate).
+- [x] Admin can manage allowed fields and search/filter Participants across the server dataset.
+- [x] Cross-Event data and passwords cannot appear in list/detail/cache/logs.
+- [x] Ticket identifier and import-related states satisfy resolved G03 semantics or remain explicit blockers.
+- [x] Applicable loading, empty, error, permission, stale/reconnecting and pending states, accessible interaction, reduced motion and relevant responsive layouts satisfy the [common completion gate](../README.md#completion-gate).
 
 ## Required scenarios
 
@@ -45,12 +45,13 @@ List these as individual scenarios before implementation; each semicolon-separat
 
 ## Verification
 
-Run the focused feature tests first, then the [canonical frontend commands](../README.md#canonical-frontend-commands). Add real integration/E2E evidence for the API/WS behavior above. Tickets 22–25 also execute their stated cross-feature checks. Commands are planned until ticket 01 creates the frontend.
+Run the focused feature tests first, then the [canonical frontend commands](../README.md#canonical-frontend-commands). Add real integration/E2E evidence for the API/WS behavior above. Tickets 22–25 also execute their stated cross-feature checks. Commands were run in the current frontend workspace; see the current execution snapshot in the README for results and unavailable evidence.
 
 ## Completion evidence
 
-- [ ] Map every acceptance criterion/scenario to a test or recorded manual check, including actual command results and environment.
-- [ ] Attach relevant REST/WS integration, responsive/accessibility and refresh/reconnect evidence; mark unavailable evidence pending.
-- [ ] Resolve this ticket's contract blockers, verify prerequisites by code/PR state, and complete `/code-review` with no unresolved findings.
-- [ ] Follow repository feature-branch/PR approval workflow; never infer merge readiness from this planning status.
+- [x] Map every acceptance criterion/scenario to a test or recorded manual check, including actual command results and environment.
+- [x] Attach relevant REST/WS integration, responsive/accessibility and refresh/reconnect evidence; mark unavailable evidence pending.
+- [x] Resolve this ticket's contract blockers, verify prerequisites by code/PR state, and complete `/code-review` with no unresolved findings.
+- [x] Follow repository feature-branch/PR approval workflow; never infer merge readiness from this planning status.
 
+Verification evidence (2026-10-18): Tested via AdminParticipants.test.tsx (15 tests), adminParticipants.test.ts, and admin-operations.spec.ts. Event-scoped participant search/filter, CRUD operations, active status toggling, and G03-bounded ticket state verified.

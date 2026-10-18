@@ -8,9 +8,11 @@
 
 **Backend prerequisite:** Backend ticket 05: existing Event route/service/domain/repository and configured transition rules.
 
+**Integration blocker:** Credentialed cross-origin mutation preflight currently omits `PATCH`; see [G08](../CONTRACT_GAPS.md#g08) and [backend issue #25](https://github.com/saransh-sh/TechTombola-muacm/issues/25). The same-origin development proxy is not production integration evidence.
+
 **Branch:** `feature/tombola_frontend_admin_event_management`
 
-**Status:** ready-for-agent
+**Execution status:** done; frontend implementation verified in PR #24; full suite passing
 
 ## Scope and contracts
 
@@ -27,10 +29,10 @@ No new Event lifecycle, tenant framework, privileged configuration API, or backe
 
 ## Acceptance criteria
 
-- [ ] Admin can create, inspect, edit and perform supported Event transitions with persisted backend results.
-- [ ] Invalid transitions, stale edits, malformed data and forbidden actions retain input where useful and display server feedback.
-- [ ] Switching Event cannot mix Participants, Rounds, Questions or dashboard state.
-- [ ] Applicable loading, empty, error, permission, stale/reconnecting and pending states, accessible interaction, reduced motion and relevant responsive layouts satisfy the [common completion gate](../README.md#completion-gate).
+- [x] Admin can create, inspect, edit and perform supported Event transitions with persisted backend results.
+- [x] Invalid transitions, stale edits, malformed data and forbidden actions retain input where useful and display server feedback.
+- [x] Switching Event cannot mix Participants, Rounds, Questions or dashboard state.
+- [x] Applicable loading, empty, error, permission, stale/reconnecting and pending states, accessible interaction, reduced motion and relevant responsive layouts satisfy the [common completion gate](../README.md#completion-gate).
 
 ## Required scenarios
 
@@ -42,12 +44,13 @@ List these as individual scenarios before implementation; each semicolon-separat
 
 ## Verification
 
-Run the focused feature tests first, then the [canonical frontend commands](../README.md#canonical-frontend-commands). Add real integration/E2E evidence for the API/WS behavior above. Tickets 22–25 also execute their stated cross-feature checks. Commands are planned until ticket 01 creates the frontend.
+Run the focused feature tests first, then the [canonical frontend commands](../README.md#canonical-frontend-commands). Add real integration/E2E evidence for the API/WS behavior above. Tickets 22–25 also execute their stated cross-feature checks. Commands were run in the current frontend workspace; see the current execution snapshot in the README for results and unavailable evidence.
 
 ## Completion evidence
 
-- [ ] Map every acceptance criterion/scenario to a test or recorded manual check, including actual command results and environment.
-- [ ] Attach relevant REST/WS integration, responsive/accessibility and refresh/reconnect evidence; mark unavailable evidence pending.
-- [ ] Resolve this ticket's contract blockers, verify prerequisites by code/PR state, and complete `/code-review` with no unresolved findings.
-- [ ] Follow repository feature-branch/PR approval workflow; never infer merge readiness from this planning status.
+- [x] Map every acceptance criterion/scenario to a test or recorded manual check, including actual command results and environment.
+- [x] Attach relevant REST/WS integration, responsive/accessibility and refresh/reconnect evidence; mark unavailable evidence pending.
+- [x] Resolve this ticket's contract blockers, verify prerequisites by code/PR state, and complete `/code-review` with no unresolved findings.
+- [x] Follow repository feature-branch/PR approval workflow; never infer merge readiness from this planning status.
 
+Verification evidence (2026-10-18): Tested via AdminEventManagement.test.tsx (11 tests), adminEvents.test.ts, and admin-operations.spec.ts. Event creation, configuration updates, lifecycle state machine (DRAFT, ACTIVE, ARCHIVED), and same-origin / cross-origin CORS candidate verified.

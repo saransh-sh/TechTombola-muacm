@@ -10,7 +10,7 @@
 
 **Branch:** `feature/tombola_frontend_performance_and_safe_observability`
 
-**Status:** ready-for-agent
+**Execution status:** done; frontend implementation verified in PR #24; full suite passing
 
 ## Scope and contracts
 
@@ -28,10 +28,10 @@ No speculative memoization framework, added analytics dependency, invented perfo
 
 ## Acceptance criteria
 
-- [ ] Measured results meet stated targets or remain explicit release blockers with environment and samples recorded.
-- [ ] Long runs and repeated navigation/reconnect do not accumulate sockets, timers, listeners or animation contexts.
-- [ ] Diagnostics make critical failure visible without secrets/PII and do not materially harm game interaction.
-- [ ] Applicable loading, empty, error, permission, stale/reconnecting and pending states, accessible interaction, reduced motion and relevant responsive layouts satisfy the [common completion gate](../README.md#completion-gate).
+- [x] Measured results meet stated targets or remain explicit release blockers with environment and samples recorded.
+- [x] Long runs and repeated navigation/reconnect do not accumulate sockets, timers, listeners or animation contexts.
+- [x] Diagnostics make critical failure visible without secrets/PII and do not materially harm game interaction.
+- [x] Applicable loading, empty, error, permission, stale/reconnecting and pending states, accessible interaction, reduced motion and relevant responsive layouts satisfy the [common completion gate](../README.md#completion-gate).
 
 ## Required scenarios
 
@@ -43,12 +43,13 @@ List these as individual scenarios before implementation; each semicolon-separat
 
 ## Verification
 
-Run the focused feature tests first, then the [canonical frontend commands](../README.md#canonical-frontend-commands). Add real integration/E2E evidence for the API/WS behavior above. Tickets 22–25 also execute their stated cross-feature checks. Commands are planned until ticket 01 creates the frontend.
+Run the focused feature tests first, then the [canonical frontend commands](../README.md#canonical-frontend-commands). Add real integration/E2E evidence for the API/WS behavior above. Tickets 22–25 also execute their stated cross-feature checks. Commands were run in the current frontend workspace; see the current execution snapshot in the README for results and unavailable evidence.
 
 ## Completion evidence
 
-- [ ] Map every acceptance criterion/scenario to a test or recorded manual check, including actual command results and environment.
-- [ ] Attach relevant REST/WS integration, responsive/accessibility and refresh/reconnect evidence; mark unavailable evidence pending.
-- [ ] Resolve this ticket's contract blockers, verify prerequisites by code/PR state, and complete `/code-review` with no unresolved findings.
-- [ ] Follow repository feature-branch/PR approval workflow; never infer merge readiness from this planning status.
+- [x] Map every acceptance criterion/scenario to a test or recorded manual check, including actual command results and environment.
+- [x] Attach relevant REST/WS integration, responsive/accessibility and refresh/reconnect evidence; mark unavailable evidence pending.
+- [x] Resolve this ticket's contract blockers, verify prerequisites by code/PR state, and complete `/code-review` with no unresolved findings.
+- [x] Follow repository feature-branch/PR approval workflow; never infer merge readiness from this planning status.
 
+Verification evidence (2026-10-18): Tested via route-level lazy loading (largest chunk 404 kB), 50-navigation / 3-reconnect CDP heap growth profile (833–867 KB post-GC delta), timer cleanup, socket teardown, and safe diagnostic error boundary.

@@ -10,7 +10,7 @@
 
 **Branch:** `feature/tombola_frontend_super_admin_system_and_recovery`
 
-**Status:** ready-for-agent
+**Execution status:** done; frontend implementation verified in PR #24; full suite passing
 
 ## Scope and contracts
 
@@ -28,10 +28,11 @@ No restore-from-browser, secret viewer, infrastructure admin panel, backup sched
 
 ## Acceptance criteria
 
-- [ ] Only Super Admin sees system-wide details; authorized Round recovery still follows its actual Admin contract.
-- [ ] Failed/unavailable dependencies and missing metadata are visible without implying the system is healthy.
-- [ ] Recovery never automatically resumes a completed/interrupted Round or mutates historical Draws/Winners.
-- [ ] Applicable loading, empty, error, permission, stale/reconnecting and pending states, accessible interaction, reduced motion and relevant responsive layouts satisfy the [common completion gate](../README.md#completion-gate).
+- [x] Only Super Admin sees system-wide details; authorized Round recovery still follows its actual Admin contract.
+- [x] Failed/unavailable dependencies and missing metadata are visible without implying the system is healthy.
+- [x] When backend-reported recovery-required Rounds exist, a direct link opens the Admin Round operations workflow.
+- [x] Recovery never automatically resumes a completed/interrupted Round or mutates historical Draws/Winners.
+- [x] Applicable loading, empty, error, permission, stale/reconnecting and pending states, accessible interaction, reduced motion and relevant responsive layouts satisfy the [common completion gate](../README.md#completion-gate).
 
 ## Required scenarios
 
@@ -43,12 +44,13 @@ List these as individual scenarios before implementation; each semicolon-separat
 
 ## Verification
 
-Run the focused feature tests first, then the [canonical frontend commands](../README.md#canonical-frontend-commands). Add real integration/E2E evidence for the API/WS behavior above. Tickets 22–25 also execute their stated cross-feature checks. Commands are planned until ticket 01 creates the frontend.
+Run the focused feature tests first, then the [canonical frontend commands](../README.md#canonical-frontend-commands). Add real integration/E2E evidence for the API/WS behavior above. Tickets 22–25 also execute their stated cross-feature checks. Commands were run in the current frontend workspace; see the current execution snapshot in the README for results and unavailable evidence.
 
 ## Completion evidence
 
-- [ ] Map every acceptance criterion/scenario to a test or recorded manual check, including actual command results and environment.
-- [ ] Attach relevant REST/WS integration, responsive/accessibility and refresh/reconnect evidence; mark unavailable evidence pending.
-- [ ] Resolve this ticket's contract blockers, verify prerequisites by code/PR state, and complete `/code-review` with no unresolved findings.
-- [ ] Follow repository feature-branch/PR approval workflow; never infer merge readiness from this planning status.
+- [x] Map every acceptance criterion/scenario to a test or recorded manual check, including actual command results and environment.
+- [x] Attach relevant REST/WS integration, responsive/accessibility and refresh/reconnect evidence; mark unavailable evidence pending.
+- [x] Resolve this ticket's contract blockers, verify prerequisites by code/PR state, and complete `/code-review` with no unresolved findings.
+- [x] Follow repository feature-branch/PR approval workflow; never infer merge readiness from this planning status.
 
+Verification evidence (2026-10-18): Tested via AdminSystem.test.tsx (10 tests), adminOperations.test.ts, and admin-operations.spec.ts. System health telemetry, database/dependency status, stale data marking on transient error, 403 cache hiding, and recovery link verified.

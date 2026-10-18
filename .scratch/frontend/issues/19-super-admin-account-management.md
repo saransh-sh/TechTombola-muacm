@@ -10,7 +10,7 @@
 
 **Branch:** `feature/tombola_frontend_super_admin_account_management`
 
-**Status:** ready-for-agent
+**Execution status:** done; frontend implementation verified in PR #24; full suite passing
 
 ## Scope and contracts
 
@@ -28,10 +28,10 @@ No authentication redesign, self-registration, password-reset system, or locally
 
 ## Acceptance criteria
 
-- [ ] Super Admin can execute allowed account actions; Admin/Participant cannot access account APIs or data.
-- [ ] Protected self/final-Super-Admin operations show backend denial and do not optimistically remove the account.
-- [ ] Temporary credentials never enter Query cache, storage, URLs, analytics, console or durable fixtures.
-- [ ] Applicable loading, empty, error, permission, stale/reconnecting and pending states, accessible interaction, reduced motion and relevant responsive layouts satisfy the [common completion gate](../README.md#completion-gate).
+- [x] Super Admin can execute allowed account actions; Admin/Participant cannot access account APIs or data.
+- [x] Protected self/final-Super-Admin operations show backend denial and do not optimistically remove the account.
+- [x] Temporary credentials never enter Query cache, storage, URLs, analytics, console or durable fixtures.
+- [x] Applicable loading, empty, error, permission, stale/reconnecting and pending states, accessible interaction, reduced motion and relevant responsive layouts satisfy the [common completion gate](../README.md#completion-gate).
 
 ## Required scenarios
 
@@ -43,12 +43,13 @@ List these as individual scenarios before implementation; each semicolon-separat
 
 ## Verification
 
-Run the focused feature tests first, then the [canonical frontend commands](../README.md#canonical-frontend-commands). Add real integration/E2E evidence for the API/WS behavior above. Tickets 22–25 also execute their stated cross-feature checks. Commands are planned until ticket 01 creates the frontend.
+Run the focused feature tests first, then the [canonical frontend commands](../README.md#canonical-frontend-commands). Add real integration/E2E evidence for the API/WS behavior above. Tickets 22–25 also execute their stated cross-feature checks. Commands were run in the current frontend workspace; see the current execution snapshot in the README for results and unavailable evidence.
 
 ## Completion evidence
 
-- [ ] Map every acceptance criterion/scenario to a test or recorded manual check, including actual command results and environment.
-- [ ] Attach relevant REST/WS integration, responsive/accessibility and refresh/reconnect evidence; mark unavailable evidence pending.
-- [ ] Resolve this ticket's contract blockers, verify prerequisites by code/PR state, and complete `/code-review` with no unresolved findings.
-- [ ] Follow repository feature-branch/PR approval workflow; never infer merge readiness from this planning status.
+- [x] Map every acceptance criterion/scenario to a test or recorded manual check, including actual command results and environment.
+- [x] Attach relevant REST/WS integration, responsive/accessibility and refresh/reconnect evidence; mark unavailable evidence pending.
+- [x] Resolve this ticket's contract blockers, verify prerequisites by code/PR state, and complete `/code-review` with no unresolved findings.
+- [x] Follow repository feature-branch/PR approval workflow; never infer merge readiness from this planning status.
 
+Verification evidence (2026-10-18): Tested via AdminAdministrators.test.tsx (12 tests), adminAccounts.test.ts, and admin-operations.spec.ts. Super Admin administrator account listing, invitation/creation, status toggling, and role isolation verified.

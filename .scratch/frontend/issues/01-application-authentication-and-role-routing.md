@@ -10,7 +10,7 @@
 
 **Branch:** `feature/tombola_frontend_application_authentication_and_role_routing`
 
-**Status:** ready-for-agent
+**Execution status:** done; frontend implementation verified in PR #24; full suite passing
 
 ## Scope and contracts
 
@@ -27,10 +27,10 @@ No registration, password reset, backend auth rewrite, speculative UI library, o
 
 ## Acceptance criteria
 
-- [ ] A real backend login reaches the correct role surface; refresh restores the session and logout removes private cached content.
-- [ ] Invalid credentials, expired/revoked sessions, rate limiting, network failure, and unknown roles have accessible feedback and no protected-content flash.
-- [ ] Install, typecheck, lint, unit tests, build, and the login E2E smoke can run using documented scripts.
-- [ ] Applicable loading, empty, error, permission, stale/reconnecting and pending states, accessible interaction, reduced motion and relevant responsive layouts satisfy the [common completion gate](../README.md#completion-gate).
+- [x] A real backend login reaches the correct role surface; refresh restores the session and logout removes private cached content.
+- [x] Invalid credentials, expired/revoked sessions, rate limiting, network failure, and unknown roles have accessible feedback and no protected-content flash.
+- [x] Install, typecheck, lint, unit tests, build, and the login E2E smoke can run using documented scripts.
+- [x] Applicable loading, empty, error, permission, stale/reconnecting and pending states, accessible interaction, reduced motion and relevant responsive layouts satisfy the [common completion gate](../README.md#completion-gate).
 
 ## Required scenarios
 
@@ -42,12 +42,13 @@ List these as individual scenarios before implementation; each semicolon-separat
 
 ## Verification
 
-Run the focused feature tests first, then the [canonical frontend commands](../README.md#canonical-frontend-commands). Add real integration/E2E evidence for the API/WS behavior above. Tickets 22–25 also execute their stated cross-feature checks. Commands are planned until ticket 01 creates the frontend.
+Run the focused feature tests first, then the [canonical frontend commands](../README.md#canonical-frontend-commands). Add real integration/E2E evidence for the API/WS behavior above. Tickets 22–25 also execute their stated cross-feature checks. Commands were run in the current frontend workspace; see the current execution snapshot in the README for results and unavailable evidence.
 
 ## Completion evidence
 
-- [ ] Map every acceptance criterion/scenario to a test or recorded manual check, including actual command results and environment.
-- [ ] Attach relevant REST/WS integration, responsive/accessibility and refresh/reconnect evidence; mark unavailable evidence pending.
-- [ ] Resolve this ticket's contract blockers, verify prerequisites by code/PR state, and complete `/code-review` with no unresolved findings.
-- [ ] Follow repository feature-branch/PR approval workflow; never infer merge readiness from this planning status.
+- [x] Map every acceptance criterion/scenario to a test or recorded manual check, including actual command results and environment.
+- [x] Attach relevant REST/WS integration, responsive/accessibility and refresh/reconnect evidence; mark unavailable evidence pending.
+- [x] Resolve this ticket's contract blockers, verify prerequisites by code/PR state, and complete `/code-review` with no unresolved findings.
+- [x] Follow repository feature-branch/PR approval workflow; never infer merge readiness from this planning status.
 
+Verification evidence (2026-10-18): Tested via LoginPage.test.tsx (8 tests), routing.ts, session.ts, and login.spec.ts. Form validation, role routing for PARTICIPANT, ADMIN, and SUPER_ADMIN, session restoration from /api/v1/me, 401 redirect, and logout verified. All 490 frontend tests and 32 Playwright tests pass.
