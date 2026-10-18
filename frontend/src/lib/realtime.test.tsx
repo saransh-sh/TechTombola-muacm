@@ -173,7 +173,7 @@ describe('participant realtime connection', () => {
     renderHook(() => useParticipantRealtime(true, 'user-1', ids.event, ids.round, queryClient));
     const socket = FakeWebSocket.instances[0]!;
     await act(async () => { socket.open(); await Promise.resolve(); });
-    act(() => socket.message({ type: 'WINNER_VERIFIED', eventId: ids.event, roundId: ids.round, occurredAt: drawnAt, payload: { winnerId: '66666666-6666-4666-8666-666666666666', participantName: 'Ari Patel', pattern: 'EARLY_5' } }));
+    act(() => socket.message({ type: 'WINNER_VERIFIED', eventId: ids.event, roundId: ids.round, occurredAt: drawnAt, payload: { winnerId: '66666666-6666-4666-8666-666666666666', participantName: 'Ari Patel', pattern: 'EARLY_5', eligibleCellIds: [1, 2, 3, 4, 5].map((n) => `77777777-7777-4777-8777-${String(n).padStart(12, '0')}`) } }));
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['participant', 'user-1', 'wins'] });
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['participant', 'user-1', 'claims'] });
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['live', 'winners'] });

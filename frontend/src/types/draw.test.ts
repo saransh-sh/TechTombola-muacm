@@ -24,4 +24,13 @@ describe('participant draw contracts', () => {
     expect(realtimeEventSchema.parse({ type: 'ROUND_PAUSED', eventId: ids.event, roundId: ids.round, occurredAt: drawnAt, payload: { status: 'PAUSED' } }).type).toBe('ROUND_PAUSED');
     expect(realtimeEventSchema.safeParse({ type: 'NEW_EVENT', eventId: ids.event, roundId: ids.round, occurredAt: drawnAt, payload: {} }).success).toBe(false);
   });
+
+  it('accepts backend-selected eligible cells in Winner events and tolerates older events without evidence', () => {
+    const payload = { winnerId: ids.draw, participantName: 'Ari Patel', pattern: 'EARLY_5' as const };
+    const cellIds = [1, 2, 3, 4, 5].map((n) => `44444444-4444-4444-8444-${String(n).padStart(12, '0')}`);
+    expect(realtimeEventSchema.parse({ type: 'WINNER_VERIFIED', eventId: ids.event, roundId: ids.round, occurredAt: drawnAt, payload: { ...payload, eligibleCellIds: cellIds } })).toMatchObject({ type: 'WINNER_VERIFIED', payload: { eligibleCellIds: cellIds } });
+    expect(realtimeEventSchema.parse({ type: 'WINNER_VERIFIED', eventId: ids.event, roundId: ids.round, occurredAt: drawnAt, payload })).toMatchObject({ type: 'WINNER_VERIFIED', payload });
+    expect(realtimeEventSchema.safeParse({ type: 'WINNER_VERIFIED', eventId: ids.event, roundId: ids.round, occurredAt: drawnAt, payload: { ...payload, eligibleCellIds: [''] } }).success).toBe(false);
+    expect(realtimeEventSchema.safeParse({ type: 'WINNER_VERIFIED', eventId: ids.event, roundId: ids.round, occurredAt: drawnAt, payload: { ...payload, eligibleCellIds: [cellIds[0], cellIds[0], ...cellIds.slice(2)] } }).success).toBe(false);
+  });
 });

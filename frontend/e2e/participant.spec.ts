@@ -36,11 +36,12 @@ async function mockAuthentication(page: Page, role?: 'PARTICIPANT' | 'ADMIN' | '
 
 test('active round renders the server ticket within the live game at mobile and desktop widths', async ({ page }) => {
   await mockAuthentication(page, 'PARTICIPANT', true);
-  await page.route('**/api/v1/participant/wins?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: 'winner-1', claimId: 'claim-1', participantId: 'participant-1', roundId: 'round-1', eventId: 'event-1', patternType: 'EARLY_5', verifiedAt: '2026-10-17T14:00:00.000Z', eligibleCellIds: ['cell-0'] }], total: 1, page: 1, limit: 50 }) }));
+  const cellIds = Array.from({ length: 15 }, (_, index) => `88888888-8888-4888-8888-${String(index + 1).padStart(12, '0')}`);
+  await page.route('**/api/v1/participant/wins?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: 'winner-1', claimId: 'claim-1', participantId: 'participant-1', roundId: 'round-1', eventId: 'event-1', patternType: 'EARLY_5', verifiedAt: '2026-10-17T14:00:00.000Z', eligibleCellIds: cellIds.slice(0, 5) }], total: 1, page: 1, limit: 50 }) }));
   let roundId = 'round-1';
   let roundName = 'Opening Round';
   let ticketId = 'ticket-1';
-  const cells = Array.from({ length: 15 }, (_, index) => ({ id: `cell-${index}`, rowIndex: Math.floor(index / 5), colIndex: (index * 2) % 9, row: Math.floor(index / 5), column: (index * 2) % 9, keyId: `key-${index}`, keyValue: index === 0 ? 'A LONG TECHNOLOGY KEY' : `KEY ${index}`, marked: index === 0 }));
+  const cells = Array.from({ length: 15 }, (_, index) => ({ id: cellIds[index]!, rowIndex: Math.floor(index / 5), colIndex: (index * 2) % 9, row: Math.floor(index / 5), column: (index * 2) % 9, keyId: `key-${index}`, keyValue: index === 0 ? 'A LONG TECHNOLOGY KEY' : `KEY ${index}`, marked: index === 0 }));
   await page.route('**/api/v1/participant/round/current', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round: { id: roundId, eventId: 'event-1', sequenceNumber: roundId === 'round-1' ? 1 : 2, name: roundName, status: 'ACTIVE', patterns: [], createdAt: '2026-10-17T14:00:00.000Z', updatedAt: '2026-10-17T14:00:00.000Z' } }) }));
   await page.route('**/api/v1/participant/ticket?roundId=*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: { id: ticketId, roundId, participantId: 'participant-1', eventId: 'event-1', createdAt: '2026-10-17T14:00:00.000Z', cells } }) }));
   await page.goto('/participant/ticket');
@@ -48,7 +49,7 @@ test('active round renders the server ticket within the live game at mobile and 
   await expect(page.getByText('A LONG TECHNOLOGY KEY')).toBeVisible();
   await expect(page.getByText('Marked', { exact: true })).toBeVisible();
   const markedCell = page.getByRole('cell', { name: 'Row 1, column 1: A LONG TECHNOLOGY KEY, marked' });
-  await expect(markedCell).toHaveAttribute('data-cell-id', 'cell-0');
+  await expect(markedCell).toHaveAttribute('data-cell-id', cellIds[0]!);
   const winningCell = page.getByRole('cell', { name: /A LONG TECHNOLOGY KEY, marked, verified winning cell/ });
   await expect(winningCell).toHaveAttribute('data-winning', 'true');
   await expect(markedCell).not.toHaveAttribute('tabindex');

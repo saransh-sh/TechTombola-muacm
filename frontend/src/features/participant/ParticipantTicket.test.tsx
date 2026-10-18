@@ -20,7 +20,8 @@ vi.mock('../../lib/api/winners', () => ({ getParticipantWins: vi.fn(), getLiveWi
 const user: AuthenticatedUser = { id: 'p1', email: 'p@example.test', name: 'Ari Patel', role: 'PARTICIPANT', status: 'ACTIVE' };
 const event = { id: 'e1', title: 'Autumn', description: null, status: 'LIVE' as const, scheduledAt: null, startedAt: null, completedAt: null, createdAt: '2026-10-16T00:00:00.000Z', updatedAt: '2026-10-17T00:00:00.000Z' };
 const round = { id: 'r1', eventId: 'e1', sequenceNumber: 1, name: 'Opening', status: 'ACTIVE' as const, patterns: [], createdAt: '2026-10-17T00:00:00.000Z', updatedAt: '2026-10-17T00:00:00.000Z' };
-const makeTicket = (marked = false): Ticket => ({ id: 'ticket-7', roundId: 'r1', participantId: 'p1', eventId: 'e1', createdAt: '2026-10-17T00:00:00.000Z', cells: Array.from({ length: 15 }, (_, index) => ({ id: `cell-${index}`, rowIndex: Math.floor(index / 5), colIndex: index % 5, row: Math.floor(index / 5), column: index % 5, keyId: `key-${index}`, keyValue: index === 0 ? 'DOCKER' : `KEY ${index}`, marked: marked && index === 0 })) });
+const cellIds = Array.from({ length: 15 }, (_, index) => `99999999-9999-4999-8999-${String(index + 1).padStart(12, '0')}`);
+const makeTicket = (marked = false): Ticket => ({ id: 'ticket-7', roundId: 'r1', participantId: 'p1', eventId: 'e1', createdAt: '2026-10-17T00:00:00.000Z', cells: Array.from({ length: 15 }, (_, index) => ({ id: cellIds[index]!, rowIndex: Math.floor(index / 5), colIndex: index % 5, row: Math.floor(index / 5), column: index % 5, keyId: `key-${index}`, keyValue: index === 0 ? 'DOCKER' : `KEY ${index}`, marked: marked && index === 0 })) });
 
 function renderTicket(canMark = true, drawnKeys: ReadonlySet<string> = new Set(['DOCKER'])) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 0 } } });
@@ -39,7 +40,7 @@ describe('ParticipantTicket marking', () => {
     vi.mocked(getParticipantEvent).mockReset().mockResolvedValue(event);
     vi.mocked(getCurrentRound).mockReset().mockResolvedValue(round);
     vi.mocked(getParticipantTicket).mockReset().mockResolvedValue(makeTicket());
-    vi.mocked(markTicketCell).mockReset().mockResolvedValue({ id: 'mark-1', ticketId: 'ticket-7', cellId: 'cell-0', markedAt: '2026-10-17T14:01:00.000Z' });
+    vi.mocked(markTicketCell).mockReset().mockResolvedValue({ id: 'mark-1', ticketId: 'ticket-7', cellId: cellIds[0]!, markedAt: '2026-10-17T14:01:00.000Z' });
     vi.mocked(getParticipantWins).mockReset().mockResolvedValue({ data: [], total: 0, page: 1, limit: 50 });
   });
 
@@ -73,13 +74,13 @@ describe('ParticipantTicket marking', () => {
 
   it('highlights only cell IDs supplied by this participant wins response for the current Round', async () => {
     vi.mocked(getParticipantWins).mockResolvedValue({ data: [
-      { id: 'win-1', claimId: 'claim-1', participantId: 'p1', eventId: 'e1', roundId: 'r1', patternType: 'EARLY_5', verifiedAt: '2026-10-17T14:00:00.000Z', eligibleCellIds: ['cell-0'] },
-      { id: 'win-old', claimId: 'claim-old', participantId: 'p1', eventId: 'e1', roundId: 'old-round', patternType: 'TOP_LINE', verifiedAt: '2026-10-16T14:00:00.000Z', eligibleCellIds: ['cell-1'] },
+      { id: 'win-1', claimId: 'claim-1', participantId: 'p1', eventId: 'e1', roundId: 'r1', patternType: 'EARLY_5', verifiedAt: '2026-10-17T14:00:00.000Z', eligibleCellIds: cellIds.slice(0, 5) },
+      { id: 'win-old', claimId: 'claim-old', participantId: 'p1', eventId: 'e1', roundId: 'old-round', patternType: 'TOP_LINE', verifiedAt: '2026-10-16T14:00:00.000Z', eligibleCellIds: cellIds.slice(5, 10) },
     ], total: 2, page: 1, limit: 50 });
     renderTicket();
-    expect(await screen.findByText('Verified win cell')).toBeInTheDocument();
+    expect(await screen.findAllByText('Verified win cell')).toHaveLength(5);
     expect(screen.getByRole('cell', { name: /DOCKER, not marked, verified winning cell/i })).toHaveAttribute('data-winning', 'true');
-    expect(screen.getByRole('cell', { name: /KEY 1, not marked/i })).not.toHaveAttribute('data-winning');
+    expect(screen.getByRole('cell', { name: /KEY 5, not marked/i })).not.toHaveAttribute('data-winning');
   });
 
   it('uses the confirmed POST as the persisted mark state without a stale refresh', async () => {
@@ -102,7 +103,7 @@ describe('ParticipantTicket marking', () => {
     fireEvent.click(button);
     fireEvent.click(button);
     expect(markTicketCell).toHaveBeenCalledOnce();
-    confirm({ id: 'mark-1', ticketId: 'ticket-7', cellId: 'cell-0', markedAt: '2026-10-17T14:01:00.000Z' });
+    confirm({ id: 'mark-1', ticketId: 'ticket-7', cellId: cellIds[0]!, markedAt: '2026-10-17T14:01:00.000Z' });
     expect(await screen.findByText('Mark confirmed by the server.')).toBeInTheDocument();
   });
 
@@ -167,7 +168,7 @@ describe('ParticipantTicket marking', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Simulate round pause' }));
     expect(button).toBeDisabled();
     expect(markTicketCell).toHaveBeenCalledOnce();
-    confirm({ id: 'mark-1', ticketId: 'ticket-7', cellId: 'cell-0', markedAt: '2026-10-17T14:01:00.000Z' });
+    confirm({ id: 'mark-1', ticketId: 'ticket-7', cellId: cellIds[0]!, markedAt: '2026-10-17T14:01:00.000Z' });
     expect(await screen.findByText('Mark confirmed by the server.')).toBeInTheDocument();
   });
 
@@ -180,7 +181,7 @@ describe('ParticipantTicket marking', () => {
     fireEvent.click(button);
     await client.invalidateQueries({ queryKey: ['participant', user.id, 'ticket', 'e1', 'r1'] });
     expect(screen.getByText('Saving…')).toBeInTheDocument();
-    confirm({ id: 'mark-1', ticketId: 'ticket-7', cellId: 'cell-0', markedAt: '2026-10-17T14:01:00.000Z' });
+    confirm({ id: 'mark-1', ticketId: 'ticket-7', cellId: cellIds[0]!, markedAt: '2026-10-17T14:01:00.000Z' });
     expect(await screen.findByText('Mark confirmed by the server.')).toBeInTheDocument();
   });
 

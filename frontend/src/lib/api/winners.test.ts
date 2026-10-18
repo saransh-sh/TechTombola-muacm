@@ -3,7 +3,7 @@ import { getLiveWinners, getParticipantWins } from './winners';
 
 afterEach(() => vi.unstubAllGlobals());
 
-const winner = { id: 'winner-1', claimId: 'claim-1', participantId: 'profile-1', roundId: 'round-1', eventId: 'event-1', patternType: 'EARLY_5', verifiedAt: '2026-10-17T14:00:00.000Z', eligibleCellIds: ['cell-1', 'cell-2'] };
+const winner = { id: 'winner-1', claimId: 'claim-1', participantId: 'profile-1', roundId: 'round-1', eventId: 'event-1', patternType: 'EARLY_5', verifiedAt: '2026-10-17T14:00:00.000Z', eligibleCellIds: [1, 2, 3, 4, 5].map((n) => `33333333-3333-4333-8333-${String(n).padStart(12, '0')}`) };
 const page = { data: [winner], total: 1, page: 1, limit: 50 };
 
 describe('winner API', () => {
