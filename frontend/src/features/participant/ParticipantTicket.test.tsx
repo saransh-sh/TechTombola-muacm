@@ -43,18 +43,32 @@ describe('ParticipantTicket marking', () => {
     vi.mocked(getParticipantWins).mockReset().mockResolvedValue({ data: [], total: 0, page: 1, limit: 50 });
   });
 
-  it('keeps long Ticket keys readable in a keyboard-scrollable nine-column grid', () => {
+  it('associates the scroll instruction with the keyboard-focusable Ticket region', () => {
+    render(<TicketGrid ticket={makeTicket()} />);
+    const grid = screen.getByRole('region', { name: 'Ticket grid' });
+    const hint = screen.getByText('If needed, scroll horizontally to see all nine columns.');
+    expect(grid).toHaveAttribute('tabindex', '0');
+    expect(grid).toHaveAttribute('aria-describedby', hint.id);
+    expect(hint.id).toBeTruthy();
+  });
+
+  it('preserves a long Ticket key exactly as returned by the backend', () => {
     const ticket = makeTicket();
     ticket.cells[0]!.keyValue = 'ALONGTECHNOLOGYKEY';
     render(<TicketGrid ticket={ticket} />);
 
-    const grid = screen.getByRole('region', { name: 'Ticket grid' });
-    expect(grid).toHaveAttribute('tabindex', '0');
-    expect(screen.getByText('Scroll horizontally to see all nine columns.')).toBeInTheDocument();
-    expect(screen.getByRole('table', { name: 'Your Tombola ticket' })).toBeInTheDocument();
     expect(screen.getByText('ALONGTECHNOLOGYKEY')).toBeInTheDocument();
+  });
+
+  it('labels the Ticket table for assistive navigation', () => {
+    render(<TicketGrid ticket={makeTicket()} />);
+    expect(screen.getByRole('table', { name: 'Your Tombola ticket' })).toBeInTheDocument();
+  });
+
+  it('renders the fixed three-row by nine-column Ticket structure', () => {
+    render(<TicketGrid ticket={makeTicket()} />);
     expect(screen.getAllByRole('row')).toHaveLength(3);
-    expect(screen.getAllByRole('cell')).toHaveLength(27);
+    for (const row of screen.getAllByRole('row')) expect(row.querySelectorAll('td')).toHaveLength(9);
   });
 
   it('highlights only cell IDs supplied by this participant wins response for the current Round', async () => {

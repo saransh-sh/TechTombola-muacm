@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { gsap } from 'gsap';
 import { Link, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
@@ -16,6 +16,7 @@ const refreshableRound = new Set(['DRAFT', 'READY', 'RECOVERY_REQUIRED']);
 
 export function TicketGrid({ ticket, revealedKey, animateReveal = false, drawnKeys = new Set<string>(), canMark = false, pendingCellIds = new Set<string>(), uncertainCellIds = new Set<string>(), winningCellIds = new Set<string>(), onMark }: { ticket: Ticket; revealedKey?: string; animateReveal?: boolean; drawnKeys?: ReadonlySet<string>; canMark?: boolean; pendingCellIds?: ReadonlySet<string>; uncertainCellIds?: ReadonlySet<string>; winningCellIds?: ReadonlySet<string>; onMark?: (cellId: string) => void }) {
   const matchRef = useRef<HTMLTableCellElement>(null);
+  const scrollHintId = useId();
   const cells = new Map(ticket.cells.map((cell) => [`${cell.rowIndex}:${cell.colIndex}`, cell]));
   useEffect(() => {
     if (!animateReveal || !revealedKey || !matchRef.current || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
@@ -23,8 +24,8 @@ export function TicketGrid({ ticket, revealedKey, animateReveal = false, drawnKe
     return () => { tween.kill(); };
   }, [animateReveal, revealedKey]);
   return <>
-    <p className={styles.gridScrollHint}>Scroll horizontally to see all nine columns.</p>
-    <div className={styles.gridViewport} role="region" aria-label="Ticket grid" tabIndex={0}>
+    <p className={styles.gridScrollHint} id={scrollHintId}>If needed, scroll horizontally to see all nine columns.</p>
+    <div className={styles.gridViewport} role="region" aria-label="Ticket grid" aria-describedby={scrollHintId} tabIndex={0}>
     <table className={styles.grid} aria-label="Your Tombola ticket">
     <tbody>{Array.from({ length: 3 }, (_, row) => <tr key={row}>
       {Array.from({ length: 9 }, (_, column) => {

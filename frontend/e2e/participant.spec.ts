@@ -59,8 +59,10 @@ test('active round renders the server ticket at mobile and desktop widths', asyn
   await page.setViewportSize({ width: 390, height: 844 });
   const ticketGrid = page.getByRole('region', { name: 'Ticket grid' });
   await expect(ticketGrid).toHaveAttribute('tabindex', '0');
-  await expect(page.getByText('Scroll horizontally to see all nine columns.')).toBeVisible();
+  const hint = page.getByText('If needed, scroll horizontally to see all nine columns.');
+  expect(await ticketGrid.getAttribute('aria-describedby')).toBe(await hint.getAttribute('id'));
   expect(await ticketGrid.evaluate((element) => element.scrollWidth > element.clientWidth), 'narrow Ticket should scroll inside its own grid viewport').toBe(true);
+  await expect(hint).toBeVisible();
   const longKeyLines = await markedCell.locator('strong').evaluate((element) => {
     const text = document.createRange();
     text.selectNodeContents(element);
@@ -100,9 +102,11 @@ test('active round renders the server ticket at mobile and desktop widths', asyn
   await expect(page.getByRole('heading', { name: 'Second Round' })).toBeVisible();
   await expect(page.getByText('ticket-2')).toBeVisible();
   await expect(page.getByText('ticket-1')).toHaveCount(0);
-  for (const width of [320, 375, 390, 430, 640, 768, 1024]) {
+  for (const width of [320, 375, 390, 430, 640, 768, 800, 801, 831, 832, 835, 836, 837, 838, 839, 840, 841, 1024]) {
     await page.setViewportSize({ width, height: 844 });
     expect(await page.locator('body').evaluate((element) => element.scrollWidth <= window.innerWidth), `horizontal overflow at ${width}px`).toBe(true);
+    const gridOverflows = await ticketGrid.evaluate((element) => element.scrollWidth > element.clientWidth);
+    expect(await hint.isVisible(), `scroll hint visibility should match grid overflow at ${width}px`).toBe(gridOverflows);
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: 'design/screenshots/ticket-mobile.png', fullPage: true });
