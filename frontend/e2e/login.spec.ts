@@ -341,6 +341,8 @@ test('Admin route navigation records heap and DOM stability across fifty cycles'
     listeners: { before: warmListeners, after: finalListeners },
     activeSockets: opened - closed,
   }));
+  // Regression tripwire for retained route state; this is not a product memory budget.
+  expect(finalHeap.usedSize - warmHeap.usedSize).toBeLessThanOrEqual(2 * 1024 * 1024);
   expect(finalDom.documents).toBeLessThanOrEqual(warmDom.documents + 1);
   expect(finalDom.nodes).toBeLessThanOrEqual(warmDom.nodes + 20);
   expect(finalListeners['window']).toBeLessThanOrEqual(warmListeners['window'] + 1);
