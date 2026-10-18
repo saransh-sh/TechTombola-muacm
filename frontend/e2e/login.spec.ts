@@ -277,14 +277,16 @@ test('Draw control confirms random and manual draws and reconciles persisted his
   expect(savedDraws).toHaveLength(3);
 });
 
-test('Admin route navigation records heap and DOM stability across fifty cycles', async ({ page }) => {
+test('Admin navigation and reconnects record heap and DOM stability', async ({ page }) => {
   await mockAuthentication(page, 'ADMIN', true, 'ACTIVE');
   const eventId = '0d3aa3e6-4c58-4c36-b363-d5f11640ba52';
   const roundId = '5c15e548-2bf0-4b12-8e8b-7d2c7cd91872';
   let opened = 0;
   let closed = 0;
+  const sockets: import('@playwright/test').WebSocketRoute[] = [];
   await page.routeWebSocket('**/api/v1/ws?*', (socket) => {
     opened += 1;
+    sockets.push(socket);
     socket.onClose(() => { closed += 1; });
   });
 
@@ -323,6 +325,15 @@ test('Admin route navigation records heap and DOM stability across fifty cycles'
 
   for (let cycle = 0; cycle < 40; cycle += 1) await navigateCycle();
 
+  for (let cycle = 0; cycle < 3; cycle += 1) {
+    const previousOpenCount = opened;
+    await sockets.at(-1)!.close({ code: 1011, reason: 'profile reconnect cycle' });
+    await expect.poll(() => opened - closed).toBe(0);
+    await expect.poll(() => opened).toBe(previousOpenCount + 1);
+    await expect.poll(() => opened - closed).toBe(1);
+    await expect(page.getByRole('status').filter({ hasText: 'WebSocket connected' })).toBeVisible();
+  }
+
   await cdp.send('HeapProfiler.collectGarbage');
   const finalHeap = await cdp.send('Runtime.getHeapUsage');
   const finalDom = await cdp.send('Memory.getDOMCounters');
@@ -330,7 +341,8 @@ test('Admin route navigation records heap and DOM stability across fifty cycles'
   await cdp.detach();
 
   console.info('Admin route cycle profile', JSON.stringify({
-    additionalCycles: 40,
+    navigationCycles: 50,
+    reconnectCycles: 3,
     heapDeltaBytes: finalHeap.usedSize - warmHeap.usedSize,
     dom: {
       documentsBefore: warmDom.documents,
