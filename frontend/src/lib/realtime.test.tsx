@@ -225,6 +225,23 @@ describe('participant realtime connection', () => {
     expect(FakeWebSocket.instances).toHaveLength(2);
   });
 
+  it('clears the prior Participant live state and ignores late events after an account switch', async () => {
+    const { result, rerender } = renderHook(({ userId }) => useParticipantRealtime(true, userId, ids.event, ids.round, queryClient), { initialProps: { userId: 'user-1' } });
+    const oldSocket = FakeWebSocket.instances[0]!;
+    act(() => oldSocket.message(drawEvent(7)));
+    expect(result.current.liveDraws.map((draw) => draw.sequenceNumber)).toEqual([7]);
+    rerender({ userId: 'user-2' });
+    const newSocket = FakeWebSocket.instances[1]!;
+    expect(oldSocket.readyState).toBe(3);
+    expect(result.current.liveDraws).toEqual([]);
+
+    act(() => oldSocket.message(drawEvent(8)));
+    expect(result.current.liveDraws).toEqual([]);
+    await act(async () => { newSocket.open(); await Promise.resolve(); });
+    act(() => newSocket.message(drawEvent(1)));
+    expect(result.current.liveDraws.map((draw) => draw.sequenceNumber)).toEqual([1]);
+  });
+
   it('waits to connect to a new Round until the browser is online', () => {
     const { rerender } = renderHook(({ roundId }) => useParticipantRealtime(true, 'user-1', ids.event, roundId, queryClient), { initialProps: { roundId: ids.round } });
     const oldSocket = FakeWebSocket.instances[0]!;
