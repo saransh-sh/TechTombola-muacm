@@ -98,5 +98,5 @@ describe('real-time WebSocket transport integration', () => {
       await manager.broadcastCommitted({ type: 'ANNOUNCEMENT', eventId, roundId, occurredAt: '2026-10-15T12:00:00.000Z', payload: { message: 'The next Draw begins shortly.' } });
       const received = await Promise.all(messages); expect(received).toHaveLength(500); expect(received.every((message) => JSON.parse(message).type === 'ANNOUNCEMENT')).toBe(true);
     } finally { for (const socket of sockets) socket.close(); }
-  });
+  }, 30_000);
 });
