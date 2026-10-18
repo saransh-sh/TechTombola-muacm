@@ -203,6 +203,65 @@ test('live Draw events reconcile to chronological REST history and matching tick
   expect(await page.locator('body').evaluate((element) => element.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test('switching Participant accounts closes the old live socket and loads the new account snapshot', async ({ page }) => {
+  let currentUser: { id: string; email: string; name: string; role: 'PARTICIPANT'; status: 'ACTIVE' } | null = { id: 'user-1', email: 'attendee@example.test', name: 'Ari Patel', role: 'PARTICIPANT', status: 'ACTIVE' };
+  await page.route('**/api/v1/me', (route) => route.fulfill({ status: currentUser ? 200 : 401, contentType: 'application/json', body: JSON.stringify(currentUser ? { user: currentUser } : { error: { code: 'UNAUTHORIZED', message: 'Authentication required' }, requestId: 'test' }) }));
+  await page.route('**/api/v1/auth/logout', async (route) => {
+    currentUser = null;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ message: 'Successfully logged out' }) });
+  });
+  await page.route('**/api/v1/auth/login', async (route) => {
+    currentUser = { id: 'user-2', email: 'other@example.test', name: 'Rae Kim', role: 'PARTICIPANT', status: 'ACTIVE' };
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: currentUser }) });
+  });
+  await page.route('**/api/v1/participant/wins?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], total: 0, page: 1, limit: 50 }) }));
+  await page.route('**/api/v1/participant/claims?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], total: 0, page: 1, limit: 50 }) }));
+  await page.route('**/api/v1/live/winners', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ roundId: null, data: [] }) }));
+
+  const eventId = '22222222-2222-4222-8222-222222222222';
+  const roundId = '33333333-3333-4333-8333-333333333333';
+  const drawnAt = '2026-10-17T14:00:00.000Z';
+  const accountDraw = () => currentUser?.id === 'user-1'
+    ? { id: '11111111-1111-4111-8111-111111111111', roundId, sequenceNumber: 1, drawMode: 'RANDOM', questionText: 'First account clue', keyValue: 'DOCKER', drawnAt }
+    : { id: '44444444-4444-4444-8444-444444444444', roundId, sequenceNumber: 1, drawMode: 'RANDOM', questionText: 'Second account clue', keyValue: 'KUBERNETES', drawnAt };
+  await page.route('**/api/v1/participant/event', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ event: { id: eventId, title: 'Autumn Tombola', description: null, status: 'LIVE', scheduledAt: null, startedAt: drawnAt, completedAt: null, createdAt: drawnAt, updatedAt: drawnAt } }) }));
+  await page.route('**/api/v1/participant/round/current', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ round: { id: roundId, eventId, sequenceNumber: 1, name: 'Opening Round', status: 'ACTIVE', patterns: [], createdAt: drawnAt, updatedAt: drawnAt } }) }));
+  await page.route('**/api/v1/participant/draws?*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [accountDraw()], total: 1, page: 1, limit: 100 }) }));
+  await page.route('**/api/v1/participant/ticket?roundId=*', (route) => {
+    const keyValue = currentUser?.id === 'user-1' ? 'DOCKER' : 'KUBERNETES';
+    const cells = Array.from({ length: 15 }, (_, index) => ({ id: `cell-${index}`, rowIndex: Math.floor(index / 5), colIndex: index % 5, row: Math.floor(index / 5), column: index % 5, keyId: `key-${index}`, keyValue: index === 0 ? keyValue : `KEY ${index}`, marked: false }));
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ticket: { id: `ticket-${currentUser?.id}`, roundId, participantId: `participant-${currentUser?.id}`, eventId, createdAt: drawnAt, cells } }) });
+  });
+
+  let closed = 0;
+  let opened = 0;
+  await page.routeWebSocket('**/api/v1/ws?roundId=*', (socket) => {
+    opened += 1;
+    socket.onClose(() => { closed += 1; });
+  });
+  await page.goto('/participant/game');
+  await expect(page.getByText('Live updates connected')).toBeVisible();
+  await expect(page.getByRole('article', { name: 'Question 1' })).toContainText('First account clue');
+  await expect(page.getByText('ticket-user-1')).toBeVisible();
+  await expect.poll(() => opened).toBe(1);
+  await expect.poll(() => opened - closed).toBe(1);
+
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect.poll(() => opened - closed).toBe(0);
+  await page.getByLabel('Email address').fill('other@example.test');
+  await page.getByLabel('Password').fill('password');
+  await page.getByRole('button', { name: /sign in/i }).click();
+  await expect(page).toHaveURL(/\/participant\/lobby$/);
+  await page.getByRole('link', { name: /open live game/i }).click();
+  await expect(page.getByRole('article', { name: 'Question 1' })).toContainText('Second account clue');
+  await expect(page.getByRole('article', { name: 'Question 1' })).not.toContainText('First account clue');
+  await expect(page.getByText('ticket-user-2')).toBeVisible();
+  await expect(page.getByText('ticket-user-1')).toHaveCount(0);
+  await expect(page.getByText('Live updates connected')).toBeVisible();
+  await expect.poll(() => opened - closed).toBe(1);
+});
+
 test('marking waits for the server and the confirmed state survives a page refresh', async ({ page }) => {
   await mockAuthentication(page, 'PARTICIPANT', true);
   const eventId = '22222222-2222-4222-8222-222222222222';
