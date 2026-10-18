@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_realtime_transport`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -25,10 +25,10 @@
 
 ## Acceptance criteria
 
-- [ ] Expired/revoked Sessions cannot connect or remain subscribed.
-- [ ] Admin-only Claim events never reach Participants or the public channel.
-- [ ] Broadcast happens only when a service supplies a committed domain event.
-- [ ] REST remains authoritative after reconnect; no replay log or broker is introduced.
+- [x] Expired/revoked Sessions cannot connect or remain subscribed.
+- [x] Admin-only Claim events never reach Participants or the public channel.
+- [x] Broadcast happens only when a service supplies a committed domain event.
+- [x] REST remains authoritative after reconnect; no replay log or broker is introduced.
 
 ## Required scenarios
 
@@ -47,6 +47,6 @@ cd backend && bun run typecheck && bun run lint && bun test && bun run test:inte
 
 ## Completion evidence
 
-- [ ] PR includes every event envelope/payload/audience schema and close/error examples.
-- [ ] 500-connection, heartbeat, reconnect, and cross-channel leakage evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR includes every event envelope/payload/audience schema and close/error examples.
+- [x] 500-connection, heartbeat, reconnect, and cross-channel leakage evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.

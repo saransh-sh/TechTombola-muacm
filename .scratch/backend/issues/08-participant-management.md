@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_participant_management`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -26,12 +26,12 @@
 
 ## Acceptance criteria
 
-- [ ] User/Event and external-ID uniqueness are database-enforced with explicit conflict errors.
-- [ ] Search/filter/pagination are bounded and Event-scoped.
-- [ ] Participant data cannot be enumerated across Event or principal boundaries.
-- [ ] Participant login, `/me`, and Participant-only guards enforce active identity and Event scope without changing administrator behavior from ticket 03.
-- [ ] Create/update/deactivate operations audit atomically.
-- [ ] Email failure preserves the account, exposes a safe FAILED delivery state, and requires credential regeneration; no database or log contains plaintext.
+- [x] User/Event and external-ID uniqueness are database-enforced with explicit conflict errors.
+- [x] Search/filter/pagination are bounded and Event-scoped.
+- [x] Participant data cannot be enumerated across Event or principal boundaries.
+- [x] Participant login, `/me`, and Participant-only guards enforce active identity and Event scope without changing administrator behavior from ticket 03.
+- [x] Create/update/deactivate operations audit atomically.
+- [x] Email failure preserves the account, exposes a safe FAILED delivery state, and requires credential regeneration; no database or log contains plaintext.
 
 ## Required scenarios
 
@@ -51,6 +51,6 @@ cd backend && bun run typecheck && bun run lint && bun test && bun run test:inte
 
 ## Completion evidence
 
-- [ ] PR includes Participant/auth/email DTO and error examples and maps every scenario to a test.
-- [ ] Event-scope, session-revocation, provider-failure, audit, and plaintext-scan evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR includes Participant/auth/email DTO and error examples and maps every scenario to a test.
+- [x] Event-scope, session-revocation, provider-failure, audit, and plaintext-scan evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.

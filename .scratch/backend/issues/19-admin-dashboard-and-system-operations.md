@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_admin_operations`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -25,15 +25,15 @@
 
 ## Acceptance criteria
 
-- [ ] Admin sees operational scope; only Super Admin sees system-wide endpoint and recovery diagnostics.
-- [ ] Pagination/filter queries use required indexes and stable cursors/order.
-- [ ] Dashboard data is transactionally consistent enough to avoid impossible mixed statuses.
-- [ ] Sensitive audit/system fields are serializer-denied.
+- [x] Admin sees operational scope; only Super Admin sees system-wide endpoint and recovery diagnostics.
+- [x] Pagination/filter queries use required indexes and stable cursors/order.
+- [x] Dashboard data is transactionally consistent enough to avoid impossible mixed statuses.
+- [x] Sensitive audit/system fields are serializer-denied.
 
 ## Required scenarios
 
 - Empty and populated dashboard; each Round state; pending Claims and verified Winners; recovery-required alert.
-- Audit filters singly/combined, page boundaries, deterministic ties, unknown filter, redaction regression.
+- Audit filters singly/combined, cursor boundaries during concurrent inserts, deterministic ties, unknown filter, redaction regression.
 - Participant/Admin/Super Admin matrix; cross-Event scope; system database-unready state; no secret leakage.
 - Query-count/index plan checks and concurrent read during Draw/verification.
 
@@ -47,6 +47,6 @@ cd backend && bun run typecheck && bun run lint && bun test && bun run test:inte
 
 ## Completion evidence
 
-- [ ] PR includes dashboard/audit/system DTO and error examples and maps every scenario to a test.
-- [ ] Pagination/index, consistency, role matrix, and redaction evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR includes dashboard/audit/system DTO and error examples and maps every scenario to a test.
+- [x] Pagination/index, consistency, role matrix, and redaction evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.

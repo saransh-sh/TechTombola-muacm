@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_auth_sessions`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -25,10 +25,10 @@
 
 ## Acceptance criteria
 
-- [ ] Argon2id hashes are the only persisted password representation.
-- [ ] Login creates a Session and emits `LOGIN_SUCCESS`; rejected login emits redacted `LOGIN_FAILED`.
-- [ ] Logout is idempotent, revokes the Session, clears the cookie, and prevents reuse immediately.
-- [ ] Guards distinguish unauthenticated, wrong principal kind, wrong admin role, and inactive identity without stubbing ParticipantProfile or Event persistence.
+- [x] Argon2id hashes are the only persisted password representation.
+- [x] Login creates a Session and emits `LOGIN_SUCCESS`; rejected login emits redacted `LOGIN_FAILED`.
+- [x] Logout is idempotent, revokes the Session, clears the cookie, and prevents reuse immediately.
+- [x] Guards distinguish unauthenticated, wrong principal kind, wrong admin role, and inactive identity without stubbing ParticipantProfile or Event persistence.
 
 ## Required scenarios
 

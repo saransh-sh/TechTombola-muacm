@@ -8,11 +8,11 @@
 
 **Branch:** `feature/tombola_backup_restore_rehearsal`
 
-**Status:** ready-for-agent
+**Status:** implemented-unmerged
 
 ## Scope and contracts
 
-- Bun layers: isolated operational verification harness and runbook; production domain/services are validated, not modified.
+- Bun layers: isolated operational verification harness and runbook; production recovery is validated; the reproduced ordinary start/resume bypasses is blocked so interrupted Rounds use the existing consistency validation.
 - Document automated provider backup expectations plus explicit pre-event and pre-Round backup commands.
 - Add a safe `bun run verify:restore` harness that seeds representative Event/Round/Ticket/Draw/Mark/Claim/Winner/Audit state, creates a backup, restores into a different empty database, starts a new app instance, and runs recovery validation.
 - The harness refuses production-like targets unless an explicit isolated-test guard is satisfied; it never drops or overwrites the source database.
@@ -24,10 +24,10 @@
 
 ## Acceptance criteria
 
-- [ ] Restore verification compares row counts, immutable snapshots, sequence continuity, Pattern closure, and audit history.
-- [ ] Secrets and temporary credentials are absent from backup artifacts and logs.
-- [ ] Recovery from the restored ACTIVE fixture enters RECOVERY_REQUIRED and resumes only after Admin confirmation.
-- [ ] Runbook records prerequisites, expected duration, validation evidence, failure escalation, and rollback.
+- [x] Restore verification compares row counts, immutable snapshots, sequence continuity, Pattern closure, and audit history.
+- [x] Secrets and temporary credentials are absent from backup artifacts and logs.
+- [x] Recovery from the restored ACTIVE fixture enters RECOVERY_REQUIRED and resumes only after Admin confirmation.
+- [x] Runbook records prerequisites, expected duration, validation evidence, failure escalation, and rollback.
 
 ## Required scenarios
 
@@ -46,6 +46,8 @@ cd backend && bun run verify:restore && bun run typecheck && bun run lint && bun
 
 ## Completion evidence
 
-- [ ] PR attaches guarded source/target identifiers, backup/restore output, comparison report, and recovery result.
-- [ ] Source-untouched, corruption, migration mismatch, immutability, and secret-scan evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR attaches guarded source/target identifiers, backup/restore output, comparison report, and recovery result.
+- [x] Source-untouched, corruption, migration mismatch, immutability, and secret-scan evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.
+
+Verified: guarded restore rehearsal with ten passing checks, 264 unit, 152 integration, 2 E2E, 162 security tests; typecheck/lint/build. Evidence: `backend/tests/restore/reports/`. Start/resume recovery bypasses reproduced before domain guards and covered by unit/integration/restore regressions. Both review axes have no unresolved findings. PR delivered closed unmerged; source fixtures are intentionally preserved.

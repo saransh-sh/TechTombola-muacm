@@ -62,4 +62,5 @@ Ticket-specific load, E2E, security, and restore commands are added by tickets 2
 - `ready-for-agent`: fully specified and all decisions settled; still blocked until listed blockers complete.
 - `in-progress`: claimed on its feature branch.
 - `ready-for-human`: requires a human-only environment or approval.
+- `implemented-unmerged`: implemented and locally verified; delivered PR remains unmerged.
 - `done`: merged after all tests and explicit approval; feature branch remains preserved.

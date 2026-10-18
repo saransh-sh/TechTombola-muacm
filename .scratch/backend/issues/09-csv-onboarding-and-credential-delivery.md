@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_participant_import`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -25,10 +25,10 @@
 
 ## Acceptance criteria
 
-- [ ] Report totals reconcile exactly: received = created + skipped + failed.
-- [ ] Duplicate rows within the file and conflicts with existing data are deterministic.
-- [ ] Email failure never rolls back or deletes a committed Participant; regeneration is the recovery path.
-- [ ] No database row, audit metadata, idempotency result, or log contains the temporary password.
+- [x] Report totals reconcile exactly: received = created + skipped + failed.
+- [x] Duplicate rows within the file and conflicts with existing data are deterministic.
+- [x] Email failure never rolls back or deletes a committed Participant; regeneration is the recovery path.
+- [x] No database row, audit metadata, idempotency result, or log contains the temporary password.
 
 ## Required scenarios
 
@@ -47,6 +47,6 @@ cd backend && bun run typecheck && bun run lint && bun test && bun run test:inte
 
 ## Completion evidence
 
-- [ ] PR includes multipart request/report/error examples and maps every scenario to a test.
-- [ ] 500-row, idempotency-race, provider-failure, audit, and plaintext-scan evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR includes multipart request/report/error examples and maps every scenario to a test.
+- [x] 500-row, idempotency-race, provider-failure, audit, and plaintext-scan evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.

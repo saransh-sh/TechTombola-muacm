@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_question_key_bank`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -25,10 +25,10 @@
 
 ## Acceptance criteria
 
-- [ ] Database constraints and domain validation agree on scope and uniqueness.
-- [ ] Inactive, cross-Event, missing, or duplicate Keys cannot activate a Question.
-- [ ] Deletion is limited to undrawn draft-Round Questions.
-- [ ] Required create/update audit events are appended transactionally.
+- [x] Database constraints and domain validation agree on scope and uniqueness.
+- [x] Inactive, cross-Event, missing, or duplicate Keys cannot activate a Question.
+- [x] Deletion is limited to undrawn draft-Round Questions.
+- [x] Required create/update audit events are appended transactionally.
 
 ## Required scenarios
 
@@ -46,6 +46,6 @@ cd backend && bun run typecheck && bun run lint && bun test && bun run test:inte
 
 ## Completion evidence
 
-- [ ] PR includes Key/Question request, response, and error examples and maps every scenario to a test.
-- [ ] Normalization race, history protection, audit, and leakage evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR includes Key/Question request, response, and error examples and maps every scenario to a test.
+- [x] Normalization race, history protection, audit, and leakage evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.

@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_backend_e2e`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -24,10 +24,10 @@
 
 ## Acceptance criteria
 
-- [ ] The command provisions and tears down its own isolated state and is rerunnable.
-- [ ] It verifies every audit/event side effect and the absence of future-Key/cross-Participant leakage.
-- [ ] Failure output identifies the workflow step, request ID, and relevant safe response.
-- [ ] The test runs in CI without order dependence on unit/integration suites.
+- [x] The command provisions and tears down its own isolated state and is rerunnable.
+- [x] It verifies every audit/event side effect and the absence of future-Key/cross-Participant leakage.
+- [x] Failure output identifies the workflow step, request ID, and relevant safe response.
+- [x] The test runs in CI without order dependence on unit/integration suites.
 
 ## Required scenarios
 
@@ -46,6 +46,6 @@ cd backend && bun run build && bun run test:e2e && bun run test:e2e && bun run t
 
 ## Completion evidence
 
-- [ ] PR maps every workflow/negative subflow to named test steps and attaches two consecutive passing runs.
-- [ ] Audit/event/leakage/reconnect evidence and isolated teardown proof are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR maps every workflow/negative subflow to named test steps and attaches two consecutive passing local runs.
+- [x] Audit/event/leakage/reconnect evidence and isolated teardown proof are recorded in `docs/backend-critical-flow-testing.md`.
+- [x] `/code-review` has no unresolved Standards or Spec findings.

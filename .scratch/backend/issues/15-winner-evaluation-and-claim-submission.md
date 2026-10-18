@@ -8,7 +8,7 @@
 
 **Branch:** `feature/tombola_claim_submission`
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Scope and contracts
 
@@ -25,10 +25,10 @@
 
 ## Acceptance criteria
 
-- [ ] Disabled/unknown/closed Patterns and non-ACTIVE Rounds cannot accept Claims.
-- [ ] Duplicate Claim uniqueness is database-enforced without blocking legitimate configured multi-winner Claims from different Participants.
-- [ ] Claim history cannot expose another Participant.
-- [ ] Validity is recalculated at submission and later verification.
+- [x] Disabled/unknown/closed Patterns and non-ACTIVE Rounds cannot accept Claims.
+- [x] Duplicate Claim uniqueness is database-enforced without blocking legitimate configured multi-winner Claims from different Participants.
+- [x] Claim history cannot expose another Participant.
+- [x] Validity is recalculated at submission and later verification.
 
 ## Required scenarios
 
@@ -47,6 +47,6 @@ cd backend && bun run typecheck && bun run lint && bun test && bun run test:inte
 
 ## Completion evidence
 
-- [ ] PR includes Claim request/history/error and admin-event DTO examples plus one test per scenario.
-- [ ] Pattern truth tables, duplicate race, ownership, audit, and post-commit audience evidence are attached.
-- [ ] `/code-review` has no unresolved Standards or Spec findings.
+- [x] PR includes Claim request/history/error and admin-event DTO examples plus one test per scenario.
+- [x] Pattern truth tables, duplicate race, ownership, audit, and post-commit audience evidence are attached.
+- [x] `/code-review` has no unresolved Standards or Spec findings.
