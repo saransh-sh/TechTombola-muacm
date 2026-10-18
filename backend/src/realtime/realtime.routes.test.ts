@@ -56,8 +56,13 @@ describe('real-time WebSocket transport integration', () => {
   }, 30_000);
   afterAll(async () => {
     manager.close();
+    if (app.websocketServer?.clients) {
+      for (const client of app.websocketServer.clients) {
+        client.terminate();
+      }
+    }
     await app.close();
-  }, 30_000);
+  }, 10_000);
 
   it('accepts public, Participant, and Admin sockets and delivers only their permitted events', async () => {
     const display = await connect(websocketUrl, `/api/v1/live/ws?eventId=${eventId}&roundId=${roundId}`);
@@ -100,6 +105,6 @@ describe('real-time WebSocket transport integration', () => {
       const messages = sockets.map(waitForMessage);
       await manager.broadcastCommitted({ type: 'ANNOUNCEMENT', eventId, roundId, occurredAt: '2026-10-15T12:00:00.000Z', payload: { message: 'The next Draw begins shortly.' } });
       const received = await Promise.all(messages); expect(received).toHaveLength(500); expect(received.every((message) => JSON.parse(message).type === 'ANNOUNCEMENT')).toBe(true);
-    } finally { for (const socket of sockets) socket.close(); }
+    } finally { for (const socket of sockets) socket.terminate(); }
   }, 30_000);
 });
