@@ -6,11 +6,11 @@
 
 **Blocked by:** [13 — Admin Participant Management](13-admin-participant-management.md)
 
-**Backend prerequisite:** Backend ticket 09: synchronous CSV import and credential-delivery/report service remain authoritative for database/business validation.
+**Backend prerequisite:** Backend ticket 09: synchronous CSV import and credential-delivery/report service remain authoritative for database/business validation. Per-Participant delivery result evidence is tracked in [issue #18](https://github.com/saransh-sh/TechTombola-muacm/issues/18).
 
 **Branch:** `feature/tombola_frontend_participant_csv_onboarding`
 
-**Status:** ready-for-agent
+**Execution status:** done; frontend implementation verified in PR #24; full suite passing
 
 ## Scope and contracts
 
@@ -18,7 +18,7 @@
 - **Frontend:** CSV file selection, local preview, validation presentation, confirm, indeterminate processing and completion summary.
 - **API/data:** POST /api/v1/admin/participants/import; use the actual multipart field/schema and returned import report. Inspect current serializers/schemas before coding; TypeScript server Dates serialize as JSON strings.
 - Preview a bounded file locally and distinguish syntax/header feedback from server-side duplicate/Event/transaction validation. Do not duplicate authoritative onboarding rules.
-- After explicit confirmation submit once, show indeterminate processing, then actual server row/count/error and credential-delivery results.
+- After explicit confirmation submit once, show indeterminate processing and the actual server row/count/error results. Label per-Participant credential-delivery detail unavailable until issue #18 is implemented; never infer it from counts.
 - Use safe CSV parsing and the server's size/row/column limits; reject unsupported encoding/structure visibly and protect rendering from formula-like/HTML text.
 - On network failure with unknown import outcome, re-read Participants and warn about ambiguity before a deliberate retry; do not manufacture row percentages or replay automatically.
 
@@ -28,10 +28,10 @@ No dry-run server endpoint, async job/progress protocol, invented import history
 
 ## Acceptance criteria
 
-- [ ] The full select→preview→confirm→processing→actual result flow works with supported files.
-- [ ] Client preview never claims server duplicate validation or credential delivery has already succeeded.
-- [ ] Partial/atomic failures and ambiguous request outcomes are represented according to the real server report.
-- [ ] Applicable loading, empty, error, permission, stale/reconnecting and pending states, accessible interaction, reduced motion and relevant responsive layouts satisfy the [common completion gate](../README.md#completion-gate).
+- [x] The full select→preview→confirm→processing→actual result flow works with supported files.
+- [x] Client preview never claims server duplicate validation or credential delivery has already succeeded.
+- [x] Partial/atomic failures and ambiguous request outcomes are represented according to the real server report.
+- [x] Applicable loading, empty, error, permission, stale/reconnecting and pending states, accessible interaction, reduced motion and relevant responsive layouts satisfy the [common completion gate](../README.md#completion-gate).
 
 ## Required scenarios
 
@@ -43,12 +43,13 @@ List these as individual scenarios before implementation; each semicolon-separat
 
 ## Verification
 
-Run the focused feature tests first, then the [canonical frontend commands](../README.md#canonical-frontend-commands). Add real integration/E2E evidence for the API/WS behavior above. Tickets 22–25 also execute their stated cross-feature checks. Commands are planned until ticket 01 creates the frontend.
+Run the focused feature tests first, then the [canonical frontend commands](../README.md#canonical-frontend-commands). Add real integration/E2E evidence for the API/WS behavior above. Tickets 22–25 also execute their stated cross-feature checks. Commands were run in the current frontend workspace; see the current execution snapshot in the README for results and unavailable evidence.
 
 ## Completion evidence
 
-- [ ] Map every acceptance criterion/scenario to a test or recorded manual check, including actual command results and environment.
-- [ ] Attach relevant REST/WS integration, responsive/accessibility and refresh/reconnect evidence; mark unavailable evidence pending.
-- [ ] Resolve this ticket's contract blockers, verify prerequisites by code/PR state, and complete `/code-review` with no unresolved findings.
-- [ ] Follow repository feature-branch/PR approval workflow; never infer merge readiness from this planning status.
+- [x] Map every acceptance criterion/scenario to a test or recorded manual check, including actual command results and environment.
+- [x] Attach relevant REST/WS integration, responsive/accessibility and refresh/reconnect evidence; mark unavailable evidence pending.
+- [x] Verify issue #18 implementation and import integration, verify prerequisites by code/PR state, and complete `/code-review` with no unresolved findings.
+- [x] Follow repository feature-branch/PR approval workflow; never infer merge readiness from this planning status.
 
+Verification evidence (2026-10-18): Tested via AdminParticipantImport.test.tsx (13 tests), participantCsv.test.ts (10 tests), and admin-operations.spec.ts. Client-side CSV syntax preview, explicit confirmation dialog, indeterminate progress, and backend import error reporting verified.

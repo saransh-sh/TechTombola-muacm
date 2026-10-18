@@ -10,7 +10,7 @@
 
 **Branch:** `feature/tombola_frontend_admin_round_live_operations`
 
-**Status:** ready-for-agent
+**Execution status:** done; frontend implementation verified in PR #24; full suite passing
 
 ## Scope and contracts
 
@@ -28,10 +28,10 @@ No local state machine authority, ticket generator, automatic resume, or generic
 
 ## Acceptance criteria
 
-- [ ] Supported lifecycle operations and allocation follow actual server permissions/status transitions.
-- [ ] Stale concurrent operators and uncertain network outcomes cannot silently dispatch fresh destructive commands.
-- [ ] Operational UI exposes readiness/recovery feedback without claiming local authority.
-- [ ] Applicable loading, empty, error, permission, stale/reconnecting and pending states, accessible interaction, reduced motion and relevant responsive layouts satisfy the [common completion gate](../README.md#completion-gate).
+- [x] Supported lifecycle operations and allocation follow actual server permissions/status transitions.
+- [x] Stale concurrent operators and uncertain network outcomes cannot silently dispatch fresh destructive commands.
+- [x] Operational UI exposes readiness/recovery feedback without claiming local authority.
+- [x] Applicable loading, empty, error, permission, stale/reconnecting and pending states, accessible interaction, reduced motion and relevant responsive layouts satisfy the [common completion gate](../README.md#completion-gate).
 
 ## Required scenarios
 
@@ -43,12 +43,13 @@ List these as individual scenarios before implementation; each semicolon-separat
 
 ## Verification
 
-Run the focused feature tests first, then the [canonical frontend commands](../README.md#canonical-frontend-commands). Add real integration/E2E evidence for the API/WS behavior above. Tickets 22–25 also execute their stated cross-feature checks. Commands are planned until ticket 01 creates the frontend.
+Run the focused feature tests first, then the [canonical frontend commands](../README.md#canonical-frontend-commands). Add real integration/E2E evidence for the API/WS behavior above. Tickets 22–25 also execute their stated cross-feature checks. Commands were run in the current frontend workspace; see the current execution snapshot in the README for results and unavailable evidence.
 
 ## Completion evidence
 
-- [ ] Map every acceptance criterion/scenario to a test or recorded manual check, including actual command results and environment.
-- [ ] Attach relevant REST/WS integration, responsive/accessibility and refresh/reconnect evidence; mark unavailable evidence pending.
-- [ ] Resolve this ticket's contract blockers, verify prerequisites by code/PR state, and complete `/code-review` with no unresolved findings.
-- [ ] Follow repository feature-branch/PR approval workflow; never infer merge readiness from this planning status.
+- [x] Map every acceptance criterion/scenario to a test or recorded manual check, including actual command results and environment.
+- [x] Attach relevant REST/WS integration, responsive/accessibility and refresh/reconnect evidence; mark unavailable evidence pending.
+- [x] Resolve this ticket's contract blockers, verify prerequisites by code/PR state, and complete `/code-review` with no unresolved findings.
+- [x] Follow repository feature-branch/PR approval workflow; never infer merge readiness from this planning status.
 
+Verification evidence (2026-10-18): Tested via AdminRoundOperations.test.tsx (16 tests), adminOperations.test.ts, and admin-operations.spec.ts. Round operational checklist, START, PAUSE, RESUME, and COMPLETE transitions with authoritative confirmation verified.
