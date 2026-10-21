@@ -1,0 +1,5 @@
+interface:
+  display_name: "Ponytail Debt"
+  short_description: "Harvest shortcut: comments into a tracked debt ledger"
+policy:
+  allow_implicit_invocation: false

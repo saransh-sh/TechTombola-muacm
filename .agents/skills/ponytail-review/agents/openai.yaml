@@ -1,0 +1,5 @@
+interface:
+  display_name: "Ponytail Review"
+  short_description: "Quality review of current changes: bugs, security, load, tests, speed, bloat"
+policy:
+  allow_implicit_invocation: false

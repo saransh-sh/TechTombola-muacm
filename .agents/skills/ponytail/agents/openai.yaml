@@ -1,0 +1,5 @@
+interface:
+  display_name: "Ponytail"
+  short_description: "Switch ponytail intensity level (lite/full/ultra/off)"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Ponytail Help"
+  short_description: "Quick reference for ponytail levels, skills and commands"
+policy:
+  allow_implicit_invocation: false

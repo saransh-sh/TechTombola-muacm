@@ -208,6 +208,9 @@ Project skills live in `.agents/skills/`. All dev skills enforce the standards i
 | `setup-ts-deep-modules` | Wire dependency-cruiser for boundary enforcement |
 | `writing-for-agents` | Reference for writing skills, AGENTS.md, or agent docs |
 | `git-guardrails-claude-code` | Prevent destructive git operations |
+| `ponytail` | **Lazy senior dev mode.** Smallest complete change (YAGNI, stdlib first), replies naming skipped work/risks (`lite`, `full`, `ultra`) |
+| `ponytail-review` | Over-engineering and quality review of changes (bugs, security, load, missing tests, bloat) |
+| `ponytail-audit` | Whole-repo quality and bloat audit (what to delete, merge, or split) |
 
 ### Design & Frontend Skills
 

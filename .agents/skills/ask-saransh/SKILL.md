@@ -128,6 +128,7 @@ The router interprets natural language, idioms, technical shorthand, and informa
 | *"make this look expensive"* | High-End Visual Design, Clean Typography, Generous Spacing, Anti-Slop |
 | *"make this actually usable"* | UX Clarity, Accessibility (WCAG), Responsive Layout, Mobile Flow |
 | *"turn this idea into code"* | Grilling / Spec → Tickets → Implementation (TDD) |
+| *"be lazy"* / *"ponytail"* / *"simplest solution"* / *"stop over-engineering"* | Ponytail (Smallest complete change, YAGNI, stdlib first, lean diff) |
 
 ---
 
