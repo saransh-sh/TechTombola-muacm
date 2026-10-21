@@ -34,18 +34,20 @@ if [ -z "$DATABASE_URL" ] || echo "$DATABASE_URL" | grep -qE "(127\.0\.0\.1|loca
   
   PGDATA="${PGDATA:-/var/lib/postgresql/data}"
   PGLOG_DIR="/var/log/postgresql"
-  PGLOG_FILE="$PGDATA/postgresql.log"
+  PGLOG_FILE="$PGLOG_DIR/postgresql.log"
 
   mkdir -p "$PGDATA" /var/run/postgresql "$PGLOG_DIR"
   chown -R postgres:postgres "$PGDATA" /var/run/postgresql "$PGLOG_DIR"
   chmod 0700 "$PGDATA"
   chmod 0777 /var/run/postgresql
-  chmod 0755 "$PGLOG_DIR"
+  chmod 0777 "$PGLOG_DIR"
   touch "$PGLOG_FILE" 2>/dev/null || true
   chown postgres:postgres "$PGLOG_FILE" 2>/dev/null || true
 
   if [ ! -s "$PGDATA/PG_VERSION" ]; then
     echo "=> Initializing new PostgreSQL cluster in $PGDATA..."
+    # Ensure directory is empty for initdb if no initialized cluster exists yet
+    rm -rf "$PGDATA"/* "$PGDATA"/.[!.]* 2>/dev/null || true
     su - postgres -c "$PG_BIN/initdb -D '$PGDATA' --auth-local=trust --auth-host=trust -E UTF8"
   fi
 
