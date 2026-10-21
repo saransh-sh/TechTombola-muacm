@@ -323,6 +323,24 @@ For complete instructions on Nginx reverse proxy configuration, Let's Encrypt SS
 
 ---
 
+## 🚀 Render Deployment (Single All-in-One Service)
+
+Deploy the entire Tech Tombola system (React SPA, Fastify Backend, and PostgreSQL) onto a **single, unified Render Web Service** without managing three separate services:
+
+1. **Deploy via Blueprint**:
+   - In [Render Dashboard](https://dashboard.render.com), click **New +** → **Blueprint**.
+   - Connect this repository and select the **`render`** branch.
+   - Render automatically reads [`render.yaml`](render.yaml) and provisions the Web Service with auto-generated production secrets.
+2. **Deploy via Docker Web Service**:
+   - In Render Dashboard, click **New +** → **Web Service** → Select Git repository (branch `render`).
+   - Select **Docker** environment.
+   - Configure environment variables: `NODE_ENV=production`, `JWT_SECRET`, `SESSION_SECRET`, and `SUPER_ADMIN_BOOTSTRAP_SECRET`.
+   - The unified container starts embedded PostgreSQL by default (with auto-migrations), or connects seamlessly to Render Managed PostgreSQL if `DATABASE_URL` is set!
+
+For complete details on persistent disks, custom domains, and health checks, see the [Render Deployment Guide](docs/render-deployment-guide.md).
+
+---
+
 ## 🔒 Critical Game Invariants
 
 These invariants are strictly enforced by the backend game engine and verified by automated regression tests:
@@ -348,6 +366,7 @@ These invariants are strictly enforced by the backend game engine and verified b
 - [`docs/TECH_TOMBOLA_FRONTEND_PRD.md`](docs/TECH_TOMBOLA_FRONTEND_PRD.md) — Complete frontend UX/UI specification and component contracts.
 - [`docs/ARCHITECTURE_CODING_STANDARDS.md`](docs/ARCHITECTURE_CODING_STANDARDS.md) — Layer boundaries, coding rules, and error handling conventions.
 - [`docs/vps-deployment-guide.md`](docs/vps-deployment-guide.md) — Production Docker Compose VPS setup and maintenance procedures.
+- [`docs/render-deployment-guide.md`](docs/render-deployment-guide.md) — Turnkey single-service Render deployment guide.
 - [`CONTEXT.md`](CONTEXT.md) — Authoritative domain vocabulary and terminology glossary.
 - [`AGENTS.md`](AGENTS.md) — Development conventions and 16-step execution workflow for AI assistants.
 

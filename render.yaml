@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: techtombola
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SUPER_ADMIN_BOOTSTRAP_SECRET
+        generateValue: true
+      - key: LOG_LEVEL
+        value: info
+      - key: EMAIL_FROM
+        value: noreply@techtombola.internal
+      # Optional: set external PostgreSQL URL to bypass embedded postgres
+      # - key: DATABASE_URL
+      #   value: postgres://user:pass@host:5432/db
