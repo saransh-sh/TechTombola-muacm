@@ -101,4 +101,14 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: /sign in/i }));
     await waitFor(() => expect(client.getQueryData(['private', 'old-user'])).toBeUndefined());
   });
+  it('autofills credentials when clicking a demo account chip', async () => {
+    const user = setup();
+    await user.click(screen.getByRole('button', { name: 'Super Admin' }));
+    expect(screen.getByRole('textbox', { name: /Email address/ })).toHaveValue('superadmin@techtombola.com');
+    expect(screen.getByLabelText('Password')).toHaveValue('Tombola@2026');
+
+    await user.click(screen.getByRole('button', { name: 'Player 1' }));
+    expect(screen.getByRole('textbox', { name: /Email address/ })).toHaveValue('player1@techtombola.com');
+    expect(screen.getByLabelText('Password')).toHaveValue('Tombola@2026');
+  });
 });

@@ -93,6 +93,14 @@ bun migrate.js || {
 }
 echo "=> Migrations completed successfully."
 
+# Automated Seeding (10 Default Accounts, Event, Round & Tickets)
+if [ "${AUTO_SEED:-true}" = "true" ]; then
+  echo "=> [2.5/4] Seeding initial accounts and live event..."
+  bun seed.js || {
+    echo "WARNING: Seeding encountered a warning or already seeded. Continuing..."
+  }
+fi
+
 # 3. Nginx Configuration
 PUBLIC_PORT="${PORT:-10000}"
 echo "=> [3/4] Configuring Nginx to listen on public port $PUBLIC_PORT..."
@@ -130,6 +138,11 @@ NGINX_PID=$!
 
 echo "========================================================"
 echo " Tech Tombola successfully launched on Render port $PUBLIC_PORT "
+echo "========================================================"
+echo "=> Demo Accounts Available (Password: ${SEED_DEFAULT_PASSWORD:-Tombola@2026}):"
+echo "   - Super Admin: superadmin@techtombola.com"
+echo "   - Admins (3):  admin1@techtombola.com, admin2@techtombola.com, admin3@techtombola.com"
+echo "   - Players (6): player1@techtombola.com ... player6@techtombola.com"
 echo "========================================================"
 
 # Graceful shutdown handler

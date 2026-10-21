@@ -22,7 +22,8 @@ RUN bun install --frozen-lockfile
 COPY backend/src ./src
 RUN bun build src/server.ts --outfile dist/server.js --target bun --external argon2 \
  && bun build src/db/migrate.ts --outfile dist/migrate.js --target bun \
- && bun build src/db/check.ts --outfile dist/check.js --target bun
+ && bun build src/db/check.ts --outfile dist/check.js --target bun \
+ && bun build src/db/seed.ts --outfile dist/seed.js --target bun --external argon2
 
 # Prepare production dependencies
 RUN bun install --frozen-lockfile --production

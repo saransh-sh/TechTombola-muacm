@@ -88,6 +88,54 @@ export function LoginPage() {
               {mutation.isPending ? 'SIGNING IN…' : 'SIGN IN'}<span aria-hidden="true">↗</span>
             </button>
           </form>
+          <div className={styles.demoSection}>
+            <p className={styles.demoTitle}>Pre-Seeded Demo Accounts (Render):</p>
+            <div className={styles.demoChips}>
+              <button
+                type="button"
+                className={styles.demoChip}
+                onClick={() => {
+                  setEmail('superadmin@techtombola.com');
+                  setPassword('Tombola@2026');
+                }}
+              >
+                Super Admin
+              </button>
+              <button
+                type="button"
+                className={styles.demoChip}
+                onClick={() => {
+                  setEmail('admin1@techtombola.com');
+                  setPassword('Tombola@2026');
+                }}
+              >
+                Admin 1
+              </button>
+              <button
+                type="button"
+                className={styles.demoChip}
+                onClick={() => {
+                  setEmail('player1@techtombola.com');
+                  setPassword('Tombola@2026');
+                }}
+              >
+                Player 1
+              </button>
+              <button
+                type="button"
+                className={styles.demoChip}
+                onClick={() => {
+                  setEmail('player2@techtombola.com');
+                  setPassword('Tombola@2026');
+                }}
+              >
+                Player 2
+              </button>
+            </div>
+            <p className={styles.demoHint}>
+              10 accounts seeded: 1 Super Admin, 3 Admins (<code>admin1-3@techtombola.com</code>), and 6 Players (<code>player1-6@techtombola.com</code>) with password <code>Tombola@2026</code>.
+            </p>
+          </div>
           <p className={styles.footerNote}>Need access? Contact your event administrator.</p>
         </div>
       </section>

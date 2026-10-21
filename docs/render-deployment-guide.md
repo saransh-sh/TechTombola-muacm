@@ -97,3 +97,33 @@ Once deployed, visit your Render URL (e.g., `https://techtombola.onrender.com`):
 - `/health` — Returns system health status.
 - `/ready` — Returns HTTP 200 OK when database and backend are ready.
 - `/ws` — Establishes real-time WebSocket connection.
+
+---
+
+## 6. Pre-Seeded Demo Accounts & Immediate Gameplay
+
+On initial startup, Render automatically seeds **10 ready-to-use accounts**, an active event (**Tech Tombola 2026 — Main Stage**), an active round (**Round 1 — Core Computing & Systems**), 30 technical question/key pairs, 6 player tickets with 15 numbers each, and 2 initial draws (`DOCKER`, `LINUX`).
+
+### Default Password:
+```
+Tombola@2026
+```
+*(Can be overridden with environment variable `SEED_DEFAULT_PASSWORD`)*
+
+### Account Credentials:
+
+| Role | Email | Password | Surface Route | Purpose |
+|---|---|---|---|---|
+| **Super Admin** (1) | `superadmin@techtombola.com` | `Tombola@2026` | `/admin` | Super Admin operations, manage admins, system settings |
+| **Admin** (1 of 3) | `admin1@techtombola.com` | `Tombola@2026` | `/admin` | Event operations, drawing clues, verifying claims |
+| **Admin** (2 of 3) | `admin2@techtombola.com` | `Tombola@2026` | `/admin` | Secondary event host |
+| **Admin** (3 of 3) | `admin3@techtombola.com` | `Tombola@2026` | `/admin` | Secondary event host |
+| **Player** (1 of 6) | `player1@techtombola.com` | `Tombola@2026` | `/participant` | Alice Player (Ticket with 15 tech keys) |
+| **Player** (2 of 6) | `player2@techtombola.com` | `Tombola@2026` | `/participant` | Bob Player (Ticket with 15 tech keys) |
+| **Player** (3 of 6) | `player3@techtombola.com` | `Tombola@2026` | `/participant` | Charlie Player (Ticket with 15 tech keys) |
+| **Player** (4 of 6) | `player4@techtombola.com` | `Tombola@2026` | `/participant` | Diana Player (Ticket with 15 tech keys) |
+| **Player** (5 of 6) | `player5@techtombola.com` | `Tombola@2026` | `/participant` | Evan Player (Ticket with 15 tech keys) |
+| **Player** (6 of 6) | `player6@techtombola.com` | `Tombola@2026` | `/participant` | Fiona Player (Ticket with 15 tech keys) |
+
+> [!TIP]
+> On the `/login` page, you can click any of the **Demo Account chips** (Super Admin, Admin 1, Player 1, Player 2) to autofill the form with a single tap.
