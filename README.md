@@ -323,6 +323,43 @@ For complete instructions on Nginx reverse proxy configuration, Let's Encrypt SS
 
 ---
 
+## ☁️ AWS Production Deployment (EC2, ECS Fargate & App Runner)
+
+Tech Tombola is production-ready for deployment on Amazon Web Services across multiple deployment topologies:
+
+### 1. AWS EC2 & Lightsail (1-Command Automated Setup)
+On an Amazon Linux 2023 or Ubuntu EC2 instance (`t3.small` / `t3.medium`):
+
+```bash
+# Clone the repository and switch to the aws branch
+git clone https://github.com/saransh-sh/TechTombola-muacm.git
+cd TechTombola-muacm
+git checkout aws
+
+# Run the 1-command deployment script
+bash scripts/deploy-aws.sh
+```
+
+The script automatically:
+- Installs Docker and the Docker Compose plugin.
+- Generates strong production secrets and configures `.env`.
+- Configures log rotation (`max-size: 50m`) to prevent EBS volume exhaustion.
+- Installs a systemd service (`/etc/systemd/system/techtombola.service`) for automatic restart on server reboots.
+- Verifies system health and readiness probes.
+
+### 2. AWS ECS Fargate & RDS
+For serverless container orchestration:
+- Use [`aws/ecs/task-definition.json`](aws/ecs/task-definition.json) for ECS Fargate with AWS Application Load Balancer (ALB) and WebSocket support (`/ws`).
+- Store secrets securely in AWS SSM Parameter Store (`/techtombola/*`).
+- Connect to Amazon RDS PostgreSQL 16 (Multi-AZ or Single-AZ).
+
+### 3. AWS App Runner
+Deploy containerized workloads serverlessly with zero infrastructure maintenance using [`aws/apprunner.yaml`](aws/apprunner.yaml).
+
+For the complete AWS architecture walkthrough, security groups, SSL configuration with ACM / Let's Encrypt, and Route 53 setup, see the [AWS Deployment Guide](docs/aws-deployment-guide.md).
+
+---
+
 ## 🔒 Critical Game Invariants
 
 These invariants are strictly enforced by the backend game engine and verified by automated regression tests:
@@ -348,6 +385,7 @@ These invariants are strictly enforced by the backend game engine and verified b
 - [`docs/TECH_TOMBOLA_FRONTEND_PRD.md`](docs/TECH_TOMBOLA_FRONTEND_PRD.md) — Complete frontend UX/UI specification and component contracts.
 - [`docs/ARCHITECTURE_CODING_STANDARDS.md`](docs/ARCHITECTURE_CODING_STANDARDS.md) — Layer boundaries, coding rules, and error handling conventions.
 - [`docs/vps-deployment-guide.md`](docs/vps-deployment-guide.md) — Production Docker Compose VPS setup and maintenance procedures.
+- [`docs/aws-deployment-guide.md`](docs/aws-deployment-guide.md) — Comprehensive AWS EC2, ECS Fargate, and App Runner deployment guide.
 - [`CONTEXT.md`](CONTEXT.md) — Authoritative domain vocabulary and terminology glossary.
 - [`AGENTS.md`](AGENTS.md) — Development conventions and 16-step execution workflow for AI assistants.
 

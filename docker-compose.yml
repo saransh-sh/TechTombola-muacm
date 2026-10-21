@@ -1,7 +1,14 @@
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "50m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -21,6 +28,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     command: ["bun", "migrate.js"]
+    restart: "no"
+    logging: *default-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -29,7 +38,6 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-techtombola}
       JWT_SECRET: ${JWT_SECRET:-insecure_default_change_me_to_at_least_32_characters}
       SESSION_SECRET: ${SESSION_SECRET:-insecure_default_change_me_to_at_least_32_characters}
-    restart: "no"
     networks:
       - techtombola-net
 
@@ -38,6 +46,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,6 +80,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       backend:
         condition: service_healthy
