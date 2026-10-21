@@ -33,6 +33,9 @@ RUN bun install --frozen-lockfile --production
 FROM oven/bun:1.4.2 AS runtime
 WORKDIR /app
 
+# Prevent debconf interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Install system dependencies: PostgreSQL, Nginx, gettext (envsubst), curl, procps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql \
@@ -43,9 +46,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
  && rm -rf /var/lib/apt/lists/*
 
-# Setup PostgreSQL run and data directories
-RUN mkdir -p /var/lib/postgresql/data /var/run/postgresql /var/log \
- && chown -R postgres:postgres /var/lib/postgresql /var/run/postgresql
+# Setup PostgreSQL run, log, and data directories
+RUN mkdir -p /var/lib/postgresql/data /var/run/postgresql /var/log/postgresql \
+ && chown -R postgres:postgres /var/lib/postgresql /var/run/postgresql /var/log/postgresql \
+ && chmod 777 /var/run/postgresql /var/log/postgresql
 
 # Copy compiled frontend SPA to Nginx document root
 COPY --from=frontend-build /app/frontend/dist /usr/share/nginx/html
